@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyd
+.Python
+.pytest_cache/
+.ruff_cache/
+.uv-cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Environments
+.venv/
+venv/
+env/
+
+# Tooling and local configuration
+.env
+.env.*
+.idea/
+.vscode/
+
+# VibeSound projects and generated media
+*.vibesound/exports/
+*.vibesound/.cache/
+exports/
+
+# OS files
+.DS_Store
+Thumbs.db
