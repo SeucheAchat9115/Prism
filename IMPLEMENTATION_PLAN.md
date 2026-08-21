@@ -25,26 +25,38 @@ third-party plugins.
 - **Network boundary:** bind to `127.0.0.1` by default; remote access and auth
   are later features.
 
-## Phase 0 — Repository and development foundation
+## Phase 0 — Repository and development foundation ✅ Complete
+
+**Completed:** 2026-08-21
+
+The repository foundation, local verification commands, and Windows CI workflow
+are implemented and passing.
 
 ### Components
 
-1. Clone the empty `SeucheAchat9115/VibeSound` repository into the workspace.
-2. Create the first `main` branch and bootstrap commit.
-3. Add `pyproject.toml` with Python 3.12 metadata, runtime dependencies, and
+1. [x] Clone the empty `SeucheAchat9115/VibeSound` repository into the workspace.
+2. [x] Create the first `main` branch and bootstrap commit.
+3. [x] Add `pyproject.toml` with Python 3.12 metadata, runtime dependencies, and
    development commands.
-4. Add the `src/vibesound/` package layout.
-5. Add a minimal `vibesound` CLI with `--help` and `version`.
-6. Add `tests/`, `.gitignore`, and the initial smoke test.
-7. Add formatting, linting, and test configuration.
-8. Add Windows CI for tests that do not require an audio device.
+4. [x] Add the `src/vibesound/` package layout.
+5. [x] Add a minimal `vibesound` CLI with `--help` and `version`.
+6. [x] Add `tests/`, `.gitignore`, and the initial smoke test.
+7. [x] Add formatting, linting, and test configuration.
+8. [x] Add Windows CI for tests that do not require an audio device in
+   `.github/workflows/ci.yml`.
 
 ### Exit criteria
 
-- A clean checkout can create an environment with `uv sync --extra dev`.
-- `uv run python -m vibesound --help` succeeds.
-- `uv run pytest` succeeds without an audio device.
-- `uv run ruff check .` succeeds.
+- [x] A clean checkout can create an environment with `uv sync --extra dev`.
+- [x] `uv run python -m vibesound --help` succeeds.
+- [x] `uv run pytest` succeeds without an audio device.
+- [x] `uv run ruff check .` succeeds.
+
+### Verification
+
+- Local Windows verification passed on 2026-08-21.
+- GitHub Actions runs the same test, lint, and CLI smoke checks on
+  `windows-latest` for pushes to `main` and pull requests.
 
 ## Phase 1 — Project model and persistence
 
