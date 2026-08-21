@@ -1,0 +1,61 @@
+"""Project models and ZIP-backed persistence for VibeSound."""
+
+from vibesound.project.archive import (
+    MANIFEST_MEMBER,
+    PROJECT_SUFFIX,
+    create_project,
+    import_audio,
+    load_project,
+    migrate_project,
+    save_project,
+    validate_project,
+)
+from vibesound.project.errors import (
+    AssetImportError,
+    InvalidArchiveError,
+    InvalidProjectError,
+    MigrationError,
+    ProjectArchiveError,
+    ProjectValidationError,
+    UnsupportedSchemaVersionError,
+)
+from vibesound.project.models import (
+    AssetReference,
+    AudioClip,
+    ClipSlot,
+    MixerState,
+    Project,
+    ProjectRevision,
+    Scene,
+    Track,
+    TransportState,
+    new_project,
+)
+
+__all__ = [
+    "AssetImportError",
+    "AssetReference",
+    "AudioClip",
+    "ClipSlot",
+    "InvalidArchiveError",
+    "InvalidProjectError",
+    "MANIFEST_MEMBER",
+    "MigrationError",
+    "MixerState",
+    "PROJECT_SUFFIX",
+    "Project",
+    "ProjectArchiveError",
+    "ProjectRevision",
+    "ProjectValidationError",
+    "Scene",
+    "Track",
+    "TransportState",
+    "UnsupportedSchemaVersionError",
+    "create_project",
+    "import_audio",
+    "load_project",
+    "migrate_project",
+    "new_project",
+    "save_project",
+    "validate_project",
+]

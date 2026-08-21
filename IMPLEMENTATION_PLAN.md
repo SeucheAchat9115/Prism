@@ -14,8 +14,8 @@ third-party plugins.
   a browser UI, CLI operations, and a local API.
 - **Frontend:** HTML/CSS/vanilla JavaScript served by Python; no Node build
   system in the first releases.
-- **Project storage:** a directory containing `project.json` and relative audio
-  assets.
+- **Project storage:** a self-contained `.vibesound` ZIP archive containing
+  `project.json` and embedded audio assets.
 - **POC media:** audio clips first; MIDI comes later.
 - **Agent control:** CLI plus a versioned HTTP/WebSocket API.
 - **Mutation model:** validated transactions with dry-run previews, atomic
@@ -58,39 +58,95 @@ are implemented and passing.
 - GitHub Actions runs the same test, lint, and CLI smoke checks on
   `windows-latest` for pushes to `main` and pull requests.
 
-## Phase 1 — Project model and persistence
+## Phase 1 — Project model and persistence ✅ Complete
+
+**Completed:** 2026-08-21
+
+Phase 1 implements a strict project schema and self-contained ZIP persistence
+layer. Playback, rendering, API transactions, and the browser UI remain later
+phases.
+
+### Archive contract
+
+Each project is a ZIP archive with a `.vibesound` extension:
+
+```text
+demo.vibesound
+├── project.json
+└── assets/
+    └── audio/
+        └── <asset-uuid>.<extension>
+```
+
+Archive guarantees:
+
+- `project.json` exists exactly once at the archive root.
+- Internal paths are safe relative POSIX paths.
+- Absolute paths, traversal, duplicate members, and ZIP symlinks are rejected.
+- Audio is copied into the archive rather than referenced externally.
+- JSON and ZIP members are written deterministically.
+- Existing asset bytes are preserved during rewrites.
+- Saves write a temporary sibling archive and replace the destination atomically.
 
 ### Components
 
-1. Define Pydantic models for `Project`, `Track`, `Scene`, `AudioClip`,
-   `AssetReference`, `MixerState`, `TransportState`, and `ProjectRevision`.
-2. Add `schema_version` to every persisted project.
-3. Use stable IDs for projects, tracks, scenes, clips, and assets.
-4. Store relative asset paths and reject paths escaping the project directory.
-5. Implement deterministic JSON serialization.
-6. Implement project creation and loading.
-7. Implement validation with field-level error paths.
-8. Save atomically through a temporary file and replacement.
-9. Detect missing assets without modifying the project.
-10. Add a migration registry for future schema versions.
+1. [x] Define strict Pydantic models for `Project`, `Track`, `Scene`,
+   `AudioClip`, `ClipSlot`, `AssetReference`, `MixerState`, `TransportState`,
+   and `ProjectRevision`.
+2. [x] Add `schema_version` and UUID-based stable IDs.
+3. [x] Implement project-level cross-reference validation with JSON-pointer
+   error paths.
+4. [x] Implement ZIP member safety validation and missing-asset detection.
+5. [x] Implement deterministic manifest and archive serialization.
+6. [x] Implement project creation, loading, saving, and reopening.
+7. [x] Implement atomic archive replacement and failed-save preservation.
+8. [x] Implement WAV/AIFF-compatible audio asset import with copied bytes,
+   metadata, size, and SHA-256 tracking.
+9. [x] Implement an explicit schema migration registry.
+10. [x] Add CLI commands for project init/show/validate/migrate and asset import.
+11. [x] Update the README and implementation plan to document `.vibesound`
+    ZIP projects.
 
-### Initial layout
+### Public persistence operations
 
 ```text
-demo.vibesound/
-├── project.json
-├── assets/
-│   └── audio/
-└── exports/
+create_project(path, name, tempo_bpm=120, sample_rate=44100)
+load_project(path)
+save_project(path, project)
+validate_project(path)
+migrate_project(path)
+import_audio(project_path, source_path)
+```
+
+Loading may apply registered migrations in memory, but only the explicit migrate
+or save operation rewrites the archive. Future schema versions are rejected.
+
+### CLI operations
+
+```text
+vibesound project init PATH [--name NAME] [--tempo BPM] [--sample-rate RATE]
+vibesound project show PATH [--json]
+vibesound project validate PATH [--json]
+vibesound project migrate PATH
+vibesound asset import PROJECT SOURCE [--json]
 ```
 
 ### Exit criteria
 
-- A project can be created, saved, loaded, validated, and reopened.
-- Equivalent project objects serialize identically.
-- Invalid references produce actionable errors.
-- A project save never rewrites referenced audio files.
-- A future schema migration can be registered without changing load callers.
+- [x] A project can be created, saved, loaded, validated, and reopened.
+- [x] Equivalent projects produce deterministic archive bytes.
+- [x] Invalid references produce actionable field-level errors.
+- [x] Project saves preserve referenced audio member bytes.
+- [x] A future schema migration can be registered without changing load callers.
+- [x] Asset imports are portable, hashed, metadata-bearing, and atomic.
+- [x] CLI project and asset commands work in human-readable and JSON modes.
+
+### Verification
+
+- Local Windows test suite: 13 passed on 2026-08-21.
+- Ruff lint checks: passed on 2026-08-21.
+- Tests cover model constraints, archive safety, deterministic output, asset
+  import, hash validation, failed saves, migrations, and CLI workflows.
 
 ## Phase 2 — Deterministic session engine
 

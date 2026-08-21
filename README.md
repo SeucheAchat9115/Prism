@@ -51,7 +51,8 @@ plugin-hosting complexity. It will support:
 - Track volume, pan, mute, and solo.
 - Local Windows playback.
 - Headless WAV export.
-- Human-readable directory projects with a JSON manifest.
+- Self-contained `.vibesound` ZIP projects with a structured JSON manifest and
+  embedded audio assets.
 - A CLI for inspection and mutation.
 - A versioned local HTTP/WebSocket API for coding agents.
 - A lightweight browser UI served by the Python process.
@@ -66,7 +67,8 @@ workflow will look like this:
 
 ```text
 vibesound project init demo.vibesound
-vibesound audio import demo.vibesound drums.wav --track drums
+vibesound asset import demo.vibesound drums.wav --json
+vibesound project validate demo.vibesound --json
 vibesound transaction preview demo.vibesound operations.json
 vibesound transaction commit demo.vibesound operations.json
 vibesound render demo.vibesound --output exports/demo.wav
@@ -79,20 +81,26 @@ project unchanged.
 
 ## Project format
 
-Projects will initially be directories rather than opaque database files:
+Projects are self-contained ZIP archives with a custom `.vibesound` extension:
 
 ```text
-demo.vibesound/
+demo.vibesound
 ├── project.json
-├── assets/
-│   └── audio/
-└── exports/
+└── assets/
+    └── audio/
+        └── <asset-uuid>.wav
 ```
 
-The JSON manifest will contain versioned project metadata, stable IDs, track and
-scene definitions, clip references, transport settings, and mixer state. Audio
-files remain separate assets so that project changes are readable, reviewable,
-and suitable for Git-based workflows.
+The archive contains versioned project metadata, stable UUIDs, tracks, scenes,
+clip slots, clips, transport settings, mixer state, and asset metadata in
+`project.json`. Imported audio is copied into `assets/audio/`, keeping each
+project portable and safe for agent-driven workflows.
+
+Archive writes are deterministic and atomic. VibeSound validates member paths,
+rejects traversal and symlink entries, preserves imported audio bytes, and only
+rewrites an existing project through an explicit save or migration operation.
+The manifest remains inspectable with standard ZIP tools while the custom
+extension makes project files recognizable to VibeSound.
 
 ## Architecture principles
 
