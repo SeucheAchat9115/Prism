@@ -37,8 +37,12 @@ package foundation, a minimal CLI entry point, and the staged implementation
 plan. The first working milestone is the reproducible audio-clip POC described
 below.
 
-See [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for the component-by-component
-roadmap and acceptance criteria.
+The project documentation is organized as follows:
+
+- [Implementation plan](docs/IMPLEMENTATION_PLAN.md) — the component-by-component
+  roadmap and acceptance criteria.
+- [Deployment guide](docs/DEPLOYMENT.md) — local builds, command-line
+  installation, releases, CD automation, and future standalone packages.
 
 ## POC target
 
@@ -164,6 +168,8 @@ uv run python -m vibesound --help
 uv run vibesound version
 ```
 
-The implementation is intentionally incremental. Each phase in
-[IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) has a small component boundary,
-tests, and an exit criterion before the next layer is added.
+The implementation is intentionally incremental. Each phase in the
+[implementation plan](docs/IMPLEMENTATION_PLAN.md) has a small component
+boundary, tests, and an exit criterion before the next layer is added. See the
+[deployment guide](docs/DEPLOYMENT.md) for how those builds become installable
+command-line releases.

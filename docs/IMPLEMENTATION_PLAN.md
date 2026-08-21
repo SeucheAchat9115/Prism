@@ -5,6 +5,9 @@ steps. The sequence is intentionally POC-first: establish a trustworthy project
 and agent-control loop before adding the failure modes of MIDI, recording, and
 third-party plugins.
 
+For build, installation, release, and deployment decisions, see the
+[deployment guide](DEPLOYMENT.md).
+
 ## Fixed product decisions
 
 - **Platform:** Windows first; keep interfaces portable for later macOS/Linux
@@ -528,7 +531,8 @@ and must not block the normal test suite.
 
 - The repository is checked out locally.
 - `README.md` explains the product and POC boundary.
-- `IMPLEMENTATION_PLAN.md` contains the incremental implementation sequence.
+- `docs/IMPLEMENTATION_PLAN.md` contains the incremental implementation
+  sequence.
 - The Python package can be installed with `uv`.
 - The minimal CLI exposes help and version commands.
 - The smoke test passes.
