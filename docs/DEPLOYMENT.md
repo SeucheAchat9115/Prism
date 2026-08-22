@@ -121,6 +121,26 @@ Verify the packages against the target distribution before putting them in an
 installer or deployment image. See the [`sounddevice` installation guide](https://python-sounddevice.readthedocs.io/en/latest/)
 and [`soundfile` documentation](https://python-soundfile.readthedocs.io/en/latest/index.html).
 
+Windows playback is exposed by the Python `vibesound.audio` package in this
+phase, not by a CLI command yet. Run the normal device-free suite with:
+
+```powershell
+uv run pytest -m "not audio_device"
+```
+
+On a Windows machine with a stereo output device, run the opt-in hardware
+smoke test:
+
+```powershell
+uv run pytest -m audio_device -s
+```
+
+The backend uses the OS default output device unless an explicit device index
+or name is supplied by the embedding application. It requests the project
+sample rate and reports device-open, callback, and underrun failures through
+typed backend state. It does not install, bundle, or redistribute PortAudio
+device drivers or third-party plugins.
+
 VST3 support will use plugins installed by the user. VibeSound must not copy,
 redistribute, or silently install third-party plugin binaries. A future
 installer may check plugin search paths and report missing plugins, but plugin

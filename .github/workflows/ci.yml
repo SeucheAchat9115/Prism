@@ -29,7 +29,7 @@ jobs:
         run: uv sync --locked --extra dev
 
       - name: Run tests
-        run: uv run pytest
+        run: uv run pytest -m "not audio_device"
 
       - name: Run lint checks
         run: uv run ruff check .

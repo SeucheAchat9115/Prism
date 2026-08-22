@@ -33,9 +33,10 @@ validation, state changes, transport, rendering, and event publication.
 ## Current status
 
 This repository contains the Python package foundation, project persistence, a
-deterministic in-memory session engine, and an archive-backed offline renderer.
-The next implementation milestone is the Windows audio backend; the staged
-roadmap and deployment guidance are linked below.
+deterministic in-memory session engine, an archive-backed offline renderer, and
+the Windows-first audio backend. The next implementation milestone is the
+application service and versioned API; the staged roadmap and deployment
+guidance are linked below.
 
 The project documentation is organized as follows:
 
@@ -48,6 +49,10 @@ The Phase 3 renderer is available through `vibesound.rendering.render()` for
 loaded projects with injected sources and `vibesound.rendering.render_project()`
 for self-contained `.vibesound` archives. Both produce deterministic stereo
 float32 WAV files without requiring an audio device.
+
+The `vibesound.audio` package provides fake, offline, and PortAudio-backed
+backends. Device-free tests run by default; the real-device smoke test is
+opt-in with `uv run pytest -m audio_device -s` on Windows.
 
 ## POC target
 

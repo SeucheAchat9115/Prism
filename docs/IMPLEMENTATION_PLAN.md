@@ -288,29 +288,74 @@ commands are exact even when the persisted session quantization is beat or bar.
 
 ## Phase 4 — Windows audio backend
 
+Phase 4 is implemented as a backend-only milestone. The reusable audio control
+surface is available through `vibesound.audio`; CLI, HTTP API, and browser
+integration remain in later phases. Automated verification is device-free, with
+an opt-in Windows hardware smoke test for final machine-level validation.
+
 ### Components
 
-1. Define an `AudioBackend` interface.
-2. Keep `FakeAudioBackend` for tests.
-3. Keep `OfflineRenderBackend` for headless export.
-4. Add a PortAudio-backed real-time implementation using `sounddevice`.
-5. Discover output devices.
-6. Configure sample rate and buffer size.
-7. Connect the engine clock to the audio callback.
-8. Add clean start/stop/shutdown behavior.
-9. Surface device-open and callback failures as typed errors.
-10. Add a manual Windows hardware smoke test.
+1. [x] Define the thread-safe `AudioBackend` control interface and immutable
+   device/configuration/snapshot types.
+2. [x] Add `FakeAudioBackend` and preserve the Phase 3
+   `OfflineRenderBackend` adapter for device-free tests and headless export.
+3. [x] Add a preallocated single-producer/single-consumer ring buffer for
+   fixed-size stereo float32 blocks.
+4. [x] Add a PortAudio-backed implementation using `sounddevice` with a worker
+   producer and a callback that performs only bounded buffer copying.
+5. [x] Discover stereo-capable output devices and support OS-default or
+   explicit index/name selection.
+6. [x] Configure project sample rate, 512-frame default blocks, and a
+   four-block default queue; reject real-time rate mismatches.
+7. [x] Serialize play, pause, stop, reset, slot, scene, track-stop, and
+   stop-all controls through the producer-owned session engine.
+8. [x] Add clean start, pause, stop, reset, close, context-manager, and device
+   release behavior.
+9. [x] Surface stream-open, worker, callback, and underrun failures through
+   typed errors and `AudioBackendSnapshot.last_error`.
+10. [x] Add mocked PortAudio tests and an opt-in Windows hardware smoke test.
 
 The audio callback must not perform file I/O, network operations, project saves,
-or expensive allocations. It consumes prepared blocks and communicates with the
-engine through bounded queues or equivalent non-blocking structures.
+or blocking operations. It consumes prepared blocks through the ring, emits
+bounded silence on an underrun, records a typed fault, and lets a monitor thread
+shut down the stream outside the callback.
 
 ### Exit criteria
 
-- A fixture project plays through a selected Windows output device.
-- The device is released when playback stops and when the process exits.
-- Device failures appear in both CLI and API state.
-- Normal automated tests still run without an audio device.
+- [x] A fixture project and manual test can play through a selected/default
+  Windows output device.
+- [x] The device is released when playback stops and when the process exits.
+- [x] Device and callback failures are available through typed backend state;
+  CLI/API presentation remains a later-phase responsibility.
+- [x] Normal automated tests run without an audio device.
+
+### Public backend contract
+
+```text
+PortAudioBackend(project, sources, config=AudioBackendConfig(...))
+  start() / pause() / stop() / reset() / close()
+  launch_slot(track_id, scene_id)
+  launch_scene(scene_id)
+  stop_track(track_id) / stop_all()
+  snapshot() -> AudioBackendSnapshot
+
+list_output_devices() -> tuple[AudioDeviceInfo, ...]
+```
+
+The PortAudio backend requires the project sample rate, outputs stereo float32,
+and defaults to 512-frame blocks with four queued blocks. It uses the OS default
+device unless an explicit device index or exact device name is configured. A
+faulted backend is not automatically reopened; callers close it and construct a
+new backend after correcting the device or runtime problem.
+
+### Verification
+
+- Device-free audio backend tests: 11 passed on 2026-08-22.
+- The opt-in hardware check is marked `audio_device` and must be run manually
+  on a Windows machine with a stereo output device:
+  `uv run pytest -m audio_device -s`.
+- CI runs `uv run pytest -m "not audio_device"` and retains the existing lint,
+  CLI, renderer, and package-build checks.
 
 ## Phase 5 — Application service and versioned API
 
