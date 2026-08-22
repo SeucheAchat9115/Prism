@@ -1,0 +1,6 @@
+"""Versioned local HTTP and WebSocket API."""
+
+from vibesound.api.app import create_app
+from vibesound.api.server import run_server
+
+__all__ = ["create_app", "run_server"]

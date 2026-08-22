@@ -33,10 +33,10 @@ validation, state changes, transport, rendering, and event publication.
 ## Current status
 
 This repository contains the Python package foundation, project persistence, a
-deterministic in-memory session engine, an archive-backed offline renderer, and
-the Windows-first audio backend. The next implementation milestone is the
-application service and versioned API; the staged roadmap and deployment
-guidance are linked below.
+deterministic in-memory session engine, an archive-backed offline renderer, the
+Windows-first audio backend, and the Phase 5 application service and versioned
+local API. The next implementation milestone is the browser session UI; the
+staged roadmap and deployment guidance are linked below.
 
 The project documentation is organized as follows:
 
@@ -57,8 +57,13 @@ backends. Device-free tests run by default; the real-device smoke test is
 opt-in with `uv run pytest -m audio_device -s` on Windows.
 
 The [`examples/`](examples/README.md) folder mirrors this current feature
-boundary with generated-audio scripts. Five examples run without hardware; the
+boundary with generated-audio scripts. Six examples run without hardware; the
 PortAudio playback example is explicitly opt-in.
+
+The API is available through `vibesound.api.create_app()` for embedding and
+`vibesound.api.run_server(PROJECT)` for a loopback-only development server. It
+owns one project archive per process, supports revisioned transactions, runtime
+transport/clip controls, synchronous rendering, and WebSocket events.
 
 ## POC target
 

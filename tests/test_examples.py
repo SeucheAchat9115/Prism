@@ -18,6 +18,7 @@ EXAMPLES = ROOT / "examples"
         ("session_engine.py", False),
         ("offline_render.py", True),
         ("fake_backend.py", False),
+        ("api_workflow.py", True),
     ),
 )
 def test_device_free_examples_run(

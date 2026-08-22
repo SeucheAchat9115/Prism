@@ -18,6 +18,7 @@ Each artifact-producing example creates a unique run directory under
 | `session_engine.py` | Quantized clip launch, deterministic rendering, events, and stop scheduling | No |
 | `offline_render.py` | Archive-backed float32 WAV rendering through `OfflineRenderBackend` | No |
 | `fake_backend.py` | The audio backend lifecycle and controls without opening a device | No |
+| `api_workflow.py` | Application snapshots, transactions, runtime controls, rendering, and WebSocket events | No |
 | `portaudio_playback.py` | Real-time playback through a stereo PortAudio output | Yes |
 
 Run the device-free examples with:
@@ -28,6 +29,7 @@ uv run python examples/cli_workflow.py
 uv run python examples/session_engine.py
 uv run python examples/offline_render.py
 uv run python examples/fake_backend.py
+uv run python examples/api_workflow.py
 ```
 
 To try real-time playback on Windows, first inspect the available devices and
@@ -44,9 +46,9 @@ test suite. It uses generated audio and the current default configuration of
 
 ## Keeping examples current
 
-Examples cover the implemented surface only. There are deliberately no API,
-browser, or VST examples until those phases are implemented. When a phase adds
-or changes a public feature:
+Examples cover the implemented surface only. There are deliberately no browser
+or VST examples until those phases are implemented. When a phase adds or
+changes a public feature:
 
 1. Update the affected example or add a small new one.
 2. Update this index and its command/output prerequisites.

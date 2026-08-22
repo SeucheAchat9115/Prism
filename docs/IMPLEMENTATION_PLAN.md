@@ -384,31 +384,38 @@ new backend after correcting the device or runtime problem.
 - [x] Run all device-free examples as subprocess smoke tests without opening a
   physical audio device.
 
-## Phase 5 — Application service and versioned API
+## Phase 5 — Application service and versioned API ✅ Complete
 
-### Example maintenance gate
+**Completed:** 2026-08-22
 
-- [ ] Add/update a device-free example for service snapshots, transaction
-  preview/commit, revision conflicts, and API events; update the example index
-  and smoke coverage.
+Phase 5 adds the shared application service and a versioned loopback API. One
+service process owns one validated `.vibesound` archive, an injectable audio
+backend, synchronous rendering, revisioned transactions, and bounded
+WebSocket event subscriptions. The CLI and browser remain clients for later
+phases.
 
 ### Components
 
-1. Add a shared application service independent of CLI and browser code.
-2. Implement `load_project` and `get_snapshot`.
-3. Implement transaction validation.
-4. Implement transaction preview.
-5. Implement atomic transaction commit.
-6. Add revision conflict detection.
-7. Add transport operations.
-8. Add clip-launch operations.
-9. Add render operations.
-10. Add FastAPI HTTP routes.
-11. Add WebSocket event publication.
-12. Add structured API errors.
-13. Bind the development server to loopback only.
+1. [x] Add a shared `ApplicationService` with one-project lifecycle,
+   serialized mutations, snapshots, close behavior, and backend injection.
+2. [x] Add archive-backed playback source preparation that resamples assets
+   while preserving live transport quantization.
+3. [x] Implement whitelisted JSON-pointer `set` transactions for project name,
+   transport values, track mixer values, scene names, and clip values.
+4. [x] Implement observational previews, atomic commits, revision increments,
+   stale-revision rejection, candidate validation, and runtime backend refresh.
+5. [x] Add runtime transport and clip launch/stop operations backed by the
+   Phase 4 audio contract.
+6. [x] Add synchronous archive rendering with started, completed, and failed
+   events.
+7. [x] Add structured Pydantic API contracts and stable error envelopes.
+8. [x] Add FastAPI routes under `/api/v1` and a loopback-default `uvicorn`
+   server helper.
+9. [x] Add bounded WebSocket event subscriptions that cannot block service
+   mutations.
+10. [x] Add the device-free API workflow example and smoke coverage.
 
-### Transaction envelope
+### Transaction contract
 
 ```json
 {
@@ -416,14 +423,21 @@ new backend after correcting the device or runtime problem.
   "operations": [
     {
       "op": "set",
-      "path": "/tracks/drums/mixer/gain_db",
+      "path": "/tracks/<track-uuid>/mixer/gain_db",
       "value": -3.0
     }
   ]
 }
 ```
 
-### Required HTTP interface
+Only whitelisted scalar paths may be changed. Entity creation/deletion, IDs,
+asset references, clip slots, schema version, and sample rate remain outside
+this phase. Preview never writes, increments a revision, refreshes audio, or
+publishes events. A successful commit increments the revision once and writes
+the archive through the existing atomic persistence layer. Transport and clip
+controls are runtime-only.
+
+### HTTP interface
 
 ```text
 GET  /api/v1/projects/{project_id}
@@ -437,7 +451,14 @@ POST /api/v1/projects/{project_id}/render
 WS   /api/v1/projects/{project_id}/events
 ```
 
-### Required event types
+The API binds to `127.0.0.1` by default. Launch requests include `track_id`
+and `scene_id`; render requests contain an output path, exactly one of `bars`
+or `seconds`, and ordered exact-frame commands. Successful transaction,
+control, and render responses use JSON-safe versions of the existing domain
+contracts. Validation failures use structured `errors`; stale revisions return
+HTTP 409.
+
+### Event types
 
 ```text
 project.changed
@@ -446,27 +467,32 @@ clip.launched
 clip.stopped
 render.started
 render.completed
+render.failed
 audio.error
-plugin.error
 ```
 
-### Transaction invariants
+Events include the project ID, current revision, and operation payload. Clip
+events expose the accepted quantized target frame. Exact audio-boundary event
+streaming remains a later backend enhancement; the Phase 5 API publishes
+accepted/scheduled control events.
 
-- Validate every operation before mutation.
-- Reject unknown paths and invalid values.
-- Reject stale `base_revision` values.
-- Never partially apply a failed transaction.
-- Increment the revision once per successful transaction.
-- Return changed paths and before/after revisions.
-- Make dry runs observational only.
+### Verification
+
+- Phase 5 service/API tests: 5 passed on 2026-08-22.
+- All six device-free manual examples pass through subprocess smoke tests.
+- Full device-free verification remains hardware-independent and uses the fake
+  backend for API playback controls.
+- The existing PortAudio hardware smoke test remains opt-in under the
+  `audio_device` marker.
 
 ### Exit criteria
 
-- API clients can inspect and mutate a project.
-- Dry-run requests never change persisted or live state.
-- Stale transactions are rejected predictably.
-- WebSocket clients receive state changes.
-- CLI and API produce equivalent service results.
+- [x] API clients can inspect and mutate one project.
+- [x] Dry-run requests never change persisted or live state.
+- [x] Stale transactions are rejected predictably.
+- [x] WebSocket clients receive state changes.
+- [x] Runtime controls and rendering share the application service.
+- [x] CLI and future browser clients have a stable versioned service boundary.
 
 ## Phase 6 — CLI surface
 

@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import numpy as np
 
-from vibesound.rendering.sources import prepare_archive_project, resample_linear
+from vibesound.rendering.sources import (
+    prepare_archive_playback_project,
+    prepare_archive_project,
+    resample_linear,
+)
 
 from ._helpers import make_archive_project
 
@@ -51,3 +55,17 @@ def test_archive_preparation_resamples_assets_and_clip_regions(tmp_path) -> None
     assert runtime_clip.source_offset_frames == 2
     assert runtime_clip.duration_frames == 2
     assert prepared.project.transport.quantization == "none"
+
+
+def test_archive_playback_preparation_preserves_transport_quantization(tmp_path) -> None:
+    project_path, project, _, _, _ = make_archive_project(
+        tmp_path,
+        np.asarray([0.0, 1.0, 2.0], dtype=np.float32),
+        source_rate=4,
+        project_rate=8,
+    )
+    project.transport.quantization = "beat"
+
+    prepared = prepare_archive_playback_project(project_path, project)
+
+    assert prepared.project.transport.quantization == "beat"

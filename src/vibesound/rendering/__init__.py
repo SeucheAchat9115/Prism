@@ -7,7 +7,7 @@ from vibesound.rendering.errors import (
     RenderValidationError,
 )
 from vibesound.rendering.offline import render, render_project
-from vibesound.rendering.sources import resample_linear
+from vibesound.rendering.sources import prepare_archive_playback_project, resample_linear
 from vibesound.rendering.types import RenderCommand, RenderMetadata, RenderRequest
 
 __all__ = [
@@ -20,5 +20,6 @@ __all__ = [
     "RenderValidationError",
     "render",
     "render_project",
+    "prepare_archive_playback_project",
     "resample_linear",
 ]

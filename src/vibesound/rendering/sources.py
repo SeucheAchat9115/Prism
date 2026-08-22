@@ -73,6 +73,26 @@ def resample_linear(
 def prepare_archive_project(path: Path | str, project: Project) -> PreparedRenderProject:
     """Decode every referenced archive asset and build a render-time snapshot."""
 
+    return _prepare_archive_project(path, project, preserve_quantization=False)
+
+
+def prepare_archive_playback_project(
+    path: Path | str,
+    project: Project,
+) -> PreparedRenderProject:
+    """Decode archive assets while preserving live transport quantization."""
+
+    return _prepare_archive_project(path, project, preserve_quantization=True)
+
+
+def _prepare_archive_project(
+    path: Path | str,
+    project: Project,
+    *,
+    preserve_quantization: bool,
+) -> PreparedRenderProject:
+    """Build a project/source pair for rendering or real-time playback."""
+
     project_path = Path(path)
     referenced_ids = {clip.asset_id for clip in project.clips}
     assets = {asset.id: asset for asset in project.assets}
@@ -94,7 +114,11 @@ def prepare_archive_project(path: Path | str, project: Project) -> PreparedRende
             project.transport.sample_rate,
         )
 
-    runtime_project = _runtime_project(project, prepared)
+    runtime_project = _runtime_project(
+        project,
+        prepared,
+        preserve_quantization=preserve_quantization,
+    )
     provider = InMemoryClipSourceProvider(
         {asset_id: item.buffer for asset_id, item in prepared.items()}
     )
@@ -202,12 +226,18 @@ def _prepare_asset(asset: AssetReference, payload: bytes, target_rate: int) -> _
     return _PreparedAsset(buffer=buffer, source_rate=sample_rate)
 
 
-def _runtime_project(project: Project, prepared: dict[UUID, _PreparedAsset]) -> Project:
+def _runtime_project(
+    project: Project,
+    prepared: dict[UUID, _PreparedAsset],
+    *,
+    preserve_quantization: bool = False,
+) -> Project:
     """Convert persisted source-frame regions to the resampled runtime units."""
 
     target_rate = project.transport.sample_rate
     runtime = project.model_copy(deep=True)
-    runtime.transport.quantization = "none"
+    if not preserve_quantization:
+        runtime.transport.quantization = "none"
 
     runtime_assets: list[AssetReference] = []
     for asset in runtime.assets:
