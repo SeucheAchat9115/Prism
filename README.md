@@ -44,6 +44,8 @@ The project documentation is organized as follows:
   roadmap and acceptance criteria.
 - [Deployment guide](docs/DEPLOYMENT.md) — local builds, command-line
   installation, releases, CD automation, and future standalone packages.
+- [Manual examples](examples/README.md) — runnable examples for the current
+  persistence, engine, rendering, CLI, and audio-backend features.
 
 The Phase 3 renderer is available through `vibesound.rendering.render()` for
 loaded projects with injected sources and `vibesound.rendering.render_project()`
@@ -53,6 +55,10 @@ float32 WAV files without requiring an audio device.
 The `vibesound.audio` package provides fake, offline, and PortAudio-backed
 backends. Device-free tests run by default; the real-device smoke test is
 opt-in with `uv run pytest -m audio_device -s` on Windows.
+
+The [`examples/`](examples/README.md) folder mirrors this current feature
+boundary with generated-audio scripts. Five examples run without hardware; the
+PortAudio playback example is explicitly opt-in.
 
 ## POC target
 

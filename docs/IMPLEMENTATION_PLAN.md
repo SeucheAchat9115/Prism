@@ -28,6 +28,24 @@ For build, installation, release, and deployment decisions, see the
 - **Network boundary:** bind to `127.0.0.1` by default; remote access and auth
   are later features.
 
+## Example maintenance gate
+
+The [`examples/`](../examples/README.md) folder is the manually runnable guide
+to the implemented product surface. Every phase must keep it aligned with the
+public APIs and workflows that are actually available.
+
+For each phase implementation:
+
+- Add or update at least one small happy-path example for the new capability.
+- Update `examples/README.md` with the command, prerequisites, and expected
+  output or artifact.
+- Keep device-, browser-, and plugin-dependent examples opt-in and clearly
+  separated from deterministic examples.
+- Add or update device-free smoke coverage in `tests/test_examples.py` where
+  the example can run without external hardware.
+- Do not document future API, browser, or VST behavior as a runnable example
+  before that phase is implemented.
+
 ## Phase 0 — Repository and development foundation ✅ Complete
 
 **Completed:** 2026-08-21
@@ -357,7 +375,22 @@ new backend after correcting the device or runtime problem.
 - CI runs `uv run pytest -m "not audio_device"` and retains the existing lint,
   CLI, renderer, and package-build checks.
 
+### Current examples
+
+- [x] Add manually runnable examples for project archives, the current CLI,
+  deterministic engine control, offline rendering, the fake backend, and
+  PortAudio playback.
+- [x] Keep generated example media under the ignored `examples/output/` path.
+- [x] Run all device-free examples as subprocess smoke tests without opening a
+  physical audio device.
+
 ## Phase 5 — Application service and versioned API
+
+### Example maintenance gate
+
+- [ ] Add/update a device-free example for service snapshots, transaction
+  preview/commit, revision conflicts, and API events; update the example index
+  and smoke coverage.
 
 ### Components
 
@@ -437,6 +470,12 @@ plugin.error
 
 ## Phase 6 — CLI surface
 
+### Example maintenance gate
+
+- [ ] Extend the CLI workflow example for every released command, including
+  transport, clip launch/stop, transaction preview/commit, render, and serve;
+  keep JSON output and prerequisites current.
+
 ### Commands
 
 ```text
@@ -470,6 +509,12 @@ vibesound serve PROJECT
 
 ## Phase 7 — Browser session UI
 
+### Example maintenance gate
+
+- [ ] Add/update a manually runnable browser example or local launch workflow,
+  document its URL and prerequisites, and keep it separate from device-free
+  command-line examples.
+
 ### Components
 
 1. Serve static HTML, CSS, and JavaScript from the Python application.
@@ -495,6 +540,11 @@ vibesound serve PROJECT
 - Browser errors remain understandable and recoverable.
 
 ## Phase 8 — Reproducible POC release
+
+### Example maintenance gate
+
+- [ ] Promote the POC fixture and acceptance flow into a repeatable example,
+  including the browser, CLI, transaction, render, and reopen steps.
 
 Create a fixture project with:
 
@@ -522,6 +572,12 @@ The POC is complete only when this flow works on a clean Windows environment
 without third-party plugins.
 
 ## Phase 9 — VST3 plugin worker
+
+### Example maintenance gate
+
+- [ ] Add an opt-in plugin example for discovery, parameter control, state
+  round-trip, and failure recovery; document the user-installed plugin
+  prerequisite and keep it out of the normal smoke suite.
 
 Begin only after the POC acceptance flow is stable.
 
@@ -562,6 +618,12 @@ Third-party plugins are user-installed dependencies. VibeSound must not ship
 plugin binaries or bypass plugin licensing.
 
 ## Phase 10 — Features after the POC
+
+### Example maintenance gate
+
+- [ ] For each post-POC feature, add or update the smallest runnable example
+  that demonstrates the new public behavior and record any environment
+  requirements in `examples/README.md`.
 
 Implement each item as a separate milestone:
 
