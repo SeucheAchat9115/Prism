@@ -57,8 +57,8 @@ backends. Device-free tests run by default; the real-device smoke test is
 opt-in with `uv run pytest -m audio_device -s` on Windows.
 
 The [`examples/`](examples/README.md) folder mirrors this current feature
-boundary with generated-audio scripts. Six examples run without hardware; the
-PortAudio playback example is explicitly opt-in.
+boundary with ten numbered generated-audio scripts. Nine examples run without
+hardware; the PortAudio diagnostics and playback example is explicitly opt-in.
 
 The API is available through `vibesound.api.create_app()` for embedding and
 `vibesound.api.run_server(PROJECT)` for a loopback-only development server. It

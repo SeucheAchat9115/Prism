@@ -377,12 +377,16 @@ new backend after correcting the device or runtime problem.
 
 ### Current examples
 
-- [x] Add manually runnable examples for project archives, the current CLI,
-  deterministic engine control, offline rendering, the fake backend, and
-  PortAudio playback.
+- [x] Add numbered manually runnable examples `01` through `10` for project
+  archives, generated music creation, deterministic session performance,
+  offline arrangement rendering, the CLI, transaction safety, the API,
+  backend comparison, PortAudio diagnostics/playback, and an agent producer
+  workflow.
+- [x] Reference every numbered example from `examples/README.md` with its
+  command, artifact, and hardware prerequisite.
 - [x] Keep generated example media under the ignored `examples/output/` path.
-- [x] Run all device-free examples as subprocess smoke tests without opening a
-  physical audio device.
+- [x] Run all nine device-free examples as subprocess smoke tests without
+  opening a physical audio device; keep example `09` opt-in.
 
 ## Phase 5 — Application service and versioned API ✅ Complete
 
@@ -479,7 +483,8 @@ accepted/scheduled control events.
 ### Verification
 
 - Phase 5 service/API tests: 5 passed on 2026-08-22.
-- All six device-free manual examples pass through subprocess smoke tests.
+- All nine device-free numbered manual examples pass through subprocess smoke
+  tests.
 - Full device-free verification remains hardware-independent and uses the fake
   backend for API playback controls.
 - The existing PortAudio hardware smoke test remains opt-in under the

@@ -1,4 +1,4 @@
-"""Exercise the Phase 1 CLI against a generated project and audio asset."""
+"""Exercise the current CLI workflow against a generated project and asset."""
 
 from __future__ import annotations
 
@@ -26,6 +26,8 @@ def main() -> int:
     source_path = run_dir / "cli-source.wav"
     write_sine_wav(source_path, sample_rate=8000, seconds=0.5, frequency=330.0)
 
+    run_cli("doctor")
+    run_cli("version")
     run_cli(
         "project",
         "init",

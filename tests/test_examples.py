@@ -13,12 +13,15 @@ EXAMPLES = ROOT / "examples"
 @pytest.mark.parametrize(
     ("script", "needs_output_dir"),
     (
-        ("project_archive.py", True),
-        ("cli_workflow.py", True),
-        ("session_engine.py", False),
-        ("offline_render.py", True),
-        ("fake_backend.py", False),
-        ("api_workflow.py", True),
+        ("01_project_archive.py", True),
+        ("02_make_beat.py", True),
+        ("03_session_performance.py", True),
+        ("04_render_song.py", True),
+        ("05_cli_agent_workflow.py", True),
+        ("06_transaction_safety.py", True),
+        ("07_api_client.py", True),
+        ("08_backend_comparison.py", True),
+        ("10_agent_producer_workflow.py", True),
     ),
 )
 def test_device_free_examples_run(
@@ -36,3 +39,14 @@ def test_device_free_examples_run(
         text=True,
     )
     assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+
+
+def test_audio_device_diagnostic_help_is_available() -> None:
+    result = subprocess.run(
+        [sys.executable, str(EXAMPLES / "09_audio_device_diagnostics.py"), "--help"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    assert "--play-seconds" in result.stdout
