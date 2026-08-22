@@ -32,10 +32,10 @@ validation, state changes, transport, rendering, and event publication.
 
 ## Current status
 
-This repository is at the bootstrap stage. It currently contains the Python
-package foundation, a minimal CLI entry point, and the staged implementation
-plan. The first working milestone is the reproducible audio-clip POC described
-below.
+This repository contains the Python package foundation, project persistence, a
+deterministic in-memory session engine, and an archive-backed offline renderer.
+The next implementation milestone is the Windows audio backend; the staged
+roadmap and deployment guidance are linked below.
 
 The project documentation is organized as follows:
 
@@ -43,6 +43,11 @@ The project documentation is organized as follows:
   roadmap and acceptance criteria.
 - [Deployment guide](docs/DEPLOYMENT.md) — local builds, command-line
   installation, releases, CD automation, and future standalone packages.
+
+The Phase 3 renderer is available through `vibesound.rendering.render()` for
+loaded projects with injected sources and `vibesound.rendering.render_project()`
+for self-contained `.vibesound` archives. Both produce deterministic stereo
+float32 WAV files without requiring an audio device.
 
 ## POC target
 

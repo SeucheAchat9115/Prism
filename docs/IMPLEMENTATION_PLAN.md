@@ -151,51 +151,140 @@ vibesound asset import PROJECT SOURCE [--json]
 - Tests cover model constraints, archive safety, deterministic output, asset
   import, hash validation, failed saves, migrations, and CLI workflows.
 
-## Phase 2 — Deterministic session engine
+## Phase 2 — Deterministic session engine ✅ Complete
+
+**Completed:** 2026-08-22
+
+Phase 2 adds a thread-free, in-memory session engine. It snapshots and validates
+the Phase 1 project model, consumes injected audio buffers, schedules session
+actions on integer sample-frame boundaries, and returns deterministic stereo
+buffers with typed events. It does not read project archives, mutate project
+files, expose CLI/API commands, or open an audio device.
 
 ### Components
 
-1. Create a sample-rate-aware transport clock.
-2. Convert BPM to beat and bar positions.
-3. Implement play, stop, pause, and reset state transitions.
-4. Implement session quantization.
-5. Implement track and scene lookup.
-6. Schedule clip launches and stops.
-7. Implement gain and pan.
-8. Implement mute and solo.
-9. Implement a basic summing mixer.
-10. Publish typed engine events.
-11. Add a fake audio sink for tests.
+1. [x] Add the `vibesound.engine` package and typed runtime errors.
+2. [x] Add immutable runtime snapshots, scheduled actions, engine steps, and
+   transport/clip events.
+3. [x] Implement exact sample-frame beat/bar conversion with time-signature-aware
+   quantization.
+4. [x] Implement validated mono/stereo float32 audio buffers and an injected
+   in-memory source provider.
+5. [x] Snapshot project indexes for tracks, scenes, clips, slots, and assets.
+6. [x] Implement play, pause, stop, reset, and explicit frame advancement.
+7. [x] Implement quantized slot, scene, track-stop, and stop-all scheduling.
+8. [x] Enforce track-exclusive clips and deterministic stop-before-launch
+   replacement behavior.
+9. [x] Implement source offsets, durations, looping, and automatic clip stops.
+10. [x] Implement clip/track gain, constant-power mono pan, stereo balance,
+    mute, solo, and unclipped float headroom.
+11. [x] Split rendering at exact mid-block event frames.
+12. [x] Add a fake audio sink for device-free tests.
 
-Use generated signals and short checked-in WAV fixtures instead of relying on
-external sample libraries.
+### Runtime contract
+
+```text
+SessionEngine(project, source_provider)
+  play() / pause() / stop() / reset()
+  launch_slot(track_id, scene_id)
+  launch_scene(scene_id)
+  stop_track(track_id) / stop_all()
+  advance(frame_count) -> EngineStep
+```
+
+`EngineStep` contains the requested stereo `float32` buffer and events with
+absolute sample-frame timestamps. The engine uses no wall-clock timing or
+background thread. Sources must already match the project sample rate and
+manifest channel/frame metadata; resampling is deferred to a later phase.
 
 ### Exit criteria
 
-- Identical inputs produce identical scheduling events.
-- Clip launches occur on the expected quantization boundaries.
-- Gain, pan, mute, and solo produce expected buffer values.
-- The engine runs fully without a physical audio device.
+- [x] Identical inputs and command sequences produce identical samples, events,
+  and final state.
+- [x] Clip launches and stops occur on the expected quantization boundaries.
+- [x] Gain, pan, mute, solo, looping, and clip replacement produce expected
+  buffer values and event order.
+- [x] Mid-block events split output at exact sample frames.
+- [x] The engine runs fully without a physical audio device or archive I/O.
 
-## Phase 3 — Offline renderer
+### Verification
+
+- Full Windows test suite: 38 passed on 2026-08-22.
+- Ruff lint checks: passed on 2026-08-22.
+- Tests cover timing, time signatures, quantization, source validation, clip
+  regions, looping, event ordering, block-size invariance, mixer behavior,
+  mute/solo, stop-all, reset, and the fake sink.
+
+## Phase 3 — Offline renderer ✅ Complete
+
+**Completed:** 2026-08-22
+
+Phase 3 adds a deterministic, device-free renderer. It can render a loaded
+project with injected sources or validate and render a self-contained archive.
+It reuses the Phase 2 scheduler and mixer, prepares a private project snapshot
+for sample-rate conversion, and atomically writes stereo float32 WAV output.
+The renderer does not add CLI/API routes, real-time audio, plugin processing,
+or project-file mutations.
 
 ### Components
 
-1. Render a project for a fixed number of bars or time range.
-2. Reuse the session scheduler and mixer rules.
-3. Read referenced audio assets.
-4. Mix active clips into output buffers.
-5. Write WAV output.
-6. Detect missing assets before rendering.
-7. Return render metadata: revision, sample rate, channels, and duration.
-8. Reject invalid projects before creating partial output.
+1. [x] Add frozen `RenderRequest`, `RenderCommand`, and `RenderMetadata`
+   contracts with positive bars/seconds validation and ordered commands.
+2. [x] Convert bars with tempo/time-signature-aware frame math and seconds by
+   ceiling to the next project sample frame.
+3. [x] Reuse `SessionEngine` for clip scheduling, mixing, gain, pan, mute,
+   solo, looping, and natural clip stops.
+4. [x] Apply launch, scene, track-stop, and stop-all commands at exact absolute
+   frames with a fixed 4096-frame internal block size.
+5. [x] Read and hash-check every referenced archive asset before output starts.
+6. [x] Decode supported audio through `soundfile` and validate sample rate,
+   channel count, frame count, and container format against the manifest.
+7. [x] Add deterministic NumPy linear resampling to the project rate while
+   preserving mono/stereo layout and converting clip offsets/durations.
+8. [x] Write explicit `WAV`/`FLOAT` stereo output with project sample rate and
+   preserve unclipped float headroom.
+9. [x] Return project ID, revision, path, format, subtype, sample rate,
+   channels, frame count, and duration metadata.
+10. [x] Validate projects, requests, commands, sources, and destination paths
+    before creating an output temporary file.
+11. [x] Commit output through a flushed and fsynced sibling temporary file with
+    cleanup on failure and preservation of an existing destination.
+
+### Public rendering contract
+
+```text
+render(project, source_provider, output_path, request) -> RenderMetadata
+render_project(project_path, output_path, request) -> RenderMetadata
+```
+
+`RenderRequest` starts at frame zero and accepts exactly one positive range:
+`bars` or `seconds`. Its optional commands are ordered by nondecreasing frame;
+frame zero and the range endpoint are valid. An empty command list produces
+silence. Archive rendering validates the complete archive, decodes referenced
+assets before creating output, and never rewrites the source project.
+
+The output contract is stereo 32-bit floating-point WAV at the project sample
+rate. The runtime uses a private quantization-free project snapshot so render
+commands are exact even when the persisted session quantization is beat or bar.
 
 ### Exit criteria
 
-- The fixture project exports a valid WAV.
-- Output duration and channel count are correct.
-- Repeated renders from the same project revision are reproducible.
-- Failure leaves no misleading completed export.
+- [x] Fixture projects export valid WAV files with the requested duration and
+  channel count.
+- [x] Repeated renders from the same project revision produce byte-identical
+  output.
+- [x] Missing, corrupt, unsupported, and metadata-mismatched assets fail before
+  output replacement.
+- [x] Existing output files remain unchanged on validation or render failure,
+  and renderer temporary files are cleaned up.
+
+### Verification
+
+- Full Windows test suite: 54 passed on 2026-08-22.
+- Ruff lint checks passed on 2026-08-22.
+- Tests cover ranges, command timing/order, scenes, stops, silence, mixer
+  behavior through the session engine, WAV metadata, deterministic output,
+  resampling, clip-region conversion, archive validation, and output safety.
 
 ## Phase 4 — Windows audio backend
 
