@@ -499,6 +499,264 @@ accepted/scheduled control events.
 - [x] Runtime controls and rendering share the application service.
 - [x] CLI and future browser clients have a stable versioned service boundary.
 
+
+## Phase 5.5 — Product alignment, authoring completeness, and application hardening
+
+Phase 5.5 is the mandatory stabilization milestone between the completed
+application service/API and the general CLI surface. It keeps VibeSound focused
+as a Python-first DAW for musicians and coding agents, closes the incomplete
+authoring loop, and fixes persistence, runtime, security, operability, and
+delivery risks before additional clients depend on the current contracts.
+
+The milestone may make significant internal architectural changes while the
+project is young. Existing portable project archives must remain usable through
+transparent migration. Public contracts introduced here become the stable
+foundation for the CLI and browser phases.
+
+### Fixed decisions
+
+- **Product identity:** VibeSound remains a DAW for musicians and coding agents.
+  Audio fingerprinting, YouTube extraction, catalogue search, and track
+  identification are outside this product roadmap.
+- **Target scale:** ordinary projects with up to roughly 50 tracks and several
+  gigabytes of audio must remain responsive without loading or rewriting the
+  complete project for routine edits.
+- **Storage:** retain the portable .vibesound archive and add an efficient
+  working-project directory representation. Opening an existing archive must
+  transparently create or migrate a compatible working representation; portable
+  archive export remains explicit and deterministic.
+- **Compatibility:** existing schema-version-1 archives must open without manual
+  repair. Migrations must be tested and must preserve IDs, audio bytes, metadata,
+  revision history, and audible behavior.
+- **Mutation model:** expose typed domain operations and retain UUIDs as canonical
+  identifiers. Clients may resolve unique human-readable names, but persisted
+  operations and responses use UUIDs.
+- **Ownership:** one application-service process owns a writable project. Other
+  processes use the service API. Direct writers require an exclusive project
+  lock.
+- **Network boundary:** local loopback only in the POC. Reject non-loopback
+  binding and WebSocket origins not served by VibeSound.
+- **Exports:** API renders use project-local exports by default. Additional
+  destinations require an explicit configured allowlist.
+- **Runtime edits:** mixer changes apply without backend recreation. Other edits
+  preserve transport and active clips whenever safe; unavoidable resets are
+  previewed and reported explicitly.
+- **Rendering:** render work runs as revision-bound background jobs with status,
+  progress, cancellation, and bounded event publication.
+- **Audio availability:** inspection, editing, validation, and offline rendering
+  remain available without a physical output device. Device discovery and
+  selection are explicit, and transient underruns are recoverable.
+- **Deletion safety:** destructive structural operations fail when dependants
+  exist unless the caller explicitly requests a previewed cascade.
+- **Engineering gate:** type checking, coverage, package installation,
+  concurrency, security, contract, realistic-scale, Windows, and Linux
+  device-free checks are part of this phase.
+
+### Architecture boundaries
+
+Split the current application responsibilities behind explicit interfaces:
+
+- ProjectRepository owns working-project persistence, portable archive
+  import/export, migrations, locking, and external-change detection.
+- ProjectCommandService validates and applies typed, revisioned project
+  operations.
+- AudioRuntimeCoordinator owns playback state, device configuration, runtime
+  mixer updates, actual engine events, latency, and recoverable faults.
+- RenderJobService owns immutable render snapshots, job lifecycle, progress,
+  cancellation, and output policy.
+- ApplicationService composes these boundaries and exposes stable client
+  contracts without decoding audio or rewriting storage for every request.
+
+Metadata-only previews and commits must not decode audio, rebuild an audio
+backend, or rewrite embedded asset bytes. Runtime validation may prepare only
+the assets affected by an operation.
+
+### Typed authoring operations
+
+Add previewable and atomically committed operations for:
+
+1. Create, rename, reorder, and delete tracks.
+2. Create, rename, reorder, and delete scenes.
+3. Import, inspect, and delete audio assets.
+4. Create, update, duplicate, and delete audio clips.
+5. Assign, replace, clear, and inspect track/scene clip slots.
+6. Update transport and mixer values.
+7. Apply explicit cascade deletion after returning its complete impact in a
+   preview.
+8. Resolve a unique entity name to its canonical UUID.
+9. Apply multiple operations as one revisioned transaction.
+10. Return created IDs, changed IDs, deleted IDs, changed paths, reset impact,
+    and validation issues in stable JSON contracts.
+
+Name resolution must reject missing and ambiguous matches. Operations must be
+idempotent where a safe idempotency key is supplied, so an agent can retry a
+request without duplicating entities.
+
+### Project validation and storage
+
+1. Separate archive-integrity, schema, project-reference, playback-readiness,
+   and device-compatibility validation results.
+2. Ensure a project reported as playback-ready can initialize the runtime with
+   every referenced asset.
+3. Validate clip source regions, supported channel layouts, decodability,
+   ordering, and runtime sample-rate preparation.
+4. Define bounded ZIP member count, manifest size, expanded asset size, total
+   expanded size, and compression-ratio limits.
+5. Stream asset hashing, copying, archive import, and archive export rather than
+   materializing complete projects in memory.
+6. Avoid recompressing unchanged audio for scalar or structural metadata edits.
+7. Add an exclusive writer lock and a persisted source fingerprint.
+8. Detect external changes, pause writes, publish a project.external_change
+   event, and require explicit reload or conflict resolution. Never silently
+   overwrite or automatically merge an externally changed project.
+9. Keep portable archive output deterministic and atomic.
+10. Benchmark the working format and portable export with representative
+    projects up to the target scale.
+
+The exact working-directory suffix and cache placement must be recorded in a
+short architecture decision record before implementation. The representation
+must be inspectable, recoverable after interruption, and safe to remove without
+damaging the last portable archive.
+
+### Runtime behavior
+
+1. Apply gain, pan, mute, and solo changes directly to runtime-safe mixer state
+   without reconstructing the backend.
+2. Classify project operations by runtime impact: no refresh, incremental
+   refresh, transport-preserving rebuild, or required reset.
+3. Include runtime impact in transaction previews and commit responses.
+4. Preserve device selection, transport position, mode, active clips, and
+   pending launches across safe changes.
+5. Reject or explicitly reset operations that cannot preserve valid runtime
+   state.
+6. Publish distinct clip.scheduled, clip.launched, clip.stopped, and
+   clip.completed events from actual backend/engine state.
+7. Report both render-head position and estimated audible position, including
+   queued output latency.
+8. Expose output-device discovery, selection, diagnostics, and controlled
+   backend restart through the service.
+9. Fall back to a device-free editing backend when no usable output device is
+   available.
+10. Treat isolated underruns as recoverable diagnostics. Fault playback only
+    after a documented threshold or an unrecoverable callback/worker error.
+11. Replace preview-quality linear sample-rate conversion for playback with a
+    quality-defined, anti-aliased implementation behind the existing resampling
+    boundary.
+12. Add realistic producer-load and shutdown tests; verify that background
+    threads terminate or return a structured failure.
+
+### Render jobs and output policy
+
+1. Capture an immutable project revision snapshot when a job is accepted.
+2. Return a stable job ID immediately.
+3. Expose queued, running, completed, failed, and cancelled states.
+4. Publish bounded progress and terminal events without holding the main
+   application lock.
+5. Allow cancellation between render blocks and guarantee temporary-file
+   cleanup.
+6. Keep transport, inspection, WebSocket delivery, and safe project operations
+   responsive during a render.
+7. Restrict default outputs to the project export root and resolve all paths
+   before writing.
+8. Permit extra output roots only through explicit trusted configuration.
+9. Record revision, request, output hash, timestamps, and failure details in
+   job metadata.
+10. Define retention and cleanup behavior for completed jobs and temporary
+    artifacts.
+
+### API hardening and discoverability
+
+1. Add health, readiness, application-version, API-version, capabilities, and
+   schema-discovery endpoints.
+2. Add structural authoring, asset-import, device, runtime-recovery, and render
+   job endpoints using the shared typed contracts.
+3. Keep one stable error envelope for validation, conflict, I/O, runtime,
+   security, and cancellation failures.
+4. Enforce request-body, imported-asset, transaction-operation, and subscriber
+   queue limits.
+5. Reject non-loopback serving during the POC.
+6. Validate HTTP and WebSocket origins against the VibeSound-served origin.
+7. Never accept arbitrary filesystem output paths without an allowlisted root.
+8. Distinguish command acceptance from actual runtime state transitions.
+9. Add idempotency support for retriable mutating requests.
+10. Publish and contract-test the generated OpenAPI schema.
+
+### Plug-and-play acceptance flow
+
+Provide a generated demo project using redistributable synthetic audio. An
+installed package must offer one minimal acceptance launcher that creates or
+opens the demo and starts the local service with one command. This launcher is
+the exception needed to prove installation and operability; the complete CLI
+surface remains Phase 6.
+
+The acceptance flow must:
+
+1. Install the built wheel into a clean Python 3.12 environment.
+2. Create or open the generated demo in one command.
+3. Start the loopback service without requiring an audio device.
+4. Inspect capabilities and project state.
+5. Import audio and create tracks, scenes, clips, and slot assignments only
+   through public contracts.
+6. Preview and commit a multi-operation agent transaction.
+7. Apply mixer edits without resetting transport.
+8. Start a background render, observe progress, and obtain its output hash.
+9. Export a deterministic portable .vibesound archive.
+10. Close, reopen, and verify IDs, revisions, assets, and audible output.
+
+### Verification
+
+Add all of the following gates:
+
+- Static type checking for the package and typed public tests.
+- Coverage reporting with a documented minimum threshold.
+- Wheel and source-archive build, clean installation, and installed-command
+  smoke tests.
+- Windows and Linux device-free CI.
+- API/OpenAPI contract snapshots and backward-compatibility checks.
+- Concurrent request, exclusive lock, stale revision, and external-change tests.
+- ZIP limits, traversal, symlink, decompression, export-root, host, and origin
+  security tests.
+- Render responsiveness, progress, cancellation, and cleanup tests.
+- Runtime state-preservation and explicit-reset tests.
+- Device absence, selection, recoverable underrun, fault, and restart tests.
+- Realistic-duration audio and bounded representative large-project benchmarks.
+- Transparent migration tests for every existing schema-version-1 fixture.
+- A public-contract end-to-end test that does not mutate Pydantic entity lists
+  or depend on private example helpers.
+
+Large-project tests may use sparse or generated assets and bounded benchmark
+thresholds in CI, with full multi-gigabyte validation available as an opt-in
+local test.
+
+### Exit criteria
+
+- A public client can create, edit, play, render, export, and reopen a project
+  without direct model mutation.
+- Existing portable projects migrate transparently and preserve content.
+- Routine metadata and mixer edits do not decode or rewrite unchanged audio.
+- Concurrent or external writers cannot silently overwrite project state.
+- A validated playback-ready project opens successfully in device-free mode.
+- Playback remains usable after transient underruns and exposes device recovery.
+- Safe edits preserve runtime state; required resets are previewed and explicit.
+- Events distinguish scheduled commands from actual engine transitions.
+- Rendering is asynchronous, cancellable, revision-bound, and non-blocking.
+- Loopback, origin, output-path, archive-resource, and request limits are tested.
+- The built wheel passes the complete one-command demo acceptance flow on a clean
+  environment.
+- Phase 6 can implement CLI commands entirely as a client of these stable
+  contracts.
+
+### Non-goals
+
+- The complete general CLI command set, which remains Phase 6.
+- The browser session UI, which remains Phase 7.
+- Standalone Windows installers, which remain a release milestone.
+- Remote access or collaboration.
+- VST3, MIDI, recording, arrangement editing, and automation.
+- Audio fingerprinting, YouTube extraction, catalogue search, or track
+  identification.
+
+
 ## Phase 6 — CLI surface
 
 ### Example maintenance gate
