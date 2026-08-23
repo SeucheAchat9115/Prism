@@ -40,17 +40,17 @@ jobs:
         run: uv run pytest -m "not audio_device and not browser" --cov --cov-report=term-missing
 
       - name: Run strict type checks
-        run: uv run mypy src/vibesound
+        run: uv run mypy src/prism
 
       - name: Run lint checks
         run: uv run ruff check .
 
       - name: Run command smoke checks
         run: |
-          uv run python -m vibesound --help
-          uv run vibesound version
-          uv run vibesound version --json
-          uv run vibesound project init ci-smoke.vibesound-work --dry-run --json
+          uv run python -m prism --help
+          uv run prism version
+          uv run prism version --json
+          uv run prism project init ci-smoke.prism-work --dry-run --json
 
   browser:
     name: Chromium browser session
@@ -125,16 +125,16 @@ jobs:
       - name: Run installed acceptance launcher
         shell: pwsh
         run: |
-          .wheel-smoke\Scripts\vibesound.exe version
-          .wheel-smoke\Scripts\vibesound.exe demo "$env:RUNNER_TEMP\vibesound-demo.vibesound-work" --no-serve
-          .wheel-smoke\Scripts\vibesound.exe serve "$env:RUNNER_TEMP\vibesound-demo.vibesound-work" --dry-run --json
+          .wheel-smoke\Scripts\prism.exe version
+          .wheel-smoke\Scripts\prism.exe demo "$env:RUNNER_TEMP\prism-demo.prism-work" --no-serve
+          .wheel-smoke\Scripts\prism.exe serve "$env:RUNNER_TEMP\prism-demo.prism-work" --dry-run --json
           .wheel-smoke\Scripts\python.exe ci\wheel_ui_smoke.py
 
       - name: Run Phase 8 clean-wheel POC acceptance
         shell: pwsh
         run: |
           uv run python examples\12_reproducible_poc.py `
-            --output-dir "$env:RUNNER_TEMP\vibesound-phase8" `
+            --output-dir "$env:RUNNER_TEMP\prism-phase8" `
             --app-python .wheel-smoke\Scripts\python.exe `
             --timeout 60
 
@@ -143,6 +143,6 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: phase8-poc-diagnostics
-          path: ${{ runner.temp }}/vibesound-phase8
+          path: ${{ runner.temp }}/prism-phase8
           if-no-files-found: ignore
           retention-days: 7

@@ -7,16 +7,16 @@ import httpx
 from fastapi.testclient import TestClient
 from project._helpers import write_wav
 
-from vibesound.api import VibeSoundClient, create_app
-from vibesound.application import (
+from prism.api import PrismClient, create_app
+from prism.application import (
     ApplicationService,
     ExportJobRequest,
     RenderJobRequest,
     TransactionRequest,
 )
-from vibesound.audio import FakeAudioBackend
-from vibesound.demo import ensure_demo
-from vibesound.project import load_project
+from prism.audio import FakeAudioBackend
+from prism.demo import ensure_demo
+from prism.project import load_project
 
 
 class _TestClientTransport(httpx.BaseTransport):
@@ -42,11 +42,11 @@ class _TestClientTransport(httpx.BaseTransport):
 
 
 def test_public_contract_can_author_render_export_and_reopen(tmp_path: Path) -> None:
-    working = tmp_path / "acceptance.vibesound-work"
+    working = tmp_path / "acceptance.prism-work"
     initial = ensure_demo(working)
     service = ApplicationService(working, backend_factory=FakeAudioBackend)
     transport = _TestClientTransport(create_app(service))
-    client = VibeSoundClient("http://testserver", transport=transport)
+    client = PrismClient("http://testserver", transport=transport)
     source = tmp_path / "agent.wav"
     write_wav(source, frames=400, sample_rate=8000)
     track_id, scene_id, asset_id, clip_id = [uuid4() for _ in range(4)]
@@ -121,7 +121,7 @@ def test_public_contract_can_author_render_export_and_reopen(tmp_path: Path) -> 
             project.project_id,
             client.submit_export(
                 project.project_id,
-                ExportJobRequest(output_path="acceptance.vibesound"),
+                ExportJobRequest(output_path="acceptance.prism"),
             ).job_id,
         )
 

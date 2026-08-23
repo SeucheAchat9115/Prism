@@ -6,15 +6,15 @@ import numpy as np
 import soundfile as sf
 from _support import make_music_fixture, parse_output_dir, print_json
 
-from vibesound.audio import OfflineRenderBackend
-from vibesound.engine import TransportClock
-from vibesound.rendering import RenderCommand, RenderRequest
+from prism.audio import OfflineRenderBackend
+from prism.engine import TransportClock
+from prism.rendering import RenderCommand, RenderRequest
 
 
 def main() -> int:
     run_dir = parse_output_dir(
         "make-beat",
-        "Generate a small multi-track VibeSound beat and render a preview.",
+        "Generate a small multi-track Prism beat and render a preview.",
     )
     project_path, project, tracks, scenes, clips = make_music_fixture(run_dir)
     clock = TransportClock.from_transport(project.transport)

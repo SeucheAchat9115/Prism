@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from vibesound.project.models import (
+from prism.project.models import (
     AssetReference,
     AudioClip,
     ClipSlot,
@@ -12,7 +12,7 @@ from vibesound.project.models import (
     Track,
     new_project,
 )
-from vibesound.project.validation import project_reference_issues
+from prism.project.validation import project_reference_issues
 
 
 def test_new_project_has_schema_and_transport_defaults() -> None:

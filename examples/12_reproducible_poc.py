@@ -1,4 +1,4 @@
-"""Run the complete Phase 8 POC against one selected VibeSound installation."""
+"""Run the complete Phase 8 POC against one selected Prism installation."""
 
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ def _parse_args() -> argparse.Namespace:
         "--app-python",
         type=Path,
         default=Path(sys.executable),
-        help="Python interpreter containing the VibeSound installation under test.",
+        help="Python interpreter containing the Prism installation under test.",
     )
     parser.add_argument(
         "--headed",
@@ -85,7 +85,7 @@ def _run_cli(
     command = [
         str(app_python),
         "-m",
-        "vibesound",
+        "prism",
         *(str(argument) for argument in arguments),
         "--json",
     ]
@@ -139,7 +139,7 @@ def _running_service(
     command = [
         str(app_python),
         "-m",
-        "vibesound",
+        "prism",
         "serve",
         str(project_path),
         "--port",
@@ -162,7 +162,7 @@ def _running_service(
             while time.monotonic() < deadline:
                 if process.poll() is not None:
                     raise RuntimeError(
-                        f"VibeSound service exited during startup with code {process.returncode}"
+                        f"Prism service exited during startup with code {process.returncode}"
                     )
                 try:
                     response = httpx.get(f"{url}/api/v1/readiness", timeout=0.25)
@@ -173,7 +173,7 @@ def _running_service(
                     break
                 time.sleep(0.05)
             else:
-                raise RuntimeError(f"VibeSound service did not become ready at {url}")
+                raise RuntimeError(f"Prism service did not become ready at {url}")
             yield url
         finally:
             if process.poll() is None:
@@ -206,7 +206,7 @@ def _demo_ids(project_id: str) -> dict[str, str]:
         "chorus-kick-slot",
         "chorus-tone-slot",
     )
-    return {name: str(uuid5(namespace, f"vibesound-demo:{name}")) for name in names}
+    return {name: str(uuid5(namespace, f"prism-demo:{name}")) for name in names}
 
 
 def _assert_project(
@@ -295,7 +295,7 @@ def main() -> int:
     service_log = run_directory / "service.log"
     trace_path = run_directory / "browser-trace.zip"
     screenshot_path = run_directory / "browser-failure.png"
-    project_path = run_directory / "phase8-poc.vibesound-work"
+    project_path = run_directory / "phase8-poc.prism-work"
 
     _run_cli(
         app_python,

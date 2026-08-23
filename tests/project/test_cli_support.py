@@ -8,11 +8,11 @@ import pytest
 import typer
 from pydantic import BaseModel
 
-from vibesound.api import VibeSoundClientError
-from vibesound.application import ApiIssue, BackgroundJob, TransactionResult
-from vibesound.application.errors import ApplicationError
-from vibesound.command_line import support
-from vibesound.command_line.support import (
+from prism.api import PrismClientError
+from prism.application import ApiIssue, BackgroundJob, TransactionResult
+from prism.application.errors import ApplicationError
+from prism.command_line import support
+from prism.command_line.support import (
     CliExit,
     CliFailure,
     CommandResult,
@@ -27,7 +27,7 @@ from vibesound.command_line.support import (
     validate_service_url,
     wait_for_job,
 )
-from vibesound.project import InvalidArchiveError, ProjectLockedError, WorkingProjectError
+from prism.project import InvalidArchiveError, ProjectLockedError, WorkingProjectError
 
 
 @pytest.mark.parametrize(
@@ -157,7 +157,7 @@ def test_job_wait_and_terminal_failure_classification(monkeypatch: pytest.Monkey
         timeout=1.0,
         on_update=lambda job: updates.append(job.state),
     )
-    context = ProjectContext(path="project.vibesound-work", id=queued.project_id, revision=1)
+    context = ProjectContext(path="project.prism-work", id=queued.project_id, revision=1)
 
     assert terminal.state == "completed"
     assert updates == ["queued", "completed"]
@@ -179,7 +179,7 @@ def test_job_wait_and_terminal_failure_classification(monkeypatch: pytest.Monkey
 
 
 def test_transaction_and_stream_failures_preserve_stable_exit_classes(capsys) -> None:
-    context = ProjectContext(path="project.vibesound-work", id=uuid4(), revision=2)
+    context = ProjectContext(path="project.prism-work", id=uuid4(), revision=2)
     result = TransactionResult(
         ok=False,
         committed=False,
@@ -206,7 +206,7 @@ def test_transaction_and_stream_failures_preserve_stable_exit_classes(capsys) ->
         (KeyboardInterrupt(), CliExit.INTERRUPTED),
         (RuntimeError("closed"), CliExit.SERVICE),
         (
-            VibeSoundClientError(
+            PrismClientError(
                 503,
                 [ApiIssue(code="audio_error", message="audio")],
             ),

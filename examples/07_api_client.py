@@ -5,10 +5,10 @@ from __future__ import annotations
 from _support import make_music_fixture, parse_output_dir, print_json
 from fastapi.testclient import TestClient
 
-from vibesound.api import create_app
-from vibesound.application import ApplicationService
-from vibesound.audio import FakeAudioBackend
-from vibesound.engine import TransportClock
+from prism.api import create_app
+from prism.application import ApplicationService
+from prism.audio import FakeAudioBackend
+from prism.engine import TransportClock
 
 
 def main() -> int:

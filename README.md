@@ -1,6 +1,6 @@
-# VibeSound
+# Prism
 
-VibeSound is a Python-first digital audio workstation designed for two kinds of
+Prism is a Python-first digital audio workstation designed for two kinds of
 users: musicians working in a browser-based session view and coding agents that
 need to inspect, change, render, and validate music projects programmatically.
 
@@ -10,11 +10,11 @@ plugins. The application code, project model, CLI, API, and orchestration layer
 will be Python. Native audio and plugin libraries are allowed behind Python
 interfaces where low-latency audio requires them.
 
-## Why VibeSound?
+## Why Prism?
 
 Music production is full of structured decisions: which clips are active, how
 tracks are mixed, when a scene launches, which effects are enabled, and which
-render should be kept. VibeSound makes those decisions explicit and versionable
+render should be kept. Prism makes those decisions explicit and versionable
 so that a coding agent can help with production without having to drive pixels
 or guess at undocumented application state.
 
@@ -22,7 +22,7 @@ The intended control flow is:
 
 ```text
 Browser UI ─┐
-            ├─ Local VibeSound service ─ Project model ─ Audio engine ─ Audio device
+            ├─ Local Prism service ─ Project model ─ Audio engine ─ Audio device
 CLI ────────┘                         └─ Isolated plugin worker
 Coding agent ─ Versioned local API
 ```
@@ -55,12 +55,12 @@ The project documentation is organized as follows:
 - [Manual examples](examples/README.md) — runnable examples for the current
   persistence, engine, rendering, CLI, and audio-backend features.
 
-The Phase 3 renderer is available through `vibesound.rendering.render()` for
-loaded projects with injected sources and `vibesound.rendering.render_project()`
-for self-contained `.vibesound` archives. Both produce deterministic stereo
+The Phase 3 renderer is available through `prism.rendering.render()` for
+loaded projects with injected sources and `prism.rendering.render_project()`
+for self-contained `.prism` archives. Both produce deterministic stereo
 float32 WAV files without requiring an audio device.
 
-The `vibesound.audio` package provides fake, offline, and PortAudio-backed
+The `prism.audio` package provides fake, offline, and PortAudio-backed
 backends. Device-free tests run by default; the real-device smoke test is
 opt-in with `uv run pytest -m audio_device -s` on Windows.
 
@@ -69,25 +69,25 @@ boundary with twelve numbered generated-audio scripts. Nine examples run
 without hardware; PortAudio diagnostics, the blocking browser launcher, and the
 complete Playwright-driven POC are explicitly opt-in.
 
-The API is available through `vibesound.api.create_app()` for embedding,
-`vibesound.api.run_server(PROJECT)` for a loopback-only server, and
-`vibesound.api.VibeSoundClient` for typed callers. The CLI starts a foreground
+The API is available through `prism.api.create_app()` for embedding,
+`prism.api.run_server(PROJECT)` for a loopback-only server, and
+`prism.api.PrismClient` for typed callers. The CLI starts a foreground
 service explicitly; it never creates an invisible daemon:
 
 ```text
-vibesound serve demo.vibesound-work
+prism serve demo.prism-work
 ```
 
 Add `--open` to request the Phase 7 session in the system browser after the
 service has bound, or open the printed URL manually:
 
 ```text
-vibesound demo demo.vibesound-work --open
-vibesound serve demo.vibesound-work --open
+prism demo demo.prism-work --open
+prism serve demo.prism-work --open
 ```
 
 Service-backed commands default to `http://127.0.0.1:8765`. Override it with
-`--url` or `VIBESOUND_URL`; only loopback targets are accepted. The named local
+`--url` or `PRISM_URL`; only loopback targets are accepted. The named local
 project must match the project ID reported by readiness before a command runs.
 
 ## Completed POC
@@ -101,7 +101,7 @@ complexity. It supports:
 - Track volume, pan, mute, and solo.
 - Local Windows playback.
 - Headless WAV export.
-- Self-contained `.vibesound` ZIP projects with a structured JSON manifest and
+- Self-contained `.prism` ZIP projects with a structured JSON manifest and
   embedded audio assets.
 - A CLI for inspection and mutation.
 - A versioned local HTTP/WebSocket API for coding agents.
@@ -115,19 +115,19 @@ arrangement timeline, automation lanes, collaboration, or remote access.
 The CLI and API expose the same application service. Start it in one terminal:
 
 ```text
-vibesound project init demo.vibesound-work
-vibesound serve demo.vibesound-work
+prism project init demo.prism-work
+prism serve demo.prism-work
 ```
 
 Then use another terminal or agent process:
 
 ```text
-vibesound audio import demo.vibesound-work drums.wav --json
-vibesound transaction preview demo.vibesound-work operations.json --json
-vibesound transaction commit demo.vibesound-work operations.json --json
-vibesound session launch demo.vibesound-work --track Drums --scene Verse --json
-vibesound render demo.vibesound-work --bars 8 --output demo.wav --json
-vibesound project export demo.vibesound-work --output demo.vibesound --json
+prism audio import demo.prism-work drums.wav --json
+prism transaction preview demo.prism-work operations.json --json
+prism transaction commit demo.prism-work operations.json --json
+prism session launch demo.prism-work --track Drums --scene Verse --json
+prism render demo.prism-work --bars 8 --output demo.wav --json
+prism project export demo.prism-work --output demo.prism --json
 ```
 
 Transactions accept either a complete request object or a bare operations array.
@@ -137,12 +137,12 @@ project unchanged and return stable, documented process exit codes.
 
 ## Project format
 
-Portable projects are self-contained ZIP archives with a custom `.vibesound`
-extension. Routine service edits occur in an adjacent `.vibesound-work/`
+Portable projects are self-contained ZIP archives with a custom `.prism`
+extension. Routine service edits occur in an adjacent `.prism-work/`
 directory and portable ZIP creation is explicit:
 
 ```text
-demo.vibesound
+demo.prism
 ├── project.json
 └── assets/
     └── audio/
@@ -154,11 +154,11 @@ clip slots, clips, transport settings, mixer state, and asset metadata in
 `project.json`. Imported audio is copied into `assets/audio/`, keeping each
 project portable and safe for agent-driven workflows.
 
-Archive writes are deterministic and atomic. VibeSound validates member paths,
+Archive writes are deterministic and atomic. Prism validates member paths,
 rejects traversal and symlink entries, preserves imported audio bytes, and only
 rewrites an existing project through an explicit save or migration operation.
 The manifest remains inspectable with standard ZIP tools while the custom
-extension makes project files recognizable to VibeSound.
+extension makes project files recognizable to Prism.
 
 The working representation keeps ordinary `project.json`, immutable assets,
 revision history, project-local exports, and internal lock/staging/cache/job
@@ -175,7 +175,7 @@ state. Removing it does not damage the last portable archive.
 - Keep schema versions and migration code from the first project format onward.
 - Run VST3 plugins outside the main application process.
 - Treat third-party plugin binaries as user-installed dependencies rather than
-  something VibeSound redistributes.
+  something Prism redistributes.
 
 ## Technology direction
 
@@ -225,9 +225,9 @@ uv sync --extra dev
 uv run pytest -m "not audio_device and not browser"
 uv run pytest -m browser --browser chromium
 uv run ruff check .
-uv run mypy src/vibesound
-uv run python -m vibesound --help
-uv run vibesound version
+uv run mypy src/prism
+uv run python -m prism --help
+uv run prism version
 ```
 
 The implementation is intentionally incremental. Each phase in the

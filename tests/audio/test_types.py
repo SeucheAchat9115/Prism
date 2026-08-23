@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from vibesound.audio import AudioBackendConfig, AudioBackendState, AudioDeviceInfo
+from prism.audio import AudioBackendConfig, AudioBackendState, AudioDeviceInfo
 
 
 def test_audio_config_has_balanced_defaults() -> None:

@@ -5,7 +5,7 @@ import time
 import numpy as np
 import pytest
 
-from vibesound.audio import AudioBackendConfig, AudioBackendState, PortAudioBackend
+from prism.audio import AudioBackendConfig, AudioBackendState, PortAudioBackend
 
 from ._helpers import make_audio_fixture
 

@@ -6,20 +6,20 @@ from uuid import uuid4
 import numpy as np
 import pytest
 
-from vibesound.engine import (
+from prism.engine import (
     ClipLaunchedEvent,
     ClipStoppedEvent,
     SessionEngine,
     TransportChangedEvent,
     TransportMode,
 )
-from vibesound.engine.errors import (
+from prism.engine.errors import (
     EngineValidationError,
     InvalidEngineCommandError,
     MissingAudioSourceError,
 )
-from vibesound.engine.sources import AudioBuffer, InMemoryClipSourceProvider
-from vibesound.project.models import (
+from prism.engine.sources import AudioBuffer, InMemoryClipSourceProvider
+from prism.project.models import (
     AssetReference,
     AudioClip,
     ClipSlot,

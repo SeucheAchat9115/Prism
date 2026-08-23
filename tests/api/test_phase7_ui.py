@@ -6,9 +6,9 @@ from pathlib import Path
 from application._helpers import make_archive_fixture
 from fastapi.testclient import TestClient
 
-from vibesound.api import create_app
-from vibesound.application import ApplicationService
-from vibesound.audio import FakeAudioBackend
+from prism.api import create_app
+from prism.application import ApplicationService
+from prism.audio import FakeAudioBackend
 
 
 def test_packaged_browser_session_has_security_headers_and_capability(tmp_path: Path) -> None:
@@ -24,7 +24,7 @@ def test_packaged_browser_session_has_security_headers_and_capability(tmp_path: 
         assert page.status_code == 200
         assert page.headers["content-type"].startswith("text/html")
         assert 'src="/assets/app.js"' in page.text
-        assert "VibeSound Session" in page.text
+        assert "Prism Session" in page.text
         assert script.status_code == 200
         assert script.headers["content-type"].startswith(
             ("text/javascript", "application/javascript")
@@ -45,7 +45,7 @@ def test_packaged_browser_session_has_security_headers_and_capability(tmp_path: 
 
 
 def test_browser_assets_are_package_resources() -> None:
-    root = importlib.resources.files("vibesound.web")
+    root = importlib.resources.files("prism.web")
 
     assert root.joinpath("index.html").is_file()
     assert root.joinpath("assets", "app.js").is_file()

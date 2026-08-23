@@ -11,7 +11,7 @@ manifest directly.
 Start one foreground service for one project:
 
 ```text
-vibesound serve PROJECT [--host 127.0.0.1] [--port 8765] [--open]
+prism serve PROJECT [--host 127.0.0.1] [--port 8765] [--open]
 ```
 
 There is no automatic background daemon. Startup output is emitted only after
@@ -22,7 +22,7 @@ writer lock or binding a socket.
 Every service command accepts `--url`. Its value is selected in this order:
 
 1. Explicit `--url`.
-2. `VIBESOUND_URL`.
+2. `PRISM_URL`.
 3. `http://127.0.0.1:8765`.
 
 Only absolute HTTP(S) loopback URLs without credentials, paths, queries, or
@@ -33,54 +33,54 @@ command to the wrong service.
 
 `project show` and `project validate` use the service by default. Their
 `--portable` form is deliberately offline and reads only an immutable
-`.vibesound` archive. `project migrate` similarly works only on a portable
+`.prism` archive. `project migrate` similarly works only on a portable
 archive and refuses to rewrite it while an adjacent working sidecar exists.
 
 ## Command surface
 
 ```text
-vibesound serve PROJECT [--host HOST] [--port PORT] [--open] [--dry-run] [--json]
+prism serve PROJECT [--host HOST] [--port PORT] [--open] [--dry-run] [--json]
 
-vibesound server status PROJECT
-vibesound server capabilities PROJECT
-vibesound server schemas PROJECT
+prism server status PROJECT
+prism server capabilities PROJECT
+prism server schemas PROJECT
 
-vibesound project init PATH [--dry-run]
-vibesound project show PROJECT [--portable]
-vibesound project validate PROJECT [--portable]
-vibesound project state PROJECT
-vibesound project migrate ARCHIVE [--dry-run]
-vibesound project export PROJECT --output NAME [--no-wait] [--dry-run]
-vibesound project detach-source PROJECT [--dry-run]
+prism project init PATH [--dry-run]
+prism project show PROJECT [--portable]
+prism project validate PROJECT [--portable]
+prism project state PROJECT
+prism project migrate ARCHIVE [--dry-run]
+prism project export PROJECT --output NAME [--no-wait] [--dry-run]
+prism project detach-source PROJECT [--dry-run]
 
-vibesound entity list PROJECT {track|scene|clip|asset|slot}
-vibesound entity resolve PROJECT {track|scene|clip|asset} NAME
+prism entity list PROJECT {track|scene|clip|asset|slot}
+prism entity resolve PROJECT {track|scene|clip|asset} NAME
 
-vibesound audio import PROJECT FILE [--idempotency-key KEY] [--dry-run]
-vibesound asset import PROJECT FILE [--idempotency-key KEY] [--dry-run]
-vibesound audio devices PROJECT
-vibesound audio restart PROJECT [--device DEVICE] [--dry-run]
+prism audio import PROJECT FILE [--idempotency-key KEY] [--dry-run]
+prism asset import PROJECT FILE [--idempotency-key KEY] [--dry-run]
+prism audio devices PROJECT
+prism audio restart PROJECT [--device DEVICE] [--dry-run]
 
-vibesound transport play PROJECT [--dry-run]
-vibesound transport pause PROJECT [--dry-run]
-vibesound transport stop PROJECT [--dry-run]
-vibesound transport reset PROJECT [--dry-run]
+prism transport play PROJECT [--dry-run]
+prism transport pause PROJECT [--dry-run]
+prism transport stop PROJECT [--dry-run]
+prism transport reset PROJECT [--dry-run]
 
-vibesound session launch PROJECT --track SELECTOR --scene SELECTOR [--dry-run]
-vibesound session stop PROJECT --track SELECTOR [--dry-run]
+prism session launch PROJECT --track SELECTOR --scene SELECTOR [--dry-run]
+prism session stop PROJECT --track SELECTOR [--dry-run]
 
-vibesound transaction preview PROJECT OPS_FILE
-vibesound transaction commit PROJECT OPS_FILE [--dry-run]
+prism transaction preview PROJECT OPS_FILE
+prism transaction commit PROJECT OPS_FILE [--dry-run]
 
-vibesound render PROJECT (--bars N | --seconds N) [--commands FILE]
+prism render PROJECT (--bars N | --seconds N) [--commands FILE]
                  [--output NAME] [--no-wait] [--dry-run]
 
-vibesound job list PROJECT
-vibesound job show PROJECT JOB_ID
-vibesound job wait PROJECT JOB_ID [--timeout SECONDS]
-vibesound job cancel PROJECT JOB_ID [--dry-run]
+prism job list PROJECT
+prism job show PROJECT JOB_ID
+prism job wait PROJECT JOB_ID [--timeout SECONDS]
+prism job cancel PROJECT JOB_ID [--dry-run]
 
-vibesound events watch PROJECT [--count N] [--timeout SECONDS] [--json]
+prism events watch PROJECT [--count N] [--timeout SECONDS] [--json]
 ```
 
 `asset import` is a compatibility alias for `audio import`. Import creates only
@@ -162,7 +162,7 @@ stdout after argument parsing:
   "ok": true,
   "command": "transaction commit",
   "project": {
-    "path": "C:\\music\\song.vibesound-work",
+    "path": "C:\\music\\song.prism-work",
     "id": "9ee9b55c-1fc7-43e7-a753-a40c6cb1ee42",
     "revision": 5
   },
@@ -205,12 +205,12 @@ The device-free automated workflow is:
 ```text
 uv run python examples/05_cli_agent_workflow.py
 uv run pytest -m "not audio_device" --cov --cov-report=term-missing
-uv run mypy src/vibesound
+uv run mypy src/prism
 uv run ruff check .
 uv build --no-sources
 ```
 
-Example 05 starts the real installed `vibesound serve` command, waits for
+Example 05 starts the real installed `prism serve` command, waits for
 readiness, exercises the public CLI, shuts the process down, and reopens the
 exported portable archive. The service-backed CLI integration test uses the same
 FastAPI contracts with the deterministic fake audio backend.

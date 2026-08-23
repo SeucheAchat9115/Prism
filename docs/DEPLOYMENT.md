@@ -1,10 +1,10 @@
-# VibeSound Deployment
+# Prism Deployment
 
-This document explains how to turn a VibeSound checkout into an installable
+This document explains how to turn a Prism checkout into an installable
 command-line tool, how to publish a release, and when to add platform-specific
 desktop installers.
 
-VibeSound is a local desktop application with a Python service, CLI, and
+Prism is a local desktop application with a Python service, CLI, and
 packaged browser UI. Deployment therefore means installing the application on the
 musician's or coding agent's machine; it does not currently mean running a
 central hosted service.
@@ -14,7 +14,7 @@ central hosted service.
 The repository currently has the foundation for a Python package:
 
 - `pyproject.toml` defines the Hatchling build system.
-- The `vibesound` console script is exposed through the package metadata.
+- The `prism` console script is exposed through the package metadata.
 - `uv.lock` records the development dependency resolution.
 - Python 3.12 is currently required by `requires-python = ">=3.12,<3.13"`.
 - Continuous integration runs device-free tests, strict typing, lint, and the
@@ -32,14 +32,14 @@ audio engine and browser application have real runtime behavior.
 
 ## Distribution choices
 
-| Distribution | User experience | VibeSound stage |
+| Distribution | User experience | Prism stage |
 | --- | --- | --- |
 | Wheel and source archive | Install with `uv tool install` or another Python package tool | Recommended now |
 | Standalone executable | Run without a separate Python installation | Later POC milestone |
 | Native installer | Windows MSI/winget or Linux AppImage/package | Later polish |
 
-The Python package contains VibeSound's code and Python dependencies. It does
-not contain a user's `.vibesound` projects, audio devices, or third-party VST3
+The Python package contains Prism's code and Python dependencies. It does
+not contain a user's `.prism` projects, audio devices, or third-party VST3
 plugin binaries.
 
 ## Build a package locally
@@ -52,7 +52,7 @@ uv run pytest -m "not audio_device and not browser"
 uv run python -m playwright install chromium
 uv run pytest -m browser --browser chromium
 uv run ruff check .
-uv run mypy src/vibesound
+uv run mypy src/prism
 ```
 
 Build the distributions:
@@ -65,8 +65,8 @@ The artifacts are written to `dist/`:
 
 ```text
 dist/
-├── vibesound-<version>-py3-none-any.whl
-└── vibesound-<version>.tar.gz
+├── prism-<version>-py3-none-any.whl
+└── prism-<version>.tar.gz
 ```
 
 `--no-sources` makes the build use normal published dependency sources. It is
@@ -77,20 +77,20 @@ Test the wheel in an isolated command-line environment. Use the exact wheel
 filename produced in `dist/`:
 
 ```powershell
-uv tool install --python 3.12 .\dist\vibesound-0.1.0.dev0-py3-none-any.whl
-vibesound version
-vibesound --help
-vibesound demo demo.vibesound-work --no-serve
+uv tool install --python 3.12 .\dist\prism-0.1.0.dev0-py3-none-any.whl
+prism version
+prism --help
+prism demo demo.prism-work --no-serve
 ```
 
 The installed wheel contains the Phase 7 HTML, CSS, and JavaScript without a
 Node build. Start the local foreground service and open its UI with:
 
 ```powershell
-vibesound demo demo.vibesound-work --open
+prism demo demo.prism-work --open
 ```
 
-For an existing working project, use `vibesound serve PROJECT --open`. Browser
+For an existing working project, use `prism serve PROJECT --open`. Browser
 opening is opt-in and occurs only after the actual loopback port is bound. If
 the operating system declines the request, the command prints a warning and
 continues serving the URL. This surface is loopback-only and is not suitable as
@@ -110,11 +110,11 @@ application environment contains only the wheel and its runtime dependencies.
 On Linux, the equivalent path is:
 
 ```bash
-uv tool install --python 3.12 ./dist/vibesound-0.1.0.dev0-py3-none-any.whl
-vibesound version
+uv tool install --python 3.12 ./dist/prism-0.1.0.dev0-py3-none-any.whl
+prism version
 ```
 
-If the `vibesound` command is not found after installation, run
+If the `prism` command is not found after installation, run
 `uv tool update-shell` and reopen the terminal. `uv tool install` gives the CLI
 its own isolated environment and puts its executable in a tool bin directory.
 
@@ -124,14 +124,14 @@ After a stable release has been published to PyPI, the normal user flow will
 be:
 
 ```bash
-uv tool install --python 3.12 vibesound
-vibesound --help
+uv tool install --python 3.12 prism
+prism --help
 ```
 
 For a one-off invocation without a persistent installation:
 
 ```bash
-uvx --python 3.12 vibesound --help
+uvx --python 3.12 prism --help
 ```
 
 Developers can continue using a checkout with `uv sync`, while coding agents
@@ -155,7 +155,7 @@ Verify the packages against the target distribution before putting them in an
 installer or deployment image. See the [`sounddevice` installation guide](https://python-sounddevice.readthedocs.io/en/latest/)
 and [`soundfile` documentation](https://python-soundfile.readthedocs.io/en/latest/index.html).
 
-Windows playback is exposed by the Python `vibesound.audio` package and the
+Windows playback is exposed by the Python `prism.audio` package and the
 Phase 6 `audio devices`, `audio restart`, `transport`, and `session` CLI groups.
 Run the normal device-free suite with:
 
@@ -176,10 +176,10 @@ sample rate and reports device-open, callback, and underrun failures through
 typed backend state. It does not install, bundle, or redistribute PortAudio
 device drivers or third-party plugins.
 
-VST3 support will use plugins installed by the user. VibeSound must not copy,
+VST3 support will use plugins installed by the user. Prism must not copy,
 redistribute, or silently install third-party plugin binaries. A future
 installer may check plugin search paths and report missing plugins, but plugin
-licensing and installation remain outside the VibeSound package.
+licensing and installation remain outside the Prism package.
 
 ## CI versus CD
 
@@ -204,8 +204,8 @@ run only for version tags such as `v0.1.0`:
 1. Update the project version and lockfile.
 2. Run the complete test, lint, and CLI smoke suite.
 3. Build the wheel and source archive with `uv build --no-sources`.
-4. Install the built wheel into a clean environment and run `vibesound --help`
-   and `vibesound version`.
+4. Install the built wheel into a clean environment and run `prism --help`
+   and `prism version`.
 5. Upload `dist/` as GitHub Actions artifacts and attach them to the GitHub
    Release.
 6. Publish the same artifacts to PyPI with `uv publish`.
@@ -264,7 +264,7 @@ so a broken release should receive a new version rather than being overwritten.
 A standalone package is useful when a user should not need to install Python.
 It is a separate build product from the wheel:
 
-- **Windows:** build a VibeSound executable on `windows-latest`, test it on a
+- **Windows:** build a Prism executable on `windows-latest`, test it on a
   clean Windows machine, and initially distribute a ZIP or executable. An MSI
   or winget package can follow.
 - **Linux:** build on a Linux runner and initially distribute a tarball. An
@@ -300,7 +300,7 @@ for project creation, project loading, audio import, and clean shutdown.
 - [ ] Tests, lint, and CLI smoke checks pass on every supported OS.
 - [ ] `uv build --no-sources` creates the expected wheel and source archive.
 - [ ] The wheel installs into a clean Python 3.12 environment.
-- [ ] `vibesound version` and `vibesound --help` work after installation.
+- [ ] `prism version` and `prism --help` work after installation.
 - [ ] The release contains checksums or attestations when that process is added.
 - [ ] PyPI publishing uses a trusted publisher or a short-lived token.
 - [ ] Audio system dependencies are documented for the target OS.

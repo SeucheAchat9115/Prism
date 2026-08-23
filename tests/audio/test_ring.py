@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from vibesound.audio.ring import AudioRingBuffer
+from prism.audio.ring import AudioRingBuffer
 
 
 def test_ring_reads_blocks_and_reports_empty_underruns() -> None:

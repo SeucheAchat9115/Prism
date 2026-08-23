@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from vibesound.api import server
+from prism.api import server
 
 
 def test_server_rejects_non_loopback_and_closes_service(monkeypatch, tmp_path: Path) -> None:
@@ -45,9 +45,9 @@ def test_server_rejects_non_loopback_and_closes_service(monkeypatch, tmp_path: P
     )
 
     with pytest.raises(ValueError, match="loopback"):
-        server.run_server(tmp_path / "demo.vibesound", host="0.0.0.0")
+        server.run_server(tmp_path / "demo.prism", host="0.0.0.0")
     server.run_server(
-        tmp_path / "demo.vibesound",
+        tmp_path / "demo.prism",
         host="localhost",
         port=9000,
         started=lambda host, port: served.update(started=(host, port)),

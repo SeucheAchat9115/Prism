@@ -3,8 +3,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from vibesound.audio import AudioBackendState, FakeAudioBackend
-from vibesound.audio.errors import AudioStateError
+from prism.audio import AudioBackendState, FakeAudioBackend
+from prism.audio.errors import AudioStateError
 
 from ._helpers import make_audio_fixture
 

@@ -2,10 +2,10 @@
 
 Status: Accepted
 
-VibeSound opens a portable `demo.vibesound` archive into an adjacent,
-inspectable `demo.vibesound-work/` directory. The portable archive remains
+Prism opens a portable `demo.prism` archive into an adjacent,
+inspectable `demo.prism-work/` directory. The portable archive remains
 unchanged until an explicit export. Working-format metadata, locks, staging,
-caches, and job state live below `.vibesound/`; project metadata, immutable
+caches, and job state live below `.prism/`; project metadata, immutable
 audio assets, revision records, and exports remain ordinary files.
 
 The working representation is disposable without modifying its source archive.

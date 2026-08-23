@@ -3,8 +3,8 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from vibesound.project import ProjectRepository, create_project, import_audio
-from vibesound.project.models import ClipSlot, Scene, Track
+from prism.project import ProjectRepository, create_project, import_audio
+from prism.project.models import ClipSlot, Scene, Track
 
 from ._helpers import write_wav
 
@@ -12,7 +12,7 @@ from ._helpers import write_wav
 def test_representative_50_track_metadata_commit_does_not_rewrite_audio(
     tmp_path: Path,
 ) -> None:
-    archive = tmp_path / "large.vibesound"
+    archive = tmp_path / "large.prism"
     audio = tmp_path / "large-source.wav"
     write_wav(audio, frames=8000, sample_rate=8000)
     create_project(archive, "Representative scale", sample_rate=8000)

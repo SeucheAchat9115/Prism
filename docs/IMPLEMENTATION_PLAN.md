@@ -1,6 +1,6 @@
-# VibeSound Implementation Plan
+# Prism Implementation Plan
 
-This document turns the VibeSound concept into small, testable implementation
+This document turns the Prism concept into small, testable implementation
 steps. The sequence is intentionally POC-first: establish a trustworthy project
 and agent-control loop before adding the failure modes of MIDI, recording, and
 third-party plugins.
@@ -17,7 +17,7 @@ For build, installation, release, and deployment decisions, see the
   a browser UI, CLI operations, and a local API.
 - **Frontend:** HTML/CSS/vanilla JavaScript served by Python; no Node build
   system in the first releases.
-- **Project storage:** a self-contained `.vibesound` ZIP archive containing
+- **Project storage:** a self-contained `.prism` ZIP archive containing
   `project.json` and embedded audio assets.
 - **POC media:** audio clips first; MIDI comes later.
 - **Agent control:** CLI plus a versioned HTTP/WebSocket API.
@@ -55,12 +55,12 @@ are implemented and passing.
 
 ### Components
 
-1. [x] Clone the empty `SeucheAchat9115/VibeSound` repository into the workspace.
+1. [x] Clone the empty `SeucheAchat9115/Prism` repository into the workspace.
 2. [x] Create the first `main` branch and bootstrap commit.
 3. [x] Add `pyproject.toml` with Python 3.12 metadata, runtime dependencies, and
    development commands.
-4. [x] Add the `src/vibesound/` package layout.
-5. [x] Add a minimal `vibesound` CLI with `--help` and `version`.
+4. [x] Add the `src/prism/` package layout.
+5. [x] Add a minimal `prism` CLI with `--help` and `version`.
 6. [x] Add `tests/`, `.gitignore`, and the initial smoke test.
 7. [x] Add formatting, linting, and test configuration.
 8. [x] Add Windows CI for tests that do not require an audio device in
@@ -69,7 +69,7 @@ are implemented and passing.
 ### Exit criteria
 
 - [x] A clean checkout can create an environment with `uv sync --extra dev`.
-- [x] `uv run python -m vibesound --help` succeeds.
+- [x] `uv run python -m prism --help` succeeds.
 - [x] `uv run pytest` succeeds without an audio device.
 - [x] `uv run ruff check .` succeeds.
 
@@ -89,10 +89,10 @@ phases.
 
 ### Archive contract
 
-Each project is a ZIP archive with a `.vibesound` extension:
+Each project is a ZIP archive with a `.prism` extension:
 
 ```text
-demo.vibesound
+demo.prism
 ├── project.json
 └── assets/
     └── audio/
@@ -125,7 +125,7 @@ Archive guarantees:
    metadata, size, and SHA-256 tracking.
 9. [x] Implement an explicit schema migration registry.
 10. [x] Add CLI commands for project init/show/validate/migrate and asset import.
-11. [x] Update the README and implementation plan to document `.vibesound`
+11. [x] Update the README and implementation plan to document `.prism`
     ZIP projects.
 
 ### Public persistence operations
@@ -145,11 +145,11 @@ or save operation rewrites the archive. Future schema versions are rejected.
 ### CLI operations
 
 ```text
-vibesound project init PATH [--name NAME] [--tempo BPM] [--sample-rate RATE]
-vibesound project show PATH [--json]
-vibesound project validate PATH [--json]
-vibesound project migrate PATH
-vibesound asset import PROJECT SOURCE [--json]
+prism project init PATH [--name NAME] [--tempo BPM] [--sample-rate RATE]
+prism project show PATH [--json]
+prism project validate PATH [--json]
+prism project migrate PATH
+prism asset import PROJECT SOURCE [--json]
 ```
 
 ### Exit criteria
@@ -181,7 +181,7 @@ files, expose CLI/API commands, or open an audio device.
 
 ### Components
 
-1. [x] Add the `vibesound.engine` package and typed runtime errors.
+1. [x] Add the `prism.engine` package and typed runtime errors.
 2. [x] Add immutable runtime snapshots, scheduled actions, engine steps, and
    transport/clip events.
 3. [x] Implement exact sample-frame beat/bar conversion with time-signature-aware
@@ -307,7 +307,7 @@ commands are exact even when the persisted session quantization is beat or bar.
 ## Phase 4 — Windows audio backend
 
 Phase 4 is implemented as a backend-only milestone. The reusable audio control
-surface is available through `vibesound.audio`; CLI, HTTP API, and browser
+surface is available through `prism.audio`; CLI, HTTP API, and browser
 integration remain in later phases. Automated verification is device-free, with
 an opt-in Windows hardware smoke test for final machine-level validation.
 
@@ -393,7 +393,7 @@ new backend after correcting the device or runtime problem.
 **Completed:** 2026-08-22
 
 Phase 5 adds the shared application service and a versioned loopback API. One
-service process owns one validated `.vibesound` archive, an injectable audio
+service process owns one validated `.prism` archive, an injectable audio
 backend, synchronous rendering, revisioned transactions, and bounded
 WebSocket event subscriptions. The CLI and browser remain clients for later
 phases.
@@ -506,7 +506,7 @@ accepted/scheduled control events.
 summarized in [PHASE_5_5.md](PHASE_5_5.md).
 
 Phase 5.5 is the mandatory stabilization milestone between the completed
-application service/API and the general CLI surface. It keeps VibeSound focused
+application service/API and the general CLI surface. It keeps Prism focused
 as a Python-first DAW for musicians and coding agents, closes the incomplete
 authoring loop, and fixes persistence, runtime, security, operability, and
 delivery risks before additional clients depend on the current contracts.
@@ -518,13 +518,13 @@ foundation for the CLI and browser phases.
 
 ### Fixed decisions
 
-- **Product identity:** VibeSound remains a DAW for musicians and coding agents.
+- **Product identity:** Prism remains a DAW for musicians and coding agents.
   Audio fingerprinting, YouTube extraction, catalogue search, and track
   identification are outside this product roadmap.
 - **Target scale:** ordinary projects with up to roughly 50 tracks and several
   gigabytes of audio must remain responsive without loading or rewriting the
   complete project for routine edits.
-- **Storage:** retain the portable .vibesound archive and add an efficient
+- **Storage:** retain the portable .prism archive and add an efficient
   working-project directory representation. Opening an existing archive must
   transparently create or migrate a compatible working representation; portable
   archive export remains explicit and deterministic.
@@ -538,7 +538,7 @@ foundation for the CLI and browser phases.
   processes use the service API. Direct writers require an exclusive project
   lock.
 - **Network boundary:** local loopback only in the POC. Reject non-loopback
-  binding and WebSocket origins not served by VibeSound.
+  binding and WebSocket origins not served by Prism.
 - **Exports:** API renders use project-local exports by default. Additional
   destinations require an explicit configured allowlist.
 - **Runtime edits:** mixer changes apply without backend recreation. Other edits
@@ -678,7 +678,7 @@ damaging the last portable archive.
 4. Enforce request-body, imported-asset, transaction-operation, and subscriber
    queue limits.
 5. Reject non-loopback serving during the POC.
-6. Validate HTTP and WebSocket origins against the VibeSound-served origin.
+6. Validate HTTP and WebSocket origins against the Prism-served origin.
 7. Never accept arbitrary filesystem output paths without an allowlisted root.
 8. Distinguish command acceptance from actual runtime state transitions.
 9. Add idempotency support for retriable mutating requests.
@@ -703,7 +703,7 @@ The acceptance flow must:
 6. Preview and commit a multi-operation agent transaction.
 7. Apply mixer edits without resetting transport.
 8. Start a background render, observe progress, and obtain its output hash.
-9. Export a deterministic portable .vibesound archive.
+9. Export a deterministic portable .prism archive.
 10. Close, reopen, and verify IDs, revisions, assets, and audible output.
 
 ### Verification
@@ -771,22 +771,22 @@ local test.
 ### Commands
 
 ```text
-vibesound project init PATH
-vibesound project show|validate PROJECT [--portable]
-vibesound project state|export|detach-source PROJECT
-vibesound project migrate ARCHIVE
-vibesound server status|capabilities|schemas PROJECT
-vibesound entity list|resolve PROJECT TYPE
-vibesound audio import PROJECT FILE
-vibesound audio devices|restart PROJECT
-vibesound session launch|stop PROJECT
-vibesound transport play|pause|stop|reset PROJECT
-vibesound transaction preview PROJECT OPS_FILE
-vibesound transaction commit PROJECT OPS_FILE
-vibesound render PROJECT (--bars N | --seconds N)
-vibesound job list|show|wait|cancel PROJECT
-vibesound events watch PROJECT
-vibesound serve PROJECT
+prism project init PATH
+prism project show|validate PROJECT [--portable]
+prism project state|export|detach-source PROJECT
+prism project migrate ARCHIVE
+prism server status|capabilities|schemas PROJECT
+prism entity list|resolve PROJECT TYPE
+prism audio import PROJECT FILE
+prism audio devices|restart PROJECT
+prism session launch|stop PROJECT
+prism transport play|pause|stop|reset PROJECT
+prism transaction preview PROJECT OPS_FILE
+prism transaction commit PROJECT OPS_FILE
+prism render PROJECT (--bars N | --seconds N)
+prism job list|show|wait|cancel PROJECT
+prism events watch PROJECT
+prism serve PROJECT
 ```
 
 ### CLI rules
@@ -926,7 +926,7 @@ restore_plugin_state(plugin_id, state)
 unload_plugin(plugin_id)
 ```
 
-Third-party plugins are user-installed dependencies. VibeSound must not ship
+Third-party plugins are user-installed dependencies. Prism must not ship
 plugin binaries or bypass plugin licensing.
 
 ## Phase 10 — Features after the POC

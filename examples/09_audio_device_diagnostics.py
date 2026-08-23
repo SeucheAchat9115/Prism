@@ -13,8 +13,8 @@ import time
 
 from _support import make_memory_fixture
 
-from vibesound.audio import AudioBackendConfig, PortAudioBackend, list_output_devices
-from vibesound.audio.errors import AudioBackendError
+from prism.audio import AudioBackendConfig, PortAudioBackend, list_output_devices
+from prism.audio.errors import AudioBackendError
 
 
 def _device_value(value: str) -> int | str:
@@ -40,7 +40,7 @@ def main() -> int:
         parser.error("--play-seconds must not be negative")
 
     doctor = subprocess.run(
-        [sys.executable, "-m", "vibesound", "doctor"],
+        [sys.executable, "-m", "prism", "doctor"],
         check=False,
         capture_output=True,
         text=True,

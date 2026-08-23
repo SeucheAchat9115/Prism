@@ -6,7 +6,7 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 
-from vibesound.project.archive import (
+from prism.project.archive import (
     MANIFEST_MEMBER,
     create_project,
     import_audio,
@@ -15,8 +15,8 @@ from vibesound.project.archive import (
     save_project,
     validate_project,
 )
-from vibesound.project.errors import InvalidArchiveError
-from vibesound.project.migrations import MigrationRegistry
+from prism.project.errors import InvalidArchiveError
+from prism.project.migrations import MigrationRegistry
 
 from ._helpers import write_wav
 
@@ -29,7 +29,7 @@ def _write_manifest(path: Path, document: dict, *members: tuple[str, bytes]) -> 
 
 
 def test_create_load_and_save_are_deterministic(tmp_path: Path) -> None:
-    path = tmp_path / "demo.vibesound"
+    path = tmp_path / "demo.prism"
     created = create_project(path, "Demo")
     first_bytes = path.read_bytes()
 
@@ -41,7 +41,7 @@ def test_create_load_and_save_are_deterministic(tmp_path: Path) -> None:
 
 
 def test_import_audio_copies_asset_and_updates_revision(tmp_path: Path) -> None:
-    project_path = tmp_path / "demo.vibesound"
+    project_path = tmp_path / "demo.prism"
     source_path = tmp_path / "Drums With Spaces.wav"
     original_bytes = write_wav(source_path)
     create_project(project_path, "Demo")
@@ -59,7 +59,7 @@ def test_import_audio_copies_asset_and_updates_revision(tmp_path: Path) -> None:
 
 
 def test_validate_detects_corrupted_asset_bytes(tmp_path: Path) -> None:
-    project_path = tmp_path / "demo.vibesound"
+    project_path = tmp_path / "demo.prism"
     source_path = tmp_path / "tone.wav"
     write_wav(source_path)
     create_project(project_path, "Demo")
@@ -80,7 +80,7 @@ def test_validate_detects_corrupted_asset_bytes(tmp_path: Path) -> None:
 
 
 def test_unsafe_archive_member_is_rejected(tmp_path: Path) -> None:
-    path = tmp_path / "unsafe.vibesound"
+    path = tmp_path / "unsafe.prism"
     _write_manifest(path, {"schema_version": 1}, ("../outside.wav", b"bad"))
 
     with pytest.raises(InvalidArchiveError, match="Unsafe archive member"):
@@ -88,7 +88,7 @@ def test_unsafe_archive_member_is_rejected(tmp_path: Path) -> None:
 
 
 def test_missing_asset_member_is_reported(tmp_path: Path) -> None:
-    project_path = tmp_path / "demo.vibesound"
+    project_path = tmp_path / "demo.prism"
     source_path = tmp_path / "tone.wav"
     write_wav(source_path)
     create_project(project_path, "Demo")
@@ -110,7 +110,7 @@ def test_failed_save_preserves_original_archive(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    project_path = tmp_path / "demo.vibesound"
+    project_path = tmp_path / "demo.prism"
     create_project(project_path, "Demo")
     original_bytes = project_path.read_bytes()
     project = load_project(project_path)
@@ -119,16 +119,16 @@ def test_failed_save_preserves_original_archive(
     def fail_replace(_source: str | bytes | Path, _destination: str | bytes | Path) -> None:
         raise OSError("simulated replacement failure")
 
-    monkeypatch.setattr("vibesound.project.archive.os.replace", fail_replace)
+    monkeypatch.setattr("prism.project.archive.os.replace", fail_replace)
     with pytest.raises(OSError, match="simulated replacement failure"):
         save_project(project_path, project)
 
     assert project_path.read_bytes() == original_bytes
-    assert not list(tmp_path.glob(".demo.vibesound.*.tmp"))
+    assert not list(tmp_path.glob(".demo.prism.*.tmp"))
 
 
 def test_registered_migration_is_in_memory_until_explicit_save(tmp_path: Path) -> None:
-    project_path = tmp_path / "legacy.vibesound"
+    project_path = tmp_path / "legacy.prism"
     document = {
         "schema_version": 0,
         "project_id": "00000000-0000-0000-0000-000000000001",

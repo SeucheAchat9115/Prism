@@ -7,10 +7,10 @@ import hashlib
 import soundfile as sf
 from _support import make_music_fixture, parse_output_dir, print_json
 
-from vibesound.application import ApplicationService, RenderJobRequest, TransactionRequest
-from vibesound.audio import FakeAudioBackend
-from vibesound.engine import TransportClock
-from vibesound.project import load_project
+from prism.application import ApplicationService, RenderJobRequest, TransactionRequest
+from prism.audio import FakeAudioBackend
+from prism.engine import TransportClock
+from prism.project import load_project
 
 
 def main() -> int:

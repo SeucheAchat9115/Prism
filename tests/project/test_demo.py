@@ -4,13 +4,13 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from vibesound.cli import app
-from vibesound.demo import demo_ids
-from vibesound.project import ProjectRepository
+from prism.cli import app
+from prism.demo import demo_ids
+from prism.project import ProjectRepository
 
 
 def test_one_command_demo_is_device_free_and_reopenable(tmp_path: Path) -> None:
-    path = tmp_path / "demo.vibesound-work"
+    path = tmp_path / "demo.prism-work"
     runner = CliRunner()
 
     created = runner.invoke(app, ["demo", str(path), "--no-serve"])

@@ -24,10 +24,10 @@ env/
 .idea/
 .vscode/
 
-# VibeSound projects and generated media
-*.vibesound/exports/
-*.vibesound/.cache/
-*.vibesound-work/
+# Prism projects and generated media
+*.prism/exports/
+*.prism/.cache/
+*.prism-work/
 exports/
 
 # OS files

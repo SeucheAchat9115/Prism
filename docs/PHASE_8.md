@@ -1,6 +1,6 @@
 # Phase 8 reproducible POC acceptance
 
-Phase 8 closes the first VibeSound proof of concept with one repeatable workflow
+Phase 8 closes the first Prism proof of concept with one repeatable workflow
 that crosses the packaged browser, CLI, transaction, renderer, and working-project
 boundaries. The blocking gate runs against the exact built wheel on a clean
 Windows runner without an audio device or third-party plugins.
@@ -10,7 +10,7 @@ tag, or add a PyPI/GitHub Release workflow.
 
 ## Canonical fixture
 
-A fresh `vibesound demo` destination is created in one atomic transaction at
+A fresh `prism demo` destination is created in one atomic transaction at
 revision 1. Its generated audio and UUID5-derived entity IDs are deterministic
 for that project ID. Existing non-empty demo paths remain untouched.
 
@@ -40,7 +40,7 @@ uv run python examples/12_reproducible_poc.py
 
 Chromium is headless by default. Add `--headed` to watch the session, use
 `--output-dir PATH` to choose the artifact root, or pass `--app-python PATH` to
-test a VibeSound installation in another Python environment.
+test a Prism installation in another Python environment.
 
 The runner performs these checks through public browser and CLI contracts:
 
@@ -57,7 +57,7 @@ The runner performs these checks through public browser and CLI contracts:
 8. Stop the service, reopen the project in a new service process, verify revision
    2 and its exact content, and run layered validation.
 
-Every VibeSound subprocess is launched with the interpreter selected by
+Every Prism subprocess is launched with the interpreter selected by
 `--app-python`. Playwright remains a driver dependency and is not installed into
 or imported by the application under test.
 

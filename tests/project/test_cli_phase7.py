@@ -8,10 +8,10 @@ from typing import Any
 
 from typer.testing import CliRunner
 
-from vibesound.cli import app
-from vibesound.demo import ensure_demo
+from prism.cli import app
+from prism.demo import ensure_demo
 
-command_line_app = importlib.import_module("vibesound.command_line.app")
+command_line_app = importlib.import_module("prism.command_line.app")
 
 
 def _json_lines(output: str) -> list[dict[str, Any]]:
@@ -36,7 +36,7 @@ def _stub_server(monkeypatch, *, host: str = "127.0.0.1", port: int = 43117) -> 
 
 
 def test_serve_open_waits_for_bound_url_and_reports_json(monkeypatch, tmp_path: Path) -> None:
-    working = tmp_path / "browser-open.vibesound-work"
+    working = tmp_path / "browser-open.prism-work"
     ensure_demo(working)
     _stub_server(monkeypatch, port=43118)
     opened: list[tuple[str, int]] = []
@@ -64,7 +64,7 @@ def test_serve_open_failure_is_nonfatal_and_dry_run_never_opens(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    working = tmp_path / "browser-failure.vibesound-work"
+    working = tmp_path / "browser-failure.prism-work"
     ensure_demo(working)
     _stub_server(monkeypatch)
     calls = 0
@@ -95,7 +95,7 @@ def test_serve_open_failure_is_nonfatal_and_dry_run_never_opens(
 def test_demo_rejects_open_without_server(tmp_path: Path) -> None:
     result = CliRunner().invoke(
         app,
-        ["demo", str(tmp_path / "no-server.vibesound-work"), "--no-serve", "--open", "--json"],
+        ["demo", str(tmp_path / "no-server.prism-work"), "--no-serve", "--open", "--json"],
     )
 
     assert result.exit_code == 2

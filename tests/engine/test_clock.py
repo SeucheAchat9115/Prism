@@ -2,9 +2,9 @@ from fractions import Fraction
 
 import pytest
 
-from vibesound.engine import TransportClock
-from vibesound.engine.errors import InvalidEngineCommandError
-from vibesound.project.models import TransportState
+from prism.engine import TransportClock
+from prism.engine.errors import InvalidEngineCommandError
+from prism.project.models import TransportState
 
 
 def test_clock_uses_exact_musical_frame_lengths() -> None:

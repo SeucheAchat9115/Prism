@@ -3,14 +3,14 @@ from __future__ import annotations
 from pathlib import Path
 from queue import Empty
 
-from vibesound.application import (
+from prism.application import (
     ApplicationService,
     ClipLaunchRequest,
     ClipStopRequest,
     TransactionRequest,
     TransportRequest,
 )
-from vibesound.audio import FakeAudioBackend
+from prism.audio import FakeAudioBackend
 
 from ._helpers import make_archive_fixture
 

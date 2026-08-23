@@ -7,8 +7,8 @@ from uuid import uuid4
 
 import numpy as np
 
-from vibesound.engine import AudioBuffer, InMemoryClipSourceProvider
-from vibesound.project.models import (
+from prism.engine import AudioBuffer, InMemoryClipSourceProvider
+from prism.project.models import (
     AssetReference,
     AudioClip,
     ClipSlot,

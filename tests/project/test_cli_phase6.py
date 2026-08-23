@@ -9,12 +9,12 @@ import pytest
 from fastapi.testclient import TestClient
 from typer.testing import CliRunner, Result
 
-from vibesound.api import VibeSoundClient, create_app
-from vibesound.application import ApplicationService
-from vibesound.audio import FakeAudioBackend
-from vibesound.cli import app
-from vibesound.command_line import support
-from vibesound.project import ProjectRepository
+from prism.api import PrismClient, create_app
+from prism.application import ApplicationService
+from prism.audio import FakeAudioBackend
+from prism.cli import app
+from prism.command_line import support
+from prism.project import ProjectRepository
 
 from ._helpers import write_wav
 
@@ -53,7 +53,7 @@ def test_service_backed_phase6_cli_workflow(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    working = tmp_path / "phase6.vibesound-work"
+    working = tmp_path / "phase6.prism-work"
     with ProjectRepository.create(working, "Phase 6", sample_rate=8000):
         pass
     service = ApplicationService(working, backend_factory=FakeAudioBackend)
@@ -64,15 +64,15 @@ def test_service_backed_phase6_cli_workflow(
         *,
         timeout: float = 30.0,
         transport: httpx.BaseTransport | None = None,
-    ) -> VibeSoundClient:
+    ) -> PrismClient:
         del transport
-        return VibeSoundClient(
+        return PrismClient(
             base_url,
             timeout=timeout,
             transport=_TestClientTransport(api),
         )
 
-    monkeypatch.setattr(support, "VibeSoundClient", client_factory)
+    monkeypatch.setattr(support, "PrismClient", client_factory)
     runner = CliRunner()
     common = ["--url", "http://127.0.0.1:8765", "--json"]
     source = tmp_path / "sample.wav"
@@ -252,7 +252,7 @@ def test_service_backed_phase6_cli_workflow(
                     "export",
                     str(working),
                     "--output",
-                    "cli.vibesound",
+                    "cli.prism",
                     *common,
                 ],
             )
@@ -319,8 +319,8 @@ def test_cli_rejects_remote_urls_and_project_mismatches(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    first = tmp_path / "first.vibesound-work"
-    second = tmp_path / "second.vibesound-work"
+    first = tmp_path / "first.prism-work"
+    second = tmp_path / "second.prism-work"
     with ProjectRepository.create(first, "First"):
         pass
     with ProjectRepository.create(second, "Second"):
@@ -333,15 +333,15 @@ def test_cli_rejects_remote_urls_and_project_mismatches(
         *,
         timeout: float = 30.0,
         transport: httpx.BaseTransport | None = None,
-    ) -> VibeSoundClient:
+    ) -> PrismClient:
         del transport
-        return VibeSoundClient(
+        return PrismClient(
             base_url,
             timeout=timeout,
             transport=_TestClientTransport(api),
         )
 
-    monkeypatch.setattr(support, "VibeSoundClient", client_factory)
+    monkeypatch.setattr(support, "PrismClient", client_factory)
     runner = CliRunner()
     try:
         remote = runner.invoke(

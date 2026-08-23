@@ -1,6 +1,6 @@
 import numpy as np
 
-from vibesound.engine import FakeAudioSink
+from prism.engine import FakeAudioSink
 
 
 def test_fake_sink_collects_stereo_blocks() -> None:

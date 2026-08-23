@@ -7,20 +7,20 @@ from uuid import uuid4
 import pytest
 from project._helpers import write_wav
 
-from vibesound.application import (
+from prism.application import (
     ApplicationError,
     ApplicationService,
     TransactionRequest,
     TransportRequest,
 )
-from vibesound.audio import FakeAudioBackend
-from vibesound.project import create_project
+from prism.audio import FakeAudioBackend
+from prism.project import create_project
 
 from ._helpers import make_archive_fixture
 
 
 def _empty_service(tmp_path: Path) -> tuple[ApplicationService, object]:
-    archive = tmp_path / "authoring.vibesound"
+    archive = tmp_path / "authoring.prism"
     project = create_project(archive, "Authoring", sample_rate=8000)
     return ApplicationService(archive, backend_factory=FakeAudioBackend), project
 
@@ -289,7 +289,7 @@ def test_metadata_commit_reuses_prepared_audio_cache(tmp_path: Path) -> None:
     service = ApplicationService(project_path, backend_factory=FakeAudioBackend)
     try:
         cache_files = list(
-            (service.working_path / ".vibesound" / "cache" / "audio").glob("*.npy")
+            (service.working_path / ".prism" / "cache" / "audio").glob("*.npy")
         )
         assert len(cache_files) == 1
         before = cache_files[0].stat().st_mtime_ns

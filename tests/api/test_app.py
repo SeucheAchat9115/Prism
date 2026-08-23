@@ -5,9 +5,9 @@ from pathlib import Path
 from application._helpers import make_archive_fixture
 from fastapi.testclient import TestClient
 
-from vibesound.api import create_app
-from vibesound.application import ApplicationService, TransportRequest
-from vibesound.audio import FakeAudioBackend
+from prism.api import create_app
+from prism.application import ApplicationService, TransportRequest
+from prism.audio import FakeAudioBackend
 
 
 def test_api_exposes_project_transactions_controls_render_and_events(tmp_path: Path) -> None:
@@ -78,7 +78,7 @@ def test_api_exposes_project_transactions_controls_render_and_events(tmp_path: P
         )
         export_preview = client.post(
             f"/api/v1/projects/{project_id}/export-jobs/preview",
-            json={"output_path": "preview.vibesound"},
+            json={"output_path": "preview.prism"},
         )
         upload_id = "44444444-4444-4444-8444-444444444444"
         staged = client.post(

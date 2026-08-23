@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from vibesound.rendering import InvalidRenderRequestError, RenderCommand, RenderRequest
+from prism.rendering import InvalidRenderRequestError, RenderCommand, RenderRequest
 
 
 def test_render_request_requires_exactly_one_positive_range() -> None:

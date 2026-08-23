@@ -5,12 +5,12 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
-from vibesound.cli import app
+from prism.cli import app
 
 
 def test_portable_project_cli_workflow_uses_versioned_envelopes(tmp_path: Path) -> None:
     runner = CliRunner()
-    project_path = tmp_path / "cli-demo.vibesound"
+    project_path = tmp_path / "cli-demo.prism"
 
     initialized = runner.invoke(
         app,
@@ -39,7 +39,7 @@ def test_portable_project_cli_workflow_uses_versioned_envelopes(tmp_path: Path) 
 
 
 def test_project_init_dry_run_does_not_create_output(tmp_path: Path) -> None:
-    path = tmp_path / "dry.vibesound-work"
+    path = tmp_path / "dry.prism-work"
     result = CliRunner().invoke(
         app,
         ["project", "init", str(path), "--dry-run", "--json"],
@@ -51,7 +51,7 @@ def test_project_init_dry_run_does_not_create_output(tmp_path: Path) -> None:
 
 
 def test_serve_dry_run_renders_a_valid_ipv6_url(tmp_path: Path) -> None:
-    project_path = tmp_path / "ipv6.vibesound-work"
+    project_path = tmp_path / "ipv6.prism-work"
     initialized = CliRunner().invoke(
         app,
         ["project", "init", str(project_path), "--json"],

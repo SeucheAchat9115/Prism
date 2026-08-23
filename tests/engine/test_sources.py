@@ -3,8 +3,8 @@ from uuid import uuid4
 import numpy as np
 import pytest
 
-from vibesound.engine import AudioBuffer, InMemoryClipSourceProvider
-from vibesound.engine.errors import InvalidAudioBufferError, MissingAudioSourceError
+from prism.engine import AudioBuffer, InMemoryClipSourceProvider
+from prism.engine.errors import InvalidAudioBufferError, MissingAudioSourceError
 
 
 def test_audio_buffer_is_contiguous_and_read_only() -> None:

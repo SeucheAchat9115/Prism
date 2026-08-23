@@ -4,9 +4,9 @@ from uuid import uuid4
 
 import pytest
 
-from vibesound.application.errors import EventStreamOverflowError
-from vibesound.application.events import EventHub
-from vibesound.application.types import EventEnvelope
+from prism.application.errors import EventStreamOverflowError
+from prism.application.events import EventHub
+from prism.application.types import EventEnvelope
 
 
 def test_subscriber_count_and_queue_capacity_are_bounded() -> None:

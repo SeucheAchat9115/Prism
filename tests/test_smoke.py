@@ -1,4 +1,4 @@
-from vibesound import __version__
+from prism import __version__
 
 
 def test_package_has_a_version() -> None:

@@ -14,11 +14,11 @@ import uvicorn
 from playwright.sync_api import Page, expect
 from typer.testing import CliRunner
 
-from vibesound.api import create_app
-from vibesound.application import ApplicationService
-from vibesound.audio import FakeAudioBackend
-from vibesound.cli import app as cli_app
-from vibesound.demo import demo_ids, ensure_demo
+from prism.api import create_app
+from prism.application import ApplicationService
+from prism.audio import FakeAudioBackend
+from prism.cli import app as cli_app
+from prism.demo import demo_ids, ensure_demo
 
 pytestmark = pytest.mark.browser
 
@@ -33,7 +33,7 @@ class BrowserServer:
 
 @pytest.fixture
 def browser_server(tmp_path: Path) -> Iterator[BrowserServer]:
-    working = tmp_path / "phase7-browser.vibesound-work"
+    working = tmp_path / "phase7-browser.prism-work"
     project = ensure_demo(working)
     service = ApplicationService(working, backend_factory=FakeAudioBackend)
     listener = socket.create_server(("127.0.0.1", 0))
@@ -80,7 +80,7 @@ def test_session_controls_mixer_render_and_errors(
     ids = demo_ids(browser_server.project.project_id)
     open_session(page, browser_server)
 
-    expect(page.locator("#project-name")).to_have_text("VibeSound demo")
+    expect(page.locator("#project-name")).to_have_text("Prism demo")
     expect(page.get_by_test_id("session-grid").locator(".slot-button")).to_have_count(4)
     expect(page.get_by_test_id("validation-content")).to_contain_text("checks passed")
 

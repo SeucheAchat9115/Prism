@@ -22,7 +22,7 @@ from _support import parse_output_dir, write_sine_wav
 def run_cli(*arguments: str | Path) -> dict[str, Any]:
     """Run the installed CLI, print its streams, and parse one JSON envelope."""
 
-    command = [sys.executable, "-m", "vibesound", *(str(argument) for argument in arguments)]
+    command = [sys.executable, "-m", "prism", *(str(argument) for argument in arguments)]
     print(f"$ {subprocess.list2cmdline(command)}")
     result = subprocess.run(command, check=False, capture_output=True, text=True)
     if result.stdout:
@@ -37,7 +37,7 @@ def run_cli(*arguments: str | Path) -> dict[str, Any]:
 
 @contextmanager
 def running_service(project: Path) -> Iterator[str]:
-    """Start the real ``vibesound serve`` command and stop it gracefully."""
+    """Start the real ``prism serve`` command and stop it gracefully."""
 
     with socket.create_server(("127.0.0.1", 0)) as reservation:
         port = int(reservation.getsockname()[1])
@@ -45,7 +45,7 @@ def running_service(project: Path) -> Iterator[str]:
     command = [
         sys.executable,
         "-m",
-        "vibesound",
+        "prism",
         "serve",
         str(project),
         "--port",
@@ -76,7 +76,7 @@ def running_service(project: Path) -> Iterator[str]:
                 break
             time.sleep(0.05)
         else:
-            raise RuntimeError("VibeSound service did not become ready")
+            raise RuntimeError("Prism service did not become ready")
         yield url
     finally:
         if process.poll() is None:
@@ -98,9 +98,9 @@ def _service_args(url: str) -> tuple[str, ...]:
 def main() -> int:
     run_dir = parse_output_dir(
         "cli-workflow",
-        "Run the complete VibeSound Phase 6 CLI workflow.",
+        "Run the complete Prism Phase 6 CLI workflow.",
     )
-    project_path = run_dir / "cli-example.vibesound-work"
+    project_path = run_dir / "cli-example.prism-work"
     source_path = run_dir / "cli-source.wav"
     operations_path = run_dir / "operations.json"
     render_commands_path = run_dir / "render-commands.json"
@@ -246,7 +246,7 @@ def main() -> int:
             "export",
             project_path,
             "--output",
-            "cli-example.vibesound",
+            "cli-example.prism",
             "--dry-run",
             *service,
         )
@@ -255,7 +255,7 @@ def main() -> int:
             "export",
             project_path,
             "--output",
-            "cli-example.vibesound",
+            "cli-example.prism",
             *service,
         )
         run_cli("project", "detach-source", project_path, "--dry-run", *service)

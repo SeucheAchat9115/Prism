@@ -1,6 +1,6 @@
 # Manual examples
 
-The examples are the runnable guide to the VibeSound features that exist today.
+The examples are the runnable guide to the Prism features that exist today.
 They use a generated, deterministic five-track beat where possible, so users
 can explore project creation, session control, rendering, the CLI, the API, and
 agent workflows without supplying their own audio files.
@@ -12,10 +12,10 @@ uv sync --extra dev
 ```
 
 For the installed-package acceptance flow, create the synthetic demo and start
-its loopback service with `vibesound demo demo.vibesound-work`. Add `--open` for
+its loopback service with `prism demo demo.prism-work`. Add `--open` for
 the Phase 7 browser session or `--no-serve` when automation only needs the
 fixture. Example 12 drives the complete Phase 8 workflow against a selected
-VibeSound installation.
+Prism installation.
 
 Artifact-producing examples create a unique run directory under
 `examples/output/` by default. That directory is ignored by Git. Use
@@ -25,7 +25,7 @@ Artifact-producing examples create a unique run directory under
 
 | # | Example | Demonstrates | Hardware |
 | --- | --- | --- | --- |
-| 01 | [`01_project_archive.py`](01_project_archive.py) | Create, populate, reload, and validate a `.vibesound` ZIP project | No |
+| 01 | [`01_project_archive.py`](01_project_archive.py) | Create, populate, reload, and validate a `.prism` ZIP project | No |
 | 02 | [`02_make_beat.py`](02_make_beat.py) | Generate drums, bass, pad, tracks, scenes, mixer settings, and a rendered beat preview | No |
 | 03 | [`03_session_performance.py`](03_session_performance.py) | Quantized scene launching, looping, scene switching, events, and stop scheduling | No |
 | 04 | [`04_render_song.py`](04_render_song.py) | Render an eight-bar arrangement and verify byte-identical rerendering | No |
@@ -56,7 +56,7 @@ The generated project and WAV files are printed as JSON. Example 05 takes about
 one to two minutes because it launches each installed command in a fresh process
 and shuts its foreground service down cleanly. The most approachable
 starting point is [02 — make a beat](02_make_beat.py); open its generated WAV
-and inspect its `.vibesound` archive with standard ZIP tools. The best example
+and inspect its `.prism` archive with standard ZIP tools. The best example
 for a coding agent is [10 — agent producer workflow](10_agent_producer_workflow.py).
 
 ## Run the browser examples

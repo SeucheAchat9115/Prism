@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from vibesound.rendering.sources import (
+from prism.rendering.sources import (
     prepare_archive_playback_project,
     prepare_archive_project,
     resample_linear,

@@ -9,9 +9,9 @@ from uuid import uuid4
 import numpy as np
 import soundfile as sf
 
-from vibesound.engine import AudioBuffer, InMemoryClipSourceProvider
-from vibesound.project import create_project, import_audio, load_project, save_project
-from vibesound.project.models import (
+from prism.engine import AudioBuffer, InMemoryClipSourceProvider
+from prism.project import create_project, import_audio, load_project, save_project
+from prism.project.models import (
     AssetReference,
     AudioClip,
     ClipSlot,
@@ -75,7 +75,7 @@ def make_archive_project(
     source_offset_frames: int = 0,
     duration_frames: int | None = None,
 ) -> tuple[Path, Project, Track, Scene, AudioClip]:
-    project_path = directory / "fixture.vibesound"
+    project_path = directory / "fixture.prism"
     source_path = directory / "source.wav"
     array = np.asarray(samples, dtype=np.float32)
     sf.write(source_path, array, source_rate, format="WAV", subtype="FLOAT")

@@ -8,8 +8,8 @@ from uuid import UUID, uuid4
 import numpy as np
 from numpy.typing import NDArray
 
-from vibesound.engine import AudioBuffer, InMemoryClipSourceProvider
-from vibesound.project.models import (
+from prism.engine import AudioBuffer, InMemoryClipSourceProvider
+from prism.project.models import (
     AssetReference,
     AudioClip,
     ClipSlot,

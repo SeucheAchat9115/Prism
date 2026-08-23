@@ -1,1 +1,1 @@
-"""Tests for VibeSound project persistence."""
+"""Tests for Prism project persistence."""

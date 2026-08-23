@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from _support import action_summary, event_summary, make_music_fixture, parse_output_dir, print_json
 
-from vibesound.engine import SessionEngine, TransportClock
-from vibesound.rendering import prepare_archive_playback_project
+from prism.engine import SessionEngine, TransportClock
+from prism.rendering import prepare_archive_playback_project
 
 
 def main() -> int:

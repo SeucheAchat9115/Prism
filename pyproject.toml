@@ -3,7 +3,7 @@ requires = ["hatchling>=1.27,<2"]
 build-backend = "hatchling.build"
 
 [project]
-name = "vibesound"
+name = "prism"
 version = "0.1.0.dev0"
 description = "A Python-first DAW designed for musicians and coding agents."
 readme = "README.md"
@@ -36,7 +36,7 @@ plugins = [
 ]
 
 [project.scripts]
-vibesound = "vibesound.cli:app"
+prism = "prism.cli:app"
 
 [tool.hatch.build]
 exclude = [
@@ -48,11 +48,12 @@ exclude = [
     "/.venv",
     "/.wheel-*",
     "/dist",
-    "**/*.vibesound-work/**",
+    "/examples/output",
+    "**/*.prism-work/**",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/vibesound"]
+packages = ["src/prism"]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -89,8 +90,8 @@ strict = true
 warn_unreachable = true
 
 [tool.coverage.run]
-source = ["vibesound"]
-omit = ["*/vibesound/audio/portaudio.py"]
+source = ["prism"]
+omit = ["*/prism/audio/portaudio.py"]
 
 [tool.coverage.report]
 show_missing = true

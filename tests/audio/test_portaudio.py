@@ -5,7 +5,7 @@ import time
 import numpy as np
 import pytest
 
-from vibesound.audio import (
+from prism.audio import (
     AudioBackendConfig,
     AudioBackendState,
     AudioDeviceInfo,
@@ -13,7 +13,7 @@ from vibesound.audio import (
     list_output_devices,
     portaudio,
 )
-from vibesound.audio.errors import AudioDeviceError
+from prism.audio.errors import AudioDeviceError
 
 from ._helpers import FakeOutputStream, make_audio_fixture
 

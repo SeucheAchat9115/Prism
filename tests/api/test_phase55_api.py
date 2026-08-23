@@ -6,14 +6,14 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from project._helpers import write_wav
 
-from vibesound.api import create_app
-from vibesound.application import ApplicationService
-from vibesound.audio import FakeAudioBackend
-from vibesound.project import create_project
+from prism.api import create_app
+from prism.application import ApplicationService
+from prism.audio import FakeAudioBackend
+from prism.project import create_project
 
 
 def test_discovery_security_upload_and_typed_authoring(tmp_path: Path) -> None:
-    project_path = tmp_path / "api55.vibesound"
+    project_path = tmp_path / "api55.prism"
     project = create_project(project_path, "API 5.5", sample_rate=8000)
     service = ApplicationService(project_path, backend_factory=FakeAudioBackend)
     app = create_app(service)
@@ -137,7 +137,7 @@ def test_discovery_security_upload_and_typed_authoring(tmp_path: Path) -> None:
 
 
 def test_async_job_endpoints_and_output_confinement(tmp_path: Path) -> None:
-    project_path = tmp_path / "jobs-api.vibesound"
+    project_path = tmp_path / "jobs-api.prism"
     project = create_project(project_path, "Jobs", sample_rate=8000)
     service = ApplicationService(project_path, backend_factory=FakeAudioBackend)
     client = TestClient(create_app(service))
@@ -171,7 +171,7 @@ def test_async_job_endpoints_and_output_confinement(tmp_path: Path) -> None:
         )
         exported = client.post(
             f"/api/v1/projects/{project.project_id}/export-jobs",
-            json={"output_path": "portable.vibesound"},
+            json={"output_path": "portable.prism"},
         )
         assert listed.status_code == 200
         assert cancelled.status_code == 200

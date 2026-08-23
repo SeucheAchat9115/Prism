@@ -1,6 +1,6 @@
 # Phase 7 browser session
 
-Phase 7 adds a focused desktop/laptop session view to the loopback VibeSound
+Phase 7 adds a focused desktop/laptop session view to the loopback Prism
 service. It is a packaged HTML, CSS, and vanilla JavaScript client of the same
 versioned API used by the CLI; it does not add a second state owner or require a
 Node build.
@@ -11,13 +11,13 @@ Create or reopen the redistributable synthetic demo, bind the service, and ask
 the system browser to open the actual bound URL:
 
 ```powershell
-vibesound demo demo.vibesound-work --open
+prism demo demo.prism-work --open
 ```
 
 For an existing working project:
 
 ```powershell
-vibesound serve demo.vibesound-work --open
+prism serve demo.prism-work --open
 ```
 
 The browser request is opt-in. Without `--open`, navigate to the URL printed by
@@ -93,7 +93,7 @@ scripts, styles, data images, API requests, and the local WebSocket. There are
 no CDN or third-party browser dependencies.
 
 Existing host and same-origin checks cover UI requests as well as API traffic.
-VibeSound still binds only to loopback addresses; the browser surface is not a
+Prism still binds only to loopback addresses; the browser surface is not a
 remote deployment boundary and has no authentication.
 
 ## Browser and test contract

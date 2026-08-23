@@ -1,20 +1,20 @@
 # Phase 5.5 application contracts
 
 Phase 5.5 is implemented as the stabilization boundary for future CLI and
-browser clients. The portable `.vibesound` file is now an interchange artifact;
+browser clients. The portable `.prism` file is now an interchange artifact;
 normal edits use an adjacent inspectable sidecar.
 
 ## Working storage
 
-Opening `demo.vibesound` creates or reuses `demo.vibesound-work/`:
+Opening `demo.prism` creates or reuses `demo.prism-work/`:
 
 ```text
-demo.vibesound-work/
+demo.prism-work/
 ├── project.json
 ├── assets/audio/<asset-id>.<extension>
 ├── history/<revision>.json
 ├── exports/
-└── .vibesound/
+└── .prism/
     ├── repository.json
     ├── lock
     ├── staging/
@@ -65,7 +65,7 @@ Snapshots expose render-head, estimated audible-head, and queued-latency frames.
 
 Working audio is decoded into an immutable cache and sample-rate converted with
 SoXR HQ. Metadata-only operations do not decode audio or touch that cache. If no
-output device is usable, VibeSound continues with the device-free backend.
+output device is usable, Prism continues with the device-free backend.
 Isolated underruns are recoverable; eight underruns within five seconds fault the
 backend and expose a structured diagnostic.
 
@@ -81,7 +81,7 @@ project's `exports/` tree.
 The additive `/api/v1` API exposes health, readiness, application/API version,
 capabilities, schemas, layered validation, entity collections, name resolution,
 uploads, transactions, transport, clip control, devices, recovery, jobs, and
-events. `VibeSoundClient` is the typed synchronous Python client.
+events. `PrismClient` is the typed synchronous Python client.
 
 The POC server rejects non-loopback binds, unknown Host values, mismatched HTTP
 and WebSocket origins, oversized JSON requests, unsafe export paths, transactions
@@ -93,14 +93,14 @@ over 256 operations, more than 32 event subscribers, and subscriber queues over
 Run the installed, synthetic, device-free acceptance launcher with:
 
 ```text
-vibesound demo demo.vibesound-work
+prism demo demo.prism-work
 ```
 
 Use `--no-serve` for package smoke tests. The engineering gate is:
 
 ```text
 uv run pytest -m "not audio_device" --cov --cov-report=term-missing
-uv run mypy src/vibesound
+uv run mypy src/prism
 uv run ruff check .
 uv build --no-sources
 ```

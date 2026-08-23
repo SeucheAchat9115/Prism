@@ -1,4 +1,4 @@
-"""Shared setup helpers for the manually runnable VibeSound examples."""
+"""Shared setup helpers for the manually runnable Prism examples."""
 
 from __future__ import annotations
 
@@ -13,9 +13,9 @@ from uuid import uuid4
 import numpy as np
 import soundfile as sf
 
-from vibesound.engine import AudioBuffer, InMemoryClipSourceProvider
-from vibesound.project import create_project, import_audio, load_project, save_project
-from vibesound.project.models import (
+from prism.engine import AudioBuffer, InMemoryClipSourceProvider
+from prism.project import create_project, import_audio, load_project, save_project
+from prism.project.models import (
     AssetReference,
     AudioClip,
     ClipSlot,
@@ -219,7 +219,7 @@ def make_memory_fixture(
         format="WAV",
     )
     project = Project(
-        name="VibeSound Example",
+        name="Prism Example",
         transport=TransportState(
             tempo_bpm=tempo_bpm,
             sample_rate=sample_rate,
@@ -246,9 +246,9 @@ def make_archive_fixture(
 
     directory.mkdir(parents=True, exist_ok=True)
     source_path = directory / "source.wav"
-    project_path = directory / "example.vibesound"
+    project_path = directory / "example.prism"
     write_sine_wav(source_path, sample_rate=sample_rate, seconds=seconds)
-    create_project(project_path, "VibeSound Example", tempo_bpm=120.0, sample_rate=sample_rate)
+    create_project(project_path, "Prism Example", tempo_bpm=120.0, sample_rate=sample_rate)
     asset = import_audio(project_path, source_path)
     project = load_project(project_path)
     track = Track(name="Example Track")
@@ -270,8 +270,8 @@ def make_music_fixture(
     """Create a small multi-track, multi-scene beat for runnable examples."""
 
     directory.mkdir(parents=True, exist_ok=True)
-    project_path = directory / "demo-beat.vibesound"
-    create_project(project_path, "VibeSound Demo Beat", tempo_bpm=120.0, sample_rate=sample_rate)
+    project_path = directory / "demo-beat.prism"
+    create_project(project_path, "Prism Demo Beat", tempo_bpm=120.0, sample_rate=sample_rate)
 
     waveforms = {
         "kick": _make_kick(sample_rate),

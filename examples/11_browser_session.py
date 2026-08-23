@@ -10,13 +10,13 @@ from pathlib import Path
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run the blocking local VibeSound browser session until Ctrl+C.",
+        description="Run the blocking local Prism browser session until Ctrl+C.",
     )
     parser.add_argument(
         "path",
         type=Path,
         nargs="?",
-        default=Path(__file__).resolve().parent / "output" / "browser-demo.vibesound-work",
+        default=Path(__file__).resolve().parent / "output" / "browser-demo.prism-work",
         help="Demo working-project directory.",
     )
     parser.add_argument("--host", default="127.0.0.1", help="Loopback bind address.")
@@ -31,7 +31,7 @@ def main() -> int:
     command = [
         sys.executable,
         "-m",
-        "vibesound",
+        "prism",
         "demo",
         str(args.path),
         "--host",
@@ -41,7 +41,7 @@ def main() -> int:
     ]
     if not args.no_open:
         command.append("--open")
-    print("Starting the local session; press Ctrl+C here to stop VibeSound.")
+    print("Starting the local session; press Ctrl+C here to stop Prism.")
     return subprocess.call(command)
 
 

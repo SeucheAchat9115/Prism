@@ -5,8 +5,8 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
-from vibesound.project import create_project, import_audio, load_project, save_project
-from vibesound.project.models import AudioClip, ClipSlot, Scene, Track
+from prism.project import create_project, import_audio, load_project, save_project
+from prism.project.models import AudioClip, ClipSlot, Scene, Track
 
 
 def make_archive_fixture(
@@ -14,7 +14,7 @@ def make_archive_fixture(
 ) -> tuple[Path, object, Track, Scene, AudioClip]:
     directory.mkdir(parents=True, exist_ok=True)
     source_path = directory / "source.wav"
-    project_path = directory / "fixture.vibesound"
+    project_path = directory / "fixture.prism"
     sf.write(
         source_path,
         np.ones(16, dtype=np.float32),

@@ -5,15 +5,15 @@ from pathlib import Path
 
 import pytest
 
-from vibesound.application import (
+from prism.application import (
     ApplicationError,
     ApplicationService,
     ExportJobRequest,
     RenderJobRequest,
     TransactionRequest,
 )
-from vibesound.audio import FakeAudioBackend
-from vibesound.rendering import RenderCancelledError, RenderOutputError
+from prism.audio import FakeAudioBackend
+from prism.rendering import RenderCancelledError, RenderOutputError
 
 from ._helpers import make_archive_fixture
 
@@ -49,11 +49,11 @@ def test_render_and_export_jobs_are_revision_bound_and_hashed(tmp_path: Path) ->
 
         first = _wait(
             service,
-            service.submit_export(ExportJobRequest(output_path="first.vibesound")).job_id,
+            service.submit_export(ExportJobRequest(output_path="first.prism")).job_id,
         )
         second = _wait(
             service,
-            service.submit_export(ExportJobRequest(output_path="second.vibesound")).job_id,
+            service.submit_export(ExportJobRequest(output_path="second.prism")).job_id,
         )
 
         assert rendered.state == "completed"
@@ -88,7 +88,7 @@ def test_render_job_can_be_cancelled_without_blocking_project_edits(
             progress(0.25)
         raise RenderCancelledError("cancelled")
 
-    monkeypatch.setattr("vibesound.application.jobs.render_snapshot", slow_render)
+    monkeypatch.setattr("prism.application.jobs.render_snapshot", slow_render)
     service = ApplicationService(project_path, backend_factory=FakeAudioBackend)
     try:
         job = service.submit_render(RenderJobRequest(output_path="slow.wav", seconds=2.0))
@@ -121,7 +121,7 @@ def test_job_queue_is_bounded_and_failures_are_structured(
             pass
         raise RenderCancelledError("cancelled")
 
-    monkeypatch.setattr("vibesound.application.jobs.render_snapshot", slow_render)
+    monkeypatch.setattr("prism.application.jobs.render_snapshot", slow_render)
     service = ApplicationService(project_path, backend_factory=FakeAudioBackend)
     try:
         jobs = [
@@ -143,7 +143,7 @@ def test_job_queue_is_bounded_and_failures_are_structured(
         del args, kwargs
         raise RenderOutputError("deliberate failure")
 
-    monkeypatch.setattr("vibesound.application.jobs.render_snapshot", failed_render)
+    monkeypatch.setattr("prism.application.jobs.render_snapshot", failed_render)
     service = ApplicationService(project_path, backend_factory=FakeAudioBackend)
     try:
         failed = _wait(

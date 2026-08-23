@@ -7,8 +7,8 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from vibesound.api import VibeSoundClient, VibeSoundClientError, VibeSoundEventStream
-from vibesound.application import (
+from prism.api import PrismClient, PrismClientError, PrismEventStream
+from prism.application import (
     ClipLaunchRequest,
     ClipStopRequest,
     ExportJobRequest,
@@ -16,8 +16,8 @@ from vibesound.application import (
     TransactionRequest,
     TransportRequest,
 )
-from vibesound.application.types import BackgroundJob, TransactionResult
-from vibesound.project.models import new_project
+from prism.application.types import BackgroundJob, TransactionResult
+from prism.project.models import new_project
 
 
 def test_typed_client_covers_discovery_authoring_upload_and_jobs(tmp_path: Path) -> None:
@@ -133,7 +133,7 @@ def test_typed_client_covers_discovery_authoring_upload_and_jobs(tmp_path: Path)
                     "kind": "export",
                     "project_id": str(project.project_id),
                     "revision": 0,
-                    "output_path": "project.vibesound",
+                    "output_path": "project.prism",
                     "request": {},
                 },
             )
@@ -152,7 +152,7 @@ def test_typed_client_covers_discovery_authoring_upload_and_jobs(tmp_path: Path)
     audio = tmp_path / "upload.wav"
     audio.write_bytes(b"RIFF-test")
     transport = httpx.MockTransport(handler)
-    with VibeSoundClient("http://testserver", transport=transport) as client:
+    with PrismClient("http://testserver", transport=transport) as client:
         assert client.health()["status"] == "healthy"
         assert client.readiness().status == "ready"
         assert client.capabilities()["ok"]
@@ -218,18 +218,18 @@ def test_typed_client_normalizes_error_envelopes_and_invalid_json() -> None:
             httpx.Response(500, content=json.dumps([]).encode()),
         ]
     )
-    client = VibeSoundClient(
+    client = PrismClient(
         "http://testserver",
         transport=httpx.MockTransport(lambda _request: next(responses)),
     )
     try:
-        with pytest.raises(VibeSoundClientError) as conflict:
+        with pytest.raises(PrismClientError) as conflict:
             client.health()
         assert conflict.value.status_code == 409
         assert conflict.value.issues[0].code == "conflict"
-        with pytest.raises(VibeSoundClientError, match="not JSON"):
+        with pytest.raises(PrismClientError, match="not JSON"):
             client.health()
-        with pytest.raises(VibeSoundClientError, match="not an object"):
+        with pytest.raises(PrismClientError, match="not an object"):
             client.health()
     finally:
         client.close()
@@ -259,8 +259,8 @@ def test_typed_event_stream_is_bounded_and_decodes_json(monkeypatch) -> None:
         captured.update(kwargs)
         return Connection()
 
-    monkeypatch.setattr("vibesound.api.client.connect", fake_connect)
-    with VibeSoundEventStream("http://127.0.0.1:8765", project_id, timeout=3.0) as stream:
+    monkeypatch.setattr("prism.api.client.connect", fake_connect)
+    with PrismEventStream("http://127.0.0.1:8765", project_id, timeout=3.0) as stream:
         event = stream.receive(timeout=1.0)
 
     assert event.type == "transport.changed"

@@ -7,9 +7,9 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from vibesound.project import load_project, save_project, validate_project
-from vibesound.project.models import AudioClip, ClipSlot, Scene
-from vibesound.rendering import (
+from prism.project import load_project, save_project, validate_project
+from prism.project.models import AudioClip, ClipSlot, Scene
+from prism.rendering import (
     InvalidRenderRequestError,
     RenderCommand,
     RenderRequest,
@@ -17,7 +17,7 @@ from vibesound.rendering import (
     render,
     render_project,
 )
-from vibesound.rendering.errors import RenderOutputError
+from prism.rendering.errors import RenderOutputError
 
 from ._helpers import make_archive_project, make_memory_project
 
@@ -169,7 +169,7 @@ def test_archive_render_rejects_corrupt_assets_before_touching_existing_output(t
     project_path, _, _, _, _ = make_archive_project(
         tmp_path, np.ones(8, dtype=np.float32), source_rate=8, project_rate=8
     )
-    corrupt_path = tmp_path / "corrupt.vibesound"
+    corrupt_path = tmp_path / "corrupt.prism"
     with ZipFile(project_path, "r") as source, ZipFile(corrupt_path, "w") as target:
         for name in source.namelist():
             payload = source.read(name)

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from _support import make_music_fixture, parse_output_dir, print_json
 
-from vibesound.application import ApplicationService, TransactionRequest
-from vibesound.audio import FakeAudioBackend
+from prism.application import ApplicationService, TransactionRequest
+from prism.audio import FakeAudioBackend
 
 
 def main() -> int:

@@ -11,8 +11,8 @@ from _support import (
     print_json,
 )
 
-from vibesound.audio import FakeAudioBackend, OfflineRenderBackend
-from vibesound.rendering import RenderCommand, RenderRequest
+from prism.audio import FakeAudioBackend, OfflineRenderBackend
+from prism.rendering import RenderCommand, RenderRequest
 
 
 def main() -> int:
