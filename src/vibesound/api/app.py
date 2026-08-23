@@ -505,7 +505,10 @@ def create_app(service: ApplicationService) -> FastAPI:
         except WebSocketDisconnect:
             pass
         except EventStreamOverflowError:
-            await websocket.close(code=1013)
+            try:
+                await websocket.close(code=1013)
+            except WebSocketDisconnect:
+                pass
         finally:
             subscription.close()
 

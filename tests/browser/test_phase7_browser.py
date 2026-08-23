@@ -178,8 +178,18 @@ def test_stale_mixer_retry_and_true_conflict(page: Page, browser_server: Browser
             "testId": gain_test_id,
         },
     )
+    expect(page.locator("#saving-state")).to_have_text("Synced")
+    expect(page.get_by_test_id("revision")).to_have_text(
+        f"REV {unrelated['base_revision'] + 2}"
+    )
     expect(page.get_by_test_id("conflict-dialog")).to_be_hidden()
     expect(page.get_by_test_id(gain_test_id)).to_have_value("-6")
+    drums_after_retry = next(
+        track
+        for track in browser_server.service.get_project().tracks
+        if track.id == ids["drums"]
+    )
+    assert drums_after_retry.mixer.gain_db == -6.0
 
     current = browser_server.service.get_project()
     conflicting = {
