@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
@@ -11,9 +13,11 @@ from zipfile import BadZipFile, ZipFile
 
 import numpy as np
 import soundfile as sf
+import soxr
 
 from vibesound.engine import AudioBuffer, ClipSourceProvider, InMemoryClipSourceProvider
 from vibesound.project.models import AssetReference, Project
+from vibesound.project.repository import RepositorySnapshot
 from vibesound.rendering.errors import RenderValidationError
 
 
@@ -70,6 +74,28 @@ def resample_linear(
     return np.asarray(output, dtype=np.float32, order="C")
 
 
+def resample_hq(
+    samples: np.ndarray,
+    source_rate: int,
+    target_rate: int,
+) -> np.ndarray:
+    """Apply VibeSound's anti-aliased SoXR HQ sample-rate conversion policy."""
+
+    array = np.asarray(samples)
+    if array.ndim != 2 or array.shape[1] not in (1, 2) or array.shape[0] <= 0:
+        raise RenderValidationError("Decoded audio must have non-empty mono or stereo frames")
+    if source_rate <= 0 or target_rate <= 0:
+        raise RenderValidationError("Audio sample rates must be positive")
+    source = np.asarray(array, dtype=np.float32, order="C")
+    if source_rate == target_rate:
+        return np.array(source, dtype=np.float32, order="C", copy=True)
+    try:
+        output = soxr.resample(source, source_rate, target_rate, quality="HQ")
+    except (TypeError, ValueError, RuntimeError) as error:
+        raise RenderValidationError("SoXR could not resample the audio source") from error
+    return np.asarray(output, dtype=np.float32, order="C")
+
+
 def prepare_archive_project(path: Path | str, project: Project) -> PreparedRenderProject:
     """Decode every referenced archive asset and build a render-time snapshot."""
 
@@ -83,6 +109,59 @@ def prepare_archive_playback_project(
     """Decode archive assets while preserving live transport quantization."""
 
     return _prepare_archive_project(path, project, preserve_quantization=True)
+
+
+def prepare_working_project(snapshot: RepositorySnapshot) -> PreparedRenderProject:
+    """Prepare a repository snapshot through its immutable on-disk audio cache."""
+
+    return _prepare_working_project(snapshot, preserve_quantization=False)
+
+
+def prepare_working_playback_project(
+    snapshot: RepositorySnapshot,
+) -> PreparedRenderProject:
+    """Prepare cached working assets while retaining live quantization."""
+
+    return _prepare_working_project(snapshot, preserve_quantization=True)
+
+
+def _prepare_working_project(
+    snapshot: RepositorySnapshot,
+    *,
+    preserve_quantization: bool,
+) -> PreparedRenderProject:
+    project = snapshot.project
+    referenced_ids = {clip.asset_id for clip in project.clips}
+    assets = {asset.id: asset for asset in project.assets}
+    cache_root = snapshot.working_path / ".vibesound" / "cache" / "audio"
+    cache_root.mkdir(parents=True, exist_ok=True)
+    prepared: dict[UUID, _PreparedAsset] = {}
+    for asset_id in sorted(referenced_ids, key=str):
+        asset = assets[asset_id]
+        cache_name = f"{asset.sha256}-{project.transport.sample_rate}-soxr-hq-v1.npy"
+        cache_path = cache_root / cache_name
+        if not cache_path.is_file():
+            samples = _decode_path_asset(asset, snapshot.asset_paths[asset_id])
+            output = resample_hq(samples, asset.sample_rate, project.transport.sample_rate)
+            _write_array_cache(cache_path, output)
+        try:
+            mapped = np.load(cache_path, mmap_mode="r", allow_pickle=False)
+            buffer = AudioBuffer.from_prevalidated(project.transport.sample_rate, mapped)
+        except (OSError, ValueError) as error:
+            cache_path.unlink(missing_ok=True)
+            raise RenderValidationError(f"Audio cache is invalid for asset {asset.id}") from error
+        prepared[asset_id] = _PreparedAsset(buffer=buffer, source_rate=asset.sample_rate)
+    runtime_project = _runtime_project(
+        project,
+        prepared,
+        preserve_quantization=preserve_quantization,
+    )
+    return PreparedRenderProject(
+        runtime_project,
+        InMemoryClipSourceProvider(
+            {asset_id: item.buffer for asset_id, item in prepared.items()}
+        ),
+    )
 
 
 def _prepare_archive_project(
@@ -155,7 +234,7 @@ def prepare_source_provider(project: Project, sources: ClipSourceProvider) -> Pr
             raise RenderValidationError(
                 f"Audio source {asset_id} channel count does not match the manifest"
             )
-        output = resample_linear(
+        output = resample_hq(
             source.samples,
             source.sample_rate,
             project.transport.sample_rate,
@@ -219,11 +298,62 @@ def _prepare_asset(asset: AssetReference, payload: bytes, target_rate: int) -> _
         raise RenderValidationError(f"Asset {asset.id} has unsupported channel count {channels}")
 
     try:
-        output = resample_linear(samples, sample_rate, target_rate)
+        output = resample_hq(samples, sample_rate, target_rate)
         buffer = AudioBuffer(target_rate, output)
     except (RenderValidationError, ValueError) as exc:
         raise RenderValidationError(f"Asset {asset.id} cannot be prepared for rendering") from exc
     return _PreparedAsset(buffer=buffer, source_rate=sample_rate)
+
+
+def _decode_path_asset(asset: AssetReference, path: Path) -> np.ndarray:
+    if not path.is_file() or path.stat().st_size != asset.size_bytes:
+        raise RenderValidationError(f"Asset {asset.id} file size does not match the manifest")
+    digest = hashlib.sha256()
+    try:
+        with path.open("rb") as source:
+            while chunk := source.read(1024 * 1024):
+                digest.update(chunk)
+        if digest.hexdigest() != asset.sha256:
+            raise RenderValidationError(f"Asset {asset.id} SHA-256 does not match the manifest")
+        with sf.SoundFile(path, mode="r") as audio:
+            if (
+                audio.samplerate != asset.sample_rate
+                or audio.channels != asset.channels
+                or audio.frames != asset.frames
+                or str(audio.format).upper() != asset.format.upper()
+            ):
+                raise RenderValidationError(
+                    f"Decoded metadata does not match the manifest for asset {asset.id}"
+                )
+            samples = audio.read(dtype="float32", always_2d=True)
+    except RenderValidationError:
+        raise
+    except (OSError, RuntimeError, ValueError) as error:
+        raise RenderValidationError(f"Asset {asset.id} is not decodable") from error
+    if not np.isfinite(samples).all():
+        raise RenderValidationError(f"Asset {asset.id} contains non-finite samples")
+    return np.asarray(samples, dtype=np.float32, order="C")
+
+
+def _write_array_cache(path: Path, samples: np.ndarray) -> None:
+    handle, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.",
+        suffix=".tmp",
+        dir=path.parent,
+    )
+    try:
+        with os.fdopen(handle, "wb") as output:
+            np.save(output, np.asarray(samples, dtype=np.float32, order="C"), allow_pickle=False)
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary_name, path)
+    except Exception:
+        try:
+            os.close(handle)
+        except OSError:
+            pass
+        Path(temporary_name).unlink(missing_ok=True)
+        raise
 
 
 def _runtime_project(

@@ -27,6 +27,7 @@ env/
 # VibeSound projects and generated media
 *.vibesound/exports/
 *.vibesound/.cache/
+*.vibesound-work/
 exports/
 
 # OS files

@@ -17,6 +17,7 @@ from vibesound.engine.errors import (
 )
 from vibesound.engine.sources import AudioBuffer, ClipSourceProvider
 from vibesound.engine.types import (
+    ClipCompletedEvent,
     ClipLaunchedEvent,
     ClipStoppedEvent,
     EngineEvent,
@@ -103,6 +104,72 @@ class SessionEngine:
             active_clip_ids=active,
             pending_action_frames=pending_frames,
         )
+
+    def update_mixer(self, project: Project) -> None:
+        """Swap runtime-safe mixer values without touching transport or clip state."""
+
+        current_ids = set(self._track_by_id)
+        incoming_ids = {track.id for track in project.tracks}
+        if current_ids != incoming_ids:
+            raise EngineValidationError("Mixer refresh requires an unchanged track set")
+        for track in self._project.tracks:
+            incoming = next(item for item in project.tracks if item.id == track.id)
+            track.mixer = incoming.mixer.model_copy(deep=True)
+        self._track_by_id = {track.id: track for track in self._project.tracks}
+        self._track_order = tuple(
+            sorted(self._project.tracks, key=lambda track: (track.order, str(track.id)))
+        )
+
+    def reconfigured(
+        self,
+        project: Project,
+        sources: ClipSourceProvider,
+    ) -> "SessionEngine":
+        """Build a new graph while retaining valid transport, active clips, and launches."""
+
+        replacement = SessionEngine(project, sources)
+        if self._project.transport.sample_rate != project.transport.sample_rate:
+            return replacement
+        replacement._mode = self._mode
+        replacement._position_frame = self._position_frame
+        for track_id, active in self._active.items():
+            clip = replacement._clip_by_id.get(active.clip_id)
+            if (
+                track_id not in replacement._track_by_id
+                or active.scene_id not in replacement._scene_by_id
+                or clip is None
+                or clip.asset_id not in replacement._buffers
+            ):
+                continue
+            replacement._active[track_id] = _ActiveClip(
+                track_id=track_id,
+                scene_id=active.scene_id,
+                clip_id=clip.id,
+                clip=clip,
+                source=replacement._buffers[clip.asset_id],
+                launch_frame=active.launch_frame,
+            )
+        for key, action in self._pending.items():
+            invalid = (
+                action.frame < self._position_frame
+                or action.track_id not in replacement._track_by_id
+            )
+            if invalid:
+                continue
+            if action.kind == "launch" and (
+                action.scene_id not in replacement._scene_by_id
+                or action.clip_id not in replacement._clip_by_id
+            ):
+                continue
+            replacement._pending[key] = action
+        replacement._queued_events = list(self._queued_events)
+        return replacement
+
+    def drain_events(self) -> tuple[EngineEvent, ...]:
+        """Take queued state transitions without advancing the render head."""
+
+        self._apply_boundary(self._position_frame)
+        return self._take_events()
 
     def play(self) -> None:
         """Resume transport from its current frame."""
@@ -350,12 +417,13 @@ class SessionEngine:
             )
         )
 
-    def _stop_active(self, track_id: UUID, frame: int) -> None:
+    def _stop_active(self, track_id: UUID, frame: int, *, completed: bool = False) -> None:
         active = self._active.pop(track_id, None)
         if active is None:
             return
+        event_type = ClipCompletedEvent if completed else ClipStoppedEvent
         self._queued_events.append(
-            ClipStoppedEvent(
+            event_type(
                 frame=frame,
                 track_id=active.track_id,
                 scene_id=active.scene_id,
@@ -381,7 +449,7 @@ class SessionEngine:
         for track_id in tuple(sorted(self._active, key=self._track_sort_key)):
             end_frame = self._active_end_frame(self._active[track_id])
             if end_frame is not None and end_frame <= frame:
-                self._stop_active(track_id, end_frame)
+                self._stop_active(track_id, end_frame, completed=True)
 
     def _launch_active(self, action: _PendingAction, frame: int) -> None:
         if action.scene_id is None or action.clip_id is None:
@@ -462,8 +530,9 @@ class SessionEngine:
             indexes = (np.arange(local_start, local_start + length) % source_tail.shape[0]).astype(
                 np.intp
             )
-            return active.source.samples[active.clip.source_offset_frames :][indexes]
-        return source_tail[local_start : local_start + length]
+            selected = active.source.samples[active.clip.source_offset_frames :][indexes]
+            return np.asarray(selected, dtype=np.float32)
+        return np.asarray(source_tail[local_start : local_start + length], dtype=np.float32)
 
     def _take_events(self) -> tuple[EngineEvent, ...]:
         events = self._queued_events

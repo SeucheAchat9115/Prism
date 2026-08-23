@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections import deque
 from concurrent.futures import Future
 from concurrent.futures import TimeoutError as FutureTimeoutError
 from dataclasses import dataclass
@@ -32,7 +33,7 @@ from vibesound.audio.types import (
     AudioDeviceInfo,
     AudioErrorInfo,
 )
-from vibesound.engine import EngineError, SessionEngine
+from vibesound.engine import EngineError, EngineEvent, SessionEngine
 from vibesound.engine.sources import ClipSourceProvider
 from vibesound.engine.types import ScheduledAction
 from vibesound.project.models import Project
@@ -112,11 +113,14 @@ class PortAudioBackend:
         self._state_lock = Lock()
         self._state = AudioBackendState.STOPPED
         self._snapshot = self._engine.snapshot()
+        self._events: list[EngineEvent] = []
         self._device: AudioDeviceInfo | None = None
         self._stream: Any | None = None
         self._muted = True
         self._produce_enabled = False
         self._underrun_count = 0
+        self._underrun_times: deque[float] = deque()
+        self._reported_underrun_count = 0
         self._last_error: AudioErrorInfo | None = None
         self._callback_fault_code: str | None = None
         self._worker_fault: tuple[str, str] | None = None
@@ -170,14 +174,12 @@ class PortAudioBackend:
             except AudioDeviceError as exc:
                 self._muted = True
                 self._close_stream_safely()
-                if self._state != AudioBackendState.FAULTED:
-                    self._set_fault("device_open_failed", str(exc))
+                self._set_fault("device_open_failed", str(exc))
                 raise
             except AudioBackendError as exc:
                 self._muted = True
                 self._close_stream_safely()
-                if self._state != AudioBackendState.FAULTED:
-                    self._set_fault("start_failed", str(exc))
+                self._set_fault("start_failed", str(exc))
                 raise
             except Exception as exc:
                 self._muted = True
@@ -253,6 +255,26 @@ class PortAudioBackend:
         assert isinstance(result, ScheduledAction)
         return result
 
+    def update_mixer(self, project: Project) -> None:
+        """Apply mixer values on the producer thread without rebuilding audio."""
+
+        self._require_commandable()
+        self._submit("update_mixer", project)
+
+    def replace_project(self, project: Project, sources: ClipSourceProvider) -> None:
+        """Replace the producer engine while retaining compatible runtime state."""
+
+        self._require_commandable()
+        self._submit("replace_project", project, sources)
+
+    def drain_events(self) -> tuple[EngineEvent, ...]:
+        """Take actual engine transitions on the producer thread."""
+
+        self._require_commandable()
+        result = self._submit("drain_events")
+        assert isinstance(result, tuple)
+        return result
+
     def snapshot(self) -> AudioBackendSnapshot:
         """Return the latest producer/device snapshot without blocking the callback."""
 
@@ -263,6 +285,7 @@ class PortAudioBackend:
                 device=self._device,
                 underrun_count=self._underrun_count,
                 last_error=self._last_error,
+                queued_latency_frames=self._ring.queued_blocks * self._ring.block_size,
             )
 
     def close(self) -> None:
@@ -283,6 +306,18 @@ class PortAudioBackend:
             self._worker.join(timeout=self._config.control_timeout_seconds)
         if self._monitor is not current_thread():
             self._monitor.join(timeout=self._config.control_timeout_seconds)
+        alive = [
+            thread.name
+            for thread in (self._worker, self._monitor)
+            if thread is not current_thread() and thread.is_alive()
+        ]
+        if alive:
+            with self._state_lock:
+                self._last_error = AudioErrorInfo(
+                    code="shutdown_timeout",
+                    message=f"Audio threads did not terminate in time: {', '.join(alive)}",
+                    recoverable=False,
+                )
 
     def __enter__(self) -> "PortAudioBackend":
         self._require_operable()
@@ -349,6 +384,7 @@ class PortAudioBackend:
                     continue
                 if not self._ring.try_write(step.samples):
                     continue
+                self._events.extend(step.events)
                 self._snapshot = self._engine.snapshot()
                 if self._ring.queued_blocks >= min(_PREFILL_BLOCKS, self._ring.capacity - 1):
                     self._prefilled.set()
@@ -410,7 +446,21 @@ class PortAudioBackend:
             return self._engine.launch_scene(args[0])  # type: ignore[arg-type]
         if name == "stop_track":
             return self._engine.stop_track(args[0])  # type: ignore[arg-type]
-        return self._engine.stop_all()
+        if name == "stop_all":
+            return self._engine.stop_all()
+        if name == "update_mixer":
+            self._engine.update_mixer(args[0])  # type: ignore[arg-type]
+            return None
+        if name == "replace_project":
+            self._engine = self._engine.reconfigured(
+                args[0],  # type: ignore[arg-type]
+                args[1],  # type: ignore[arg-type]
+            )
+            self._ring.invalidate()
+            return None
+        events = (*self._events, *self._engine.drain_events())
+        self._events.clear()
+        return events
 
     def _wait_for_prefill(self) -> None:
         deadline = time.monotonic() + self._config.control_timeout_seconds
@@ -433,13 +483,15 @@ class PortAudioBackend:
     ) -> None:
         del time_info
         try:
-            if status is not None and bool(getattr(status, "output_underflow", False)):
-                self._underrun_count += 1
-                self._callback_fault_code = "output_underflow"
+            had_underrun = bool(
+                status is not None and getattr(status, "output_underflow", False)
+            )
             underrun = self._ring.read_into(outdata, muted=self._muted)
             if underrun and not self._muted:
+                had_underrun = True
+            if had_underrun:
                 self._underrun_count += 1
-                self._callback_fault_code = "output_underflow"
+                self._underrun_times.append(time.monotonic())
         except Exception:
             outdata.fill(0.0)
             self._callback_fault_code = "callback_exception"
@@ -455,6 +507,33 @@ class PortAudioBackend:
                 self._muted = True
                 self._produce_enabled = False
                 self._close_stream_safely()
+            elif self._underrun_count != self._reported_underrun_count:
+                self._reported_underrun_count = self._underrun_count
+                now = time.monotonic()
+                cutoff = now - self._config.underrun_window_seconds
+                while self._underrun_times and self._underrun_times[0] < cutoff:
+                    self._underrun_times.popleft()
+                if len(self._underrun_times) >= self._config.underrun_fault_count:
+                    self._set_fault(
+                        "output_underflow",
+                        (
+                            "PortAudio exceeded the recoverable underrun threshold "
+                            f"({self._config.underrun_fault_count} within "
+                            f"{self._config.underrun_window_seconds:g}s)"
+                        ),
+                    )
+                    self._muted = True
+                    self._produce_enabled = False
+                    self._close_stream_safely()
+                else:
+                    with self._state_lock:
+                        self._last_error = AudioErrorInfo(
+                            code="output_underflow",
+                            message=(
+                                "An isolated output underrun was recovered; playback continues"
+                            ),
+                            recoverable=True,
+                        )
             elif self._worker_fault is not None:
                 code, message = self._worker_fault
                 self._set_fault(code, f"Audio producer failed: {message}")

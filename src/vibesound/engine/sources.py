@@ -42,6 +42,31 @@ class AudioBuffer:
         normalized.setflags(write=False)
         object.__setattr__(self, "samples", normalized)
 
+    @classmethod
+    def from_prevalidated(
+        cls,
+        sample_rate: int,
+        samples: Float32Array,
+    ) -> "AudioBuffer":
+        """Wrap an immutable cache mapping that was validated when it was written."""
+
+        array = np.asarray(samples)
+        if (
+            not isinstance(sample_rate, int)
+            or sample_rate <= 0
+            or array.dtype != np.dtype(np.float32)
+            or array.ndim != 2
+            or array.shape[0] <= 0
+            or array.shape[1] not in (1, 2)
+            or not array.flags.c_contiguous
+        ):
+            raise InvalidAudioBufferError("Prevalidated audio cache has an invalid layout")
+        array.setflags(write=False)
+        value = object.__new__(cls)
+        object.__setattr__(value, "sample_rate", sample_rate)
+        object.__setattr__(value, "samples", array)
+        return value
+
 
 class ClipSourceProvider(Protocol):
     """Provide a fully loaded source for a project audio asset."""

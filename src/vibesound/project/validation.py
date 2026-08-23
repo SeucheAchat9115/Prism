@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from enum import StrEnum
 from typing import Any
 
 from pydantic import ValidationError
@@ -23,6 +24,40 @@ class ValidationReport:
 
     def as_dict(self) -> dict[str, Any]:
         return {"ok": self.ok, "issues": [issue.as_dict() for issue in self.issues]}
+
+
+class ValidationStage(StrEnum):
+    ARCHIVE_INTEGRITY = "archive_integrity"
+    SCHEMA = "schema"
+    PROJECT_REFERENCES = "project_references"
+    PLAYBACK_READINESS = "playback_readiness"
+    DEVICE_COMPATIBILITY = "device_compatibility"
+
+
+class LayeredValidationReport:
+    """Keep storage, schema, runtime, and device concerns independently visible."""
+
+    def __init__(self, reports: dict[ValidationStage, Iterable[ValidationIssue]]) -> None:
+        self.reports = {
+            stage: tuple(reports.get(stage, ()))
+            for stage in ValidationStage
+        }
+
+    @property
+    def ok(self) -> bool:
+        return all(not issues for issues in self.reports.values())
+
+    def as_dict(self) -> dict[str, Any]:
+        return {
+            "ok": self.ok,
+            "stages": {
+                stage.value: {
+                    "ok": not issues,
+                    "issues": [issue.as_dict() for issue in issues],
+                }
+                for stage, issues in self.reports.items()
+            },
+        }
 
 
 def _json_pointer(loc: tuple[Any, ...]) -> str:
@@ -115,4 +150,73 @@ def project_reference_issues(project: Project) -> tuple[ValidationIssue, ...]:
             )
         occupied_slots[key] = index
 
+    return tuple(issues)
+
+
+def project_playback_issues(project: Project) -> tuple[ValidationIssue, ...]:
+    """Validate ordering and source regions required by every runtime backend."""
+
+    issues: list[ValidationIssue] = []
+    assets = {asset.id: asset for asset in project.assets}
+    for collection_name, entities in (("tracks", project.tracks), ("scenes", project.scenes)):
+        orders = [entity.order for entity in entities]
+        if sorted(orders) != list(range(len(entities))):
+            issues.append(
+                ValidationIssue(
+                    code="invalid_ordering",
+                    path=f"/{collection_name}",
+                    message=f"{collection_name.title()} must have unique contiguous order values.",
+                )
+            )
+
+    for index, asset in enumerate(project.assets):
+        if asset.channels not in (1, 2):
+            issues.append(
+                ValidationIssue(
+                    code="unsupported_channel_layout",
+                    path=f"/assets/{index}/channels",
+                    message="Playback supports only mono or stereo audio assets.",
+                )
+            )
+        if asset.frames <= 0:
+            issues.append(
+                ValidationIssue(
+                    code="empty_audio_asset",
+                    path=f"/assets/{index}/frames",
+                    message="Playback requires an audio asset with at least one frame.",
+                )
+            )
+        if asset.format.upper() not in {"WAV", "AIFF"}:
+            issues.append(
+                ValidationIssue(
+                    code="unsupported_audio_format",
+                    path=f"/assets/{index}/format",
+                    message=f"Unsupported audio format: {asset.format}",
+                )
+            )
+
+    for index, clip in enumerate(project.clips):
+        clip_asset = assets.get(clip.asset_id)
+        if clip_asset is None:
+            continue
+        if clip.source_offset_frames >= clip_asset.frames:
+            issues.append(
+                ValidationIssue(
+                    code="clip_region_out_of_bounds",
+                    path=f"/clips/{index}/source_offset_frames",
+                    message="Clip source offset must be before the end of its audio asset.",
+                )
+            )
+        if (
+            not clip.loop
+            and clip.duration_frames is not None
+            and clip.source_offset_frames + clip.duration_frames > clip_asset.frames
+        ):
+            issues.append(
+                ValidationIssue(
+                    code="clip_region_out_of_bounds",
+                    path=f"/clips/{index}/duration_frames",
+                    message="A non-looping clip region must fit inside its audio asset.",
+                )
+            )
     return tuple(issues)

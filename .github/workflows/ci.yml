@@ -1,4 +1,4 @@
-name: Windows CI
+name: CI
 
 on:
   push:
@@ -9,9 +9,13 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Test and lint
-    runs-on: windows-latest
+  validate:
+    name: Device-free validation (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
 
     steps:
       - name: Check out repository
@@ -25,16 +29,54 @@ jobs:
       - name: Install Python 3.12
         run: uv python install 3.12
 
+      - name: Install Linux audio runtime libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2 libsndfile1
+
       - name: Install project dependencies
         run: uv sync --locked --extra dev
 
-      - name: Run tests
-        run: uv run pytest -m "not audio_device"
+      - name: Run device-free tests and coverage gate
+        run: uv run pytest -m "not audio_device" --cov --cov-report=term-missing
+
+      - name: Run strict type checks
+        run: uv run mypy src/vibesound
 
       - name: Run lint checks
         run: uv run ruff check .
 
-      - name: Run CLI smoke checks
+      - name: Run command smoke checks
         run: |
           uv run python -m vibesound --help
           uv run vibesound version
+
+  package:
+    name: Build and clean-wheel acceptance
+    runs-on: windows-latest
+    needs: validate
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
+      - name: Install Python 3.12
+        run: uv python install 3.12
+
+      - name: Build wheel and source archive
+        run: uv build --no-sources
+
+      - name: Install exact wheel into a clean environment
+        shell: pwsh
+        run: |
+          $wheel = (Get-ChildItem -LiteralPath dist -Filter *.whl).FullName
+          uv venv .wheel-smoke --python 3.12
+          uv pip install --python .wheel-smoke\Scripts\python.exe $wheel
+
+      - name: Run installed acceptance launcher
+        shell: pwsh
+        run: |
+          .wheel-smoke\Scripts\vibesound.exe version
+          .wheel-smoke\Scripts\vibesound.exe demo "$env:RUNNER_TEMP\vibesound-demo.vibesound-work" --no-serve

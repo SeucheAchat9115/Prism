@@ -53,7 +53,16 @@ class ClipStoppedEvent:
     kind: Literal["clip.stopped"] = "clip.stopped"
 
 
-EngineEvent: TypeAlias = TransportChangedEvent | ClipLaunchedEvent | ClipStoppedEvent
+@dataclass(frozen=True, slots=True)
+class ClipCompletedEvent(ClipStoppedEvent):
+    """A non-looping clip reached the end of its playable source region."""
+
+    kind: Literal["clip.stopped"] = "clip.stopped"
+
+
+EngineEvent: TypeAlias = (
+    TransportChangedEvent | ClipLaunchedEvent | ClipStoppedEvent | ClipCompletedEvent
+)
 
 
 @dataclass(frozen=True, slots=True)

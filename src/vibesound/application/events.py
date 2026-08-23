@@ -13,8 +13,13 @@ from vibesound.application.types import EventEnvelope
 class EventSubscription:
     """A bounded event stream owned by one WebSocket client."""
 
-    def __init__(self, close_callback: Callable[["EventSubscription"], None]) -> None:
-        self._queue: Queue[EventEnvelope] = Queue(maxsize=256)
+    def __init__(
+        self,
+        close_callback: Callable[["EventSubscription"], None],
+        *,
+        queue_capacity: int = 256,
+    ) -> None:
+        self._queue: Queue[EventEnvelope] = Queue(maxsize=queue_capacity)
         self._close_callback = close_callback
         self._closed = False
         self._overflowed = False
@@ -55,13 +60,20 @@ class EventSubscription:
 class EventHub:
     """Publish events without allowing slow clients to block service calls."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, max_subscribers: int = 32, queue_capacity: int = 256) -> None:
         self._lock = Lock()
         self._subscriptions: set[EventSubscription] = set()
+        self._max_subscribers = max_subscribers
+        self._queue_capacity = queue_capacity
 
     def subscribe(self) -> EventSubscription:
-        subscription = EventSubscription(self._remove)
         with self._lock:
+            if len(self._subscriptions) >= self._max_subscribers:
+                raise RuntimeError("Event subscriber limit reached")
+            subscription = EventSubscription(
+                self._remove,
+                queue_capacity=self._queue_capacity,
+            )
             self._subscriptions.add(subscription)
         return subscription
 

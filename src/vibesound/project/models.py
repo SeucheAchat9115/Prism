@@ -110,7 +110,7 @@ class ClipSlot(StrictModel):
 
 
 class Project(StrictModel):
-    schema_version: Literal[CURRENT_SCHEMA_VERSION] = CURRENT_SCHEMA_VERSION
+    schema_version: Literal[1] = 1
     project_id: EntityId = Field(default_factory=uuid4)
     name: str = Field(min_length=1, max_length=200)
     revision: ProjectRevision = Field(default_factory=ProjectRevision)

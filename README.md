@@ -32,14 +32,11 @@ validation, state changes, transport, rendering, and event publication.
 
 ## Current status
 
-This repository contains the Python package foundation, project persistence, a
-deterministic in-memory session engine, an archive-backed offline renderer, the
-Windows-first audio backend, and the Phase 5 application service and versioned
-local API. The next implementation milestone is Phase 5.5: product alignment, complete
-public authoring operations, scalable project storage, runtime and API hardening,
-and a plug-and-play installed acceptance flow. The general CLI and browser
-session UI follow after that stabilization gate; the staged roadmap and
-deployment guidance are linked below.
+This repository contains the completed Phase 5.5 stabilization boundary:
+working-project storage, complete typed authoring, cached high-quality audio
+preparation, device-free runtime fallback, asynchronous render/export jobs, a
+hardened local v1 API, and a typed Python client. The general CLI and browser
+session UI remain the next product phases.
 
 The project documentation is organized as follows:
 
@@ -47,6 +44,8 @@ The project documentation is organized as follows:
   roadmap and acceptance criteria.
 - [Deployment guide](docs/DEPLOYMENT.md) — local builds, command-line
   installation, releases, CD automation, and future standalone packages.
+- [Phase 5.5 contracts](docs/PHASE_5_5.md) — working storage, typed operations,
+  jobs, runtime behavior, security limits, and acceptance commands.
 - [Manual examples](examples/README.md) — runnable examples for the current
   persistence, engine, rendering, CLI, and audio-backend features.
 
@@ -63,10 +62,14 @@ The [`examples/`](examples/README.md) folder mirrors this current feature
 boundary with ten numbered generated-audio scripts. Nine examples run without
 hardware; the PortAudio diagnostics and playback example is explicitly opt-in.
 
-The API is available through `vibesound.api.create_app()` for embedding and
-`vibesound.api.run_server(PROJECT)` for a loopback-only development server. It
-owns one project archive per process, supports revisioned transactions, runtime
-transport/clip controls, synchronous rendering, and WebSocket events.
+The API is available through `vibesound.api.create_app()` for embedding,
+`vibesound.api.run_server(PROJECT)` for a loopback-only server, and
+`vibesound.api.VibeSoundClient` for typed callers. One installed command creates
+synthetic redistributable audio and starts the device-free acceptance service:
+
+```text
+vibesound demo demo.vibesound-work
+```
 
 ## POC target
 
@@ -109,7 +112,9 @@ project unchanged.
 
 ## Project format
 
-Projects are self-contained ZIP archives with a custom `.vibesound` extension:
+Portable projects are self-contained ZIP archives with a custom `.vibesound`
+extension. Routine service edits occur in an adjacent `.vibesound-work/`
+directory and portable ZIP creation is explicit:
 
 ```text
 demo.vibesound
@@ -129,6 +134,10 @@ rejects traversal and symlink entries, preserves imported audio bytes, and only
 rewrites an existing project through an explicit save or migration operation.
 The manifest remains inspectable with standard ZIP tools while the custom
 extension makes project files recognizable to VibeSound.
+
+The working representation keeps ordinary `project.json`, immutable assets,
+revision history, project-local exports, and internal lock/staging/cache/job
+state. Removing it does not damage the last portable archive.
 
 ## Architecture principles
 
@@ -190,6 +199,7 @@ Once the environment is installed:
 uv sync --extra dev
 uv run pytest
 uv run ruff check .
+uv run mypy src/vibesound
 uv run python -m vibesound --help
 uv run vibesound version
 ```

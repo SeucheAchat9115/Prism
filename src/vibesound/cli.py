@@ -6,6 +6,8 @@ from pathlib import Path
 import typer
 
 from vibesound import __version__
+from vibesound.api.server import run_server
+from vibesound.demo import ensure_demo
 from vibesound.project import (
     AssetImportError,
     ProjectArchiveError,
@@ -49,6 +51,31 @@ def doctor() -> None:
     """Report the status of the repository bootstrap."""
 
     typer.echo("VibeSound bootstrap is installed.")
+
+
+@app.command()
+def demo(
+    path: Path = typer.Argument(
+        Path("vibesound-demo.vibesound-work"),
+        help="Generated working-project directory.",
+    ),
+    host: str = typer.Option("127.0.0.1", help="Loopback address for the local service."),
+    port: int = typer.Option(8765, min=1, max=65535),
+    serve: bool = typer.Option(True, "--serve/--no-serve"),
+) -> None:
+    """Create or open the synthetic demo and start the local service."""
+
+    try:
+        project = ensure_demo(path)
+    except (ProjectArchiveError, RuntimeError, ValueError) as error:
+        _fail(error)
+    typer.echo(f"Demo ready: {path} ({project.project_id}, revision {project.revision.number})")
+    if serve:
+        typer.echo(f"Serving on http://{host}:{port}")
+        try:
+            run_server(path, host=host, port=port)
+        except (OSError, ValueError) as error:
+            _fail(error)
 
 
 @project_app.command("init")

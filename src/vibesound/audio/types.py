@@ -57,6 +57,8 @@ class AudioBackendConfig:
     queue_blocks: int = 4
     sample_rate: int | None = None
     control_timeout_seconds: float = 2.0
+    underrun_fault_count: int = 8
+    underrun_window_seconds: float = 5.0
 
     def __post_init__(self) -> None:
         if self.device is not None and (
@@ -86,6 +88,19 @@ class AudioBackendConfig:
             or self.control_timeout_seconds <= 0
         ):
             raise ValueError("control_timeout_seconds must be positive and finite")
+        if (
+            not isinstance(self.underrun_fault_count, int)
+            or isinstance(self.underrun_fault_count, bool)
+            or self.underrun_fault_count <= 0
+        ):
+            raise ValueError("underrun_fault_count must be a positive integer")
+        if (
+            not isinstance(self.underrun_window_seconds, (int, float))
+            or isinstance(self.underrun_window_seconds, bool)
+            or not isfinite(float(self.underrun_window_seconds))
+            or self.underrun_window_seconds <= 0
+        ):
+            raise ValueError("underrun_window_seconds must be positive and finite")
 
 
 @dataclass(frozen=True, slots=True)
@@ -112,12 +127,15 @@ class AudioBackendSnapshot:
     device: AudioDeviceInfo | None
     underrun_count: int
     last_error: AudioErrorInfo | None
+    queued_latency_frames: int = 0
 
     def __post_init__(self) -> None:
         if not isinstance(self.state, AudioBackendState):
             raise ValueError("state must be an AudioBackendState")
         if not isinstance(self.underrun_count, int) or self.underrun_count < 0:
             raise ValueError("underrun_count must be a non-negative integer")
+        if not isinstance(self.queued_latency_frames, int) or self.queued_latency_frames < 0:
+            raise ValueError("queued_latency_frames must be a non-negative integer")
 
 
 AudioCommandName: TypeAlias = Literal[
@@ -129,4 +147,7 @@ AudioCommandName: TypeAlias = Literal[
     "launch_scene",
     "stop_track",
     "stop_all",
+    "update_mixer",
+    "replace_project",
+    "drain_events",
 ]

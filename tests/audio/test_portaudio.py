@@ -88,7 +88,7 @@ def test_portaudio_backend_configures_stream_and_forwards_audio(
     backend.close()
 
 
-def test_portaudio_backend_reports_callback_underflow_without_raising(
+def test_portaudio_backend_recovers_isolated_underflow_then_faults_at_threshold(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     _install_fake_devices(monkeypatch)
@@ -100,14 +100,26 @@ def test_portaudio_backend_reports_callback_underflow_without_raising(
     stream.pull(2, _Status())
 
     deadline = time.monotonic() + 1.0
+    while time.monotonic() < deadline and backend.snapshot().last_error is None:
+        time.sleep(0.01)
+    snapshot = backend.snapshot()
+
+    assert snapshot.state == AudioBackendState.RUNNING
+    assert snapshot.last_error is not None
+    assert snapshot.last_error.code == "output_underflow"
+    assert snapshot.last_error.recoverable
+    assert snapshot.underrun_count >= 1
+
+    for _ in range(7):
+        stream.pull(2, _Status())
+    deadline = time.monotonic() + 1.0
     while time.monotonic() < deadline and backend.snapshot().state != AudioBackendState.FAULTED:
         time.sleep(0.01)
     snapshot = backend.snapshot()
 
     assert snapshot.state == AudioBackendState.FAULTED
     assert snapshot.last_error is not None
-    assert snapshot.last_error.code == "output_underflow"
-    assert snapshot.underrun_count >= 1
+    assert not snapshot.last_error.recoverable
     backend.close()
 
 

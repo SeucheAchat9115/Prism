@@ -6,7 +6,9 @@ from typing import Protocol, Self, runtime_checkable
 from uuid import UUID
 
 from vibesound.audio.types import AudioBackendSnapshot
-from vibesound.engine.types import ScheduledAction
+from vibesound.engine.sources import ClipSourceProvider
+from vibesound.engine.types import EngineEvent, ScheduledAction
+from vibesound.project.models import Project
 
 
 @runtime_checkable
@@ -39,6 +41,15 @@ class AudioBackend(Protocol):
 
     def snapshot(self) -> AudioBackendSnapshot:
         """Return backend state and diagnostics without exposing mutable state."""
+
+    def update_mixer(self, project: Project) -> None:
+        """Apply runtime-safe mixer values without rebuilding the backend."""
+
+    def replace_project(self, project: Project, sources: ClipSourceProvider) -> None:
+        """Replace the engine graph while preserving compatible runtime state."""
+
+    def drain_events(self) -> tuple[EngineEvent, ...]:
+        """Return actual engine transitions produced since the previous call."""
 
     def close(self) -> None:
         """Release all backend resources."""

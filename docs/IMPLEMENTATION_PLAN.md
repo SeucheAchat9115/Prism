@@ -502,6 +502,9 @@ accepted/scheduled control events.
 
 ## Phase 5.5 — Product alignment, authoring completeness, and application hardening
 
+**Status: implemented.** The stable contracts and operational limits are
+summarized in [PHASE_5_5.md](PHASE_5_5.md).
+
 Phase 5.5 is the mandatory stabilization milestone between the completed
 application service/API and the general CLI surface. It keeps VibeSound focused
 as a Python-first DAW for musicians and coding agents, closes the incomplete

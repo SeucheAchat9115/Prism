@@ -15,3 +15,7 @@ class RenderValidationError(RenderError):
 
 class RenderOutputError(RenderError):
     """The renderer could not safely create or replace its output."""
+
+
+class RenderCancelledError(RenderError):
+    """A background render was cancelled at a block boundary."""

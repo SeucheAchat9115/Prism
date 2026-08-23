@@ -11,6 +11,10 @@ Run them from the repository root after installing the development environment:
 uv sync --extra dev
 ```
 
+For the Phase 5.5 installed-package acceptance flow, create the synthetic demo
+and start its loopback service with `vibesound demo demo.vibesound-work`. Add
+`--no-serve` when only generating and reopening the fixture in automation.
+
 Artifact-producing examples create a unique run directory under
 `examples/output/` by default. That directory is ignored by Git. Use
 `--output-dir PATH` to choose another base directory.

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import os
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
+from threading import Event
 
 import soundfile as sf
 
@@ -15,17 +17,24 @@ from vibesound.project import (
     validate_project,
 )
 from vibesound.project.models import Project
+from vibesound.project.repository import RepositorySnapshot
 from vibesound.project.validation import project_reference_issues
 from vibesound.rendering.errors import (
     InvalidRenderRequestError,
+    RenderCancelledError,
     RenderError,
     RenderOutputError,
     RenderValidationError,
 )
-from vibesound.rendering.sources import prepare_archive_project, prepare_source_provider
+from vibesound.rendering.sources import (
+    prepare_archive_project,
+    prepare_source_provider,
+    prepare_working_project,
+)
 from vibesound.rendering.types import RenderCommand, RenderMetadata, RenderRequest
 
 RENDER_BLOCK_FRAMES = 4096
+ProgressCallback = Callable[[float], None]
 
 
 def render(
@@ -94,6 +103,33 @@ def render_project(
     )
 
 
+def render_snapshot(
+    snapshot: RepositorySnapshot,
+    output_path: Path | str,
+    request: RenderRequest,
+    *,
+    cancel_event: Event | None = None,
+    progress: ProgressCallback | None = None,
+) -> RenderMetadata:
+    """Render an immutable working-project snapshot with job control hooks."""
+
+    project = snapshot.project
+    _validate_project(project)
+    output = _validate_output_path(output_path)
+    total_frames = _validate_request(project, request)
+    prepared = prepare_working_project(snapshot)
+    return _render_prepared(
+        project,
+        prepared.project,
+        prepared.sources,
+        output,
+        total_frames,
+        request,
+        cancel_event=cancel_event,
+        progress=progress,
+    )
+
+
 def _validate_project(project: Project) -> None:
     if not isinstance(project, Project):
         raise RenderValidationError("render() requires a Project instance")
@@ -156,12 +192,23 @@ def _render_prepared(
     output: Path,
     total_frames: int,
     request: RenderRequest,
+    *,
+    cancel_event: Event | None = None,
+    progress: ProgressCallback | None = None,
 ) -> RenderMetadata:
     try:
         engine = SessionEngine(runtime_project, sources)
     except EngineError as exc:
         raise RenderValidationError(f"Project sources cannot be rendered: {exc}") from exc
-    return _write_atomic(project, engine, output, total_frames, request)
+    return _write_atomic(
+        project,
+        engine,
+        output,
+        total_frames,
+        request,
+        cancel_event=cancel_event,
+        progress=progress,
+    )
 
 
 def _write_atomic(
@@ -170,6 +217,9 @@ def _write_atomic(
     output: Path,
     total_frames: int,
     request: RenderRequest,
+    *,
+    cancel_event: Event | None = None,
+    progress: ProgressCallback | None = None,
 ) -> RenderMetadata:
     temporary_path: Path | None = None
     current_frame = 0
@@ -193,16 +243,23 @@ def _write_atomic(
             def write_until(target_frame: int) -> None:
                 nonlocal current_frame
                 while current_frame < target_frame:
+                    if cancel_event is not None and cancel_event.is_set():
+                        raise RenderCancelledError("Render job was cancelled")
                     block_frames = min(RENDER_BLOCK_FRAMES, target_frame - current_frame)
                     step = engine.advance(block_frames)
                     audio_file.write(step.samples)
                     current_frame += block_frames
+                    if progress is not None:
+                        progress(current_frame / total_frames)
 
             for command in request.commands:
                 write_until(command.frame)
                 _dispatch(engine, command)
                 engine.advance(0)
             write_until(total_frames)
+
+        if progress is not None:
+            progress(1.0)
 
         with temporary_path.open("r+b") as temporary_file:
             temporary_file.flush()

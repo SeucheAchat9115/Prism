@@ -17,7 +17,10 @@ The repository currently has the foundation for a Python package:
 - The `vibesound` console script is exposed through the package metadata.
 - `uv.lock` records the development dependency resolution.
 - Python 3.12 is currently required by `requires-python = ">=3.12,<3.13"`.
-- Continuous integration tests the package on Windows.
+- Continuous integration runs device-free tests, strict typing, lint, and the
+  85% non-native coverage gate on Windows and Linux.
+- A packaging job installs the exact built wheel into a clean Python 3.12
+  environment and runs the synthetic demo acceptance launcher.
 - No release workflow publishes artifacts yet.
 
 The recommended first distribution is a Python wheel and source archive. A
@@ -44,6 +47,7 @@ Install `uv`, then run the same checks used by CI:
 uv sync --locked --extra dev
 uv run pytest
 uv run ruff check .
+uv run mypy src/vibesound
 ```
 
 Build the distributions:
@@ -71,6 +75,7 @@ filename produced in `dist/`:
 uv tool install --python 3.12 .\dist\vibesound-0.1.0.dev0-py3-none-any.whl
 vibesound version
 vibesound --help
+vibesound demo demo.vibesound-work --no-serve
 ```
 
 On Linux, the equivalent path is:
@@ -151,7 +156,8 @@ licensing and installation remain outside the VibeSound package.
 These terms describe different responsibilities:
 
 - **Continuous integration (CI):** run tests, lint checks, and smoke checks on
-  pushes and pull requests. The repository already has a Windows CI workflow.
+  pushes and pull requests. The repository validates Windows and Linux and runs
+  a clean-wheel acceptance job on Windows.
 - **Continuous delivery/deployment (CD):** build and publish release artifacts
   after an intentional release event, normally a version tag or GitHub Release.
 

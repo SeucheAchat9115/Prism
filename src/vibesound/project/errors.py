@@ -54,3 +54,23 @@ class MigrationError(ProjectArchiveError):
 
 class AssetImportError(ProjectArchiveError):
     """An audio asset could not be safely imported."""
+
+
+class WorkingProjectError(ProjectArchiveError):
+    """A working-project repository operation failed."""
+
+
+class ProjectLockedError(WorkingProjectError):
+    """Another process already owns the writable project."""
+
+
+class ExternalProjectChangeError(WorkingProjectError):
+    """The portable source or working manifest changed outside the repository."""
+
+
+class ProjectResourceLimitError(WorkingProjectError):
+    """An archive, upload, or request exceeded a configured resource limit."""
+
+
+class StagedUploadError(WorkingProjectError):
+    """A staged audio upload is missing, expired, or invalid."""

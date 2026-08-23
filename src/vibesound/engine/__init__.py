@@ -12,6 +12,7 @@ from vibesound.engine.session import SessionEngine
 from vibesound.engine.sinks import AudioSink, FakeAudioSink
 from vibesound.engine.sources import AudioBuffer, ClipSourceProvider, InMemoryClipSourceProvider
 from vibesound.engine.types import (
+    ClipCompletedEvent,
     ClipLaunchedEvent,
     ClipStoppedEvent,
     EngineEvent,
@@ -26,6 +27,7 @@ __all__ = [
     "AudioBuffer",
     "AudioSink",
     "ClipLaunchedEvent",
+    "ClipCompletedEvent",
     "ClipSourceProvider",
     "ClipStoppedEvent",
     "EngineError",

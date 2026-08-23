@@ -86,7 +86,11 @@ def main() -> int:
         render_events = [subscription.get(timeout=1.0).type for _ in range(2)]
 
         reopened = load_project(project_path)
-        samples, sample_rate = sf.read(render_path, always_2d=True, dtype="float32")
+        samples, sample_rate = sf.read(
+            metadata.output_path,
+            always_2d=True,
+            dtype="float32",
+        )
         print_json(
             {
                 "project_path": str(project_path),
@@ -108,7 +112,7 @@ def main() -> int:
                     "sample_rate": sample_rate,
                     "channels": int(samples.shape[1]),
                     "frames": int(samples.shape[0]),
-                    "sha256": hashlib.sha256(render_path.read_bytes()).hexdigest(),
+                    "sha256": hashlib.sha256(metadata.output_path.read_bytes()).hexdigest(),
                 },
                 "reopened": {
                     "name": reopened.name,
