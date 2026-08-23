@@ -501,6 +501,10 @@ def create_app(service: ApplicationService) -> FastAPI:
                     event = await asyncio.to_thread(subscription.get, 0.5)
                 except Empty:
                     continue
+                except RuntimeError as error:
+                    if str(error) == "cannot schedule new futures after shutdown":
+                        break
+                    raise
                 await websocket.send_json(event.model_dump(mode="json"))
         except WebSocketDisconnect:
             pass
