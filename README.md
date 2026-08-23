@@ -32,12 +32,11 @@ validation, state changes, transport, rendering, and event publication.
 
 ## Current status
 
-This repository contains the completed Phase 7 browser-session boundary:
-working-project storage, complete typed authoring, cached high-quality audio
-preparation, device-free runtime fallback, asynchronous render/export jobs, a
-hardened local v1 API, a typed Python client, and the complete service-backed
-CLI now feed one packaged, realtime browser session with safe concurrent mixer
-editing and scene rendering.
+This repository contains the completed Phase 8 proof of concept: working-project
+storage, typed authoring, deterministic rendering, device-free runtime fallback,
+a hardened local v1 API, the complete service-backed CLI, and the packaged
+browser session are now exercised together against the exact built wheel on a
+clean Windows environment.
 
 The project documentation is organized as follows:
 
@@ -51,6 +50,8 @@ The project documentation is organized as follows:
   dry runs, selectors, job waiting, and stable exit codes.
 - [Phase 7 browser session](docs/PHASE_7.md) — launch workflow, controls,
   synchronization, conflict handling, local security, and browser tests.
+- [Phase 8 reproducible POC](docs/PHASE_8.md) — canonical fixture, full
+  browser/CLI acceptance flow, artifacts, and clean-wheel Windows gate.
 - [Manual examples](examples/README.md) — runnable examples for the current
   persistence, engine, rendering, CLI, and audio-backend features.
 
@@ -64,9 +65,9 @@ backends. Device-free tests run by default; the real-device smoke test is
 opt-in with `uv run pytest -m audio_device -s` on Windows.
 
 The [`examples/`](examples/README.md) folder mirrors this current feature
-boundary with eleven numbered generated-audio scripts. Nine examples run
-without hardware; PortAudio diagnostics and the blocking browser launcher are
-explicitly opt-in.
+boundary with twelve numbered generated-audio scripts. Nine examples run
+without hardware; PortAudio diagnostics, the blocking browser launcher, and the
+complete Playwright-driven POC are explicitly opt-in.
 
 The API is available through `vibesound.api.create_app()` for embedding,
 `vibesound.api.run_server(PROJECT)` for a loopback-only server, and
@@ -89,10 +90,10 @@ Service-backed commands default to `http://127.0.0.1:8765`. Override it with
 `--url` or `VIBESOUND_URL`; only loopback targets are accepted. The named local
 project must match the project ID reported by readiness before a command runs.
 
-## POC target
+## Completed POC
 
-The first POC deliberately proves the project and control loop before taking on
-plugin-hosting complexity. It will support:
+The first POC proves the project and control loop before taking on plugin-hosting
+complexity. It supports:
 
 - Audio clip import from WAV/AIFF assets.
 - Tracks and scenes in a session-style view.
@@ -106,7 +107,7 @@ plugin-hosting complexity. It will support:
 - A versioned local HTTP/WebSocket API for coding agents.
 - A lightweight browser UI served by the Python process.
 
-The POC will not include VST hosting, MIDI instruments, recording, a linear
+The POC does not include VST hosting, MIDI instruments, recording, a linear
 arrangement timeline, automation lanes, collaboration, or remote access.
 
 ## Agent CLI workflow

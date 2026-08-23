@@ -14,7 +14,8 @@ uv sync --extra dev
 For the installed-package acceptance flow, create the synthetic demo and start
 its loopback service with `vibesound demo demo.vibesound-work`. Add `--open` for
 the Phase 7 browser session or `--no-serve` when automation only needs the
-fixture.
+fixture. Example 12 drives the complete Phase 8 workflow against a selected
+VibeSound installation.
 
 Artifact-producing examples create a unique run directory under
 `examples/output/` by default. That directory is ignored by Git. Use
@@ -35,6 +36,7 @@ Artifact-producing examples create a unique run directory under
 | 09 | [`09_audio_device_diagnostics.py`](09_audio_device_diagnostics.py) | Inspect stereo PortAudio devices and optionally play a generated clip | Opt-in |
 | 10 | [`10_agent_producer_workflow.py`](10_agent_producer_workflow.py) | Simulate an agent inspecting, editing, rendering, hashing, and reopening a song | No |
 | 11 | [`11_browser_session.py`](11_browser_session.py) | Create the synthetic demo, start its foreground loopback service, and open the Phase 7 studio UI | Browser, opt-in |
+| 12 | [`12_reproducible_poc.py`](12_reproducible_poc.py) | Drive the canonical fixture through browser launches, CLI control, safe transactions, rendering, shutdown, and reopen | Chromium, opt-in |
 
 ## Run the device-free examples
 
@@ -57,11 +59,11 @@ starting point is [02 — make a beat](02_make_beat.py); open its generated WAV
 and inspect its `.vibesound` archive with standard ZIP tools. The best example
 for a coding agent is [10 — agent producer workflow](10_agent_producer_workflow.py).
 
-## Run the browser example
+## Run the browser examples
 
-The browser example blocks while its local service is running and is therefore
-excluded from the normal example suite. It uses the system browser and needs no
-Node installation:
+The Phase 7 browser example blocks while its local service is running and is
+therefore excluded from the normal example suite. It uses the system browser
+and needs no Node installation:
 
 ```powershell
 uv run python examples/11_browser_session.py
@@ -70,6 +72,18 @@ uv run python examples/11_browser_session.py
 Press Ctrl+C in that terminal to stop the service. Use `--no-open` to print and
 serve the URL without launching a browser, or pass `--port` to select another
 local port.
+
+The Phase 8 example uses Playwright to run the complete acceptance flow
+headlessly and leaves a JSON report, service logs, browser trace, working
+project, and rendered WAV in a unique output directory:
+
+```powershell
+uv run python -m playwright install chromium
+uv run python examples/12_reproducible_poc.py
+```
+
+Add `--headed` to watch Chromium. Use `--app-python PATH` to drive a clean wheel
+installed in a different Python environment.
 
 ## Run the hardware example
 

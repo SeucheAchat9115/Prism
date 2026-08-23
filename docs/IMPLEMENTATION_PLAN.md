@@ -849,35 +849,39 @@ and Chromium gate are documented in [`PHASE_7.md`](PHASE_7.md).
 
 ## Phase 8 — Reproducible POC release
 
+**Status: implemented.** The canonical fixture, executable workflow, clean-wheel
+Windows gate, and artifact contract are documented in
+[`PHASE_8.md`](PHASE_8.md).
+
 ### Example maintenance gate
 
-- [ ] Promote the POC fixture and acceptance flow into a repeatable example,
+- [x] Promote the POC fixture and acceptance flow into a repeatable example,
   including the browser, CLI, transaction, render, and reopen steps.
 
 Create a fixture project with:
 
-- Two tracks.
-- Two scenes.
-- Several short audio clips.
-- Known tempo and quantization.
-- Different gain and pan values.
-- At least one muted track.
+- [x] Two tracks.
+- [x] Two scenes.
+- [x] Several short audio clips.
+- [x] Known tempo and quantization.
+- [x] Different gain and pan values.
+- [x] At least one muted track.
 
 The acceptance flow is:
 
-1. Initialize or load the fixture project.
-2. Open the browser UI.
-3. Launch clips from the UI.
-4. Launch another clip through the CLI.
-5. Change gain and mute state through a transaction.
-6. Preview an invalid transaction and verify there is no state change.
-7. Export a WAV.
-8. Close and reopen the project.
-9. Verify the project revision and content.
-10. Run the complete automated test suite.
+1. [x] Initialize or load the fixture project.
+2. [x] Open the browser UI.
+3. [x] Launch clips from the UI.
+4. [x] Launch another clip through the CLI.
+5. [x] Change gain and mute state through a transaction.
+6. [x] Preview an invalid transaction and verify there is no state change.
+7. [x] Export a WAV.
+8. [x] Close and reopen the project.
+9. [x] Verify the project revision and content.
+10. [x] Run the complete automated test suite.
 
-The POC is complete only when this flow works on a clean Windows environment
-without third-party plugins.
+The POC is complete: CI runs this flow against the exact installed wheel on a
+clean Windows environment without third-party plugins.
 
 ## Phase 9 — VST3 plugin worker
 

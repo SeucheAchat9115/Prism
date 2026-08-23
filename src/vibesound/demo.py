@@ -47,32 +47,40 @@ def ensure_demo(path: Path | str) -> Project:
                 "tone-clip",
                 "kick-slot",
                 "tone-slot",
+                "chorus-kick-clip",
+                "chorus-tone-clip",
+                "chorus-kick-slot",
+                "chorus-tone-slot",
             )
         }
         request = TransactionRequest.model_validate(
             {
                 "base_revision": project.revision.number,
-                "idempotency_key": "vibesound-installed-demo-v1",
+                "idempotency_key": "vibesound-installed-demo-v2",
                 "operations": [
                     {
                         "op": "track.create",
                         "track_id": ids["drums"],
                         "name": "Drums",
+                        "order": 0,
                     },
                     {
                         "op": "track.create",
                         "track_id": ids["synth"],
                         "name": "Synth",
+                        "order": 1,
                     },
                     {
                         "op": "scene.create",
                         "scene_id": ids["verse"],
                         "name": "Verse",
+                        "order": 0,
                     },
                     {
                         "op": "scene.create",
                         "scene_id": ids["chorus"],
                         "name": "Chorus",
+                        "order": 1,
                     },
                     {
                         "op": "asset.import",
@@ -100,6 +108,22 @@ def ensure_demo(path: Path | str) -> Project:
                         "gain_db": -9.0,
                     },
                     {
+                        "op": "clip.create",
+                        "clip_id": ids["chorus-kick-clip"],
+                        "name": "Chorus kick",
+                        "asset_id": ids["kick-asset"],
+                        "loop": True,
+                        "gain_db": -3.0,
+                    },
+                    {
+                        "op": "clip.create",
+                        "clip_id": ids["chorus-tone-clip"],
+                        "name": "Chorus tone",
+                        "asset_id": ids["tone-asset"],
+                        "loop": True,
+                        "gain_db": -6.0,
+                    },
+                    {
                         "op": "slot.assign",
                         "slot_id": ids["kick-slot"],
                         "track_id": ids["drums"],
@@ -114,9 +138,31 @@ def ensure_demo(path: Path | str) -> Project:
                         "clip_id": ids["tone-clip"],
                     },
                     {
+                        "op": "slot.assign",
+                        "slot_id": ids["chorus-kick-slot"],
+                        "track_id": ids["drums"],
+                        "scene_id": ids["chorus"],
+                        "clip_id": ids["chorus-kick-clip"],
+                    },
+                    {
+                        "op": "slot.assign",
+                        "slot_id": ids["chorus-tone-slot"],
+                        "track_id": ids["synth"],
+                        "scene_id": ids["chorus"],
+                        "clip_id": ids["chorus-tone-clip"],
+                    },
+                    {
+                        "op": "mixer.update",
+                        "track_id": ids["drums"],
+                        "gain_db": -3.0,
+                        "pan": -0.25,
+                    },
+                    {
                         "op": "mixer.update",
                         "track_id": ids["synth"],
+                        "gain_db": -9.0,
                         "pan": 0.25,
+                        "muted": True,
                     },
                 ],
             }
@@ -146,5 +192,20 @@ def demo_ids(project_id: UUID) -> dict[str, UUID]:
 
     return {
         name: uuid5(project_id, f"vibesound-demo:{name}")
-        for name in ("drums", "synth", "verse", "chorus", "kick-clip", "tone-clip")
+        for name in (
+            "drums",
+            "synth",
+            "verse",
+            "chorus",
+            "kick-asset",
+            "tone-asset",
+            "kick-clip",
+            "tone-clip",
+            "kick-slot",
+            "tone-slot",
+            "chorus-kick-clip",
+            "chorus-tone-clip",
+            "chorus-kick-slot",
+            "chorus-tone-slot",
+        )
     }

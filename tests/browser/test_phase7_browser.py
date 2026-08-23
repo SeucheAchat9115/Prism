@@ -81,7 +81,7 @@ def test_session_controls_mixer_render_and_errors(
     open_session(page, browser_server)
 
     expect(page.locator("#project-name")).to_have_text("VibeSound demo")
-    expect(page.get_by_test_id("session-grid").locator(".slot-button")).to_have_count(2)
+    expect(page.get_by_test_id("session-grid").locator(".slot-button")).to_have_count(4)
     expect(page.get_by_test_id("validation-content")).to_contain_text("checks passed")
 
     kick = page.get_by_test_id(f"slot-{ids['drums']}-{ids['verse']}")

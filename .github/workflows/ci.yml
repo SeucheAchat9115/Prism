@@ -106,6 +106,12 @@ jobs:
       - name: Install Python 3.12
         run: uv python install 3.12
 
+      - name: Install acceptance-driver dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Install Chromium for Phase 8 acceptance
+        run: uv run python -m playwright install chromium
+
       - name: Build wheel and source archive
         run: uv build --no-sources
 
@@ -123,3 +129,20 @@ jobs:
           .wheel-smoke\Scripts\vibesound.exe demo "$env:RUNNER_TEMP\vibesound-demo.vibesound-work" --no-serve
           .wheel-smoke\Scripts\vibesound.exe serve "$env:RUNNER_TEMP\vibesound-demo.vibesound-work" --dry-run --json
           .wheel-smoke\Scripts\python.exe ci\wheel_ui_smoke.py
+
+      - name: Run Phase 8 clean-wheel POC acceptance
+        shell: pwsh
+        run: |
+          uv run python examples\12_reproducible_poc.py `
+            --output-dir "$env:RUNNER_TEMP\vibesound-phase8" `
+            --app-python .wheel-smoke\Scripts\python.exe `
+            --timeout 60
+
+      - name: Upload Phase 8 diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: phase8-poc-diagnostics
+          path: ${{ runner.temp }}/vibesound-phase8
+          if-no-files-found: ignore
+          retention-days: 7

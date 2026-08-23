@@ -22,8 +22,8 @@ The repository currently has the foundation for a Python package:
 - A dedicated Ubuntu job installs Chromium, runs the marked browser acceptance
   suite, and retains Playwright traces on failure.
 - A packaging job installs the exact built wheel into a clean Python 3.12
-  environment, runs the synthetic demo launcher, and verifies that the installed
-  package serves `/` and its browser assets.
+  environment, runs the synthetic demo and packaged-UI smoke checks, and drives
+  the complete Phase 8 browser/CLI acceptance flow against that interpreter.
 - No release workflow publishes artifacts yet.
 
 The recommended first distribution is a Python wheel and source archive. A
@@ -95,6 +95,17 @@ opening is opt-in and occurs only after the actual loopback port is bound. If
 the operating system declines the request, the command prints a warning and
 continues serving the URL. This surface is loopback-only and is not suitable as
 an authenticated remote deployment.
+
+To reproduce the Phase 8 gate from a checkout after installing Chromium, point
+the acceptance driver at the interpreter containing the wheel under test:
+
+```powershell
+uv run python examples/12_reproducible_poc.py `
+  --app-python .\.wheel-smoke\Scripts\python.exe
+```
+
+The driver uses Playwright from the development environment; the selected
+application environment contains only the wheel and its runtime dependencies.
 
 On Linux, the equivalent path is:
 
@@ -300,5 +311,6 @@ for project creation, project loading, audio import, and clean shutdown.
 - [README](../README.md)
 - [Implementation plan](IMPLEMENTATION_PLAN.md)
 - [Phase 7 browser session](PHASE_7.md)
+- [Phase 8 reproducible POC](PHASE_8.md)
 - [uv package guide](https://docs.astral.sh/uv/guides/package/)
 - [uv tools guide](https://docs.astral.sh/uv/guides/tools/)

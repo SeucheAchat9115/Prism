@@ -53,11 +53,16 @@ def test_audio_device_diagnostic_help_is_available() -> None:
 
 
 def test_browser_session_example_help_is_available() -> None:
-    result = subprocess.run(
-        [sys.executable, str(EXAMPLES / "11_browser_session.py"), "--help"],
-        cwd=ROOT,
-        capture_output=True,
-        text=True,
+    commands = (
+        ("11_browser_session.py", "--no-open"),
+        ("12_reproducible_poc.py", "--app-python"),
     )
-    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
-    assert "--no-open" in result.stdout
+    for script, expected_option in commands:
+        result = subprocess.run(
+            [sys.executable, str(EXAMPLES / script), "--help"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        assert expected_option in result.stdout
