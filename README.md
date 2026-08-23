@@ -35,8 +35,11 @@ validation, state changes, transport, rendering, and event publication.
 This repository contains the Python package foundation, project persistence, a
 deterministic in-memory session engine, an archive-backed offline renderer, the
 Windows-first audio backend, and the Phase 5 application service and versioned
-local API. The next implementation milestone is the browser session UI; the
-staged roadmap and deployment guidance are linked below.
+local API. The next implementation milestone is Phase 5.5: product alignment, complete
+public authoring operations, scalable project storage, runtime and API hardening,
+and a plug-and-play installed acceptance flow. The general CLI and browser
+session UI follow after that stabilization gate; the staged roadmap and
+deployment guidance are linked below.
 
 The project documentation is organized as follows:
 
@@ -168,6 +171,8 @@ Repository foundation
   → Offline renderer
   → Windows audio playback
   → CLI and versioned API
+  → Product and application hardening
+  → Complete CLI surface
   → Browser session UI
   → Reproducible POC
   → Isolated VST3 worker
