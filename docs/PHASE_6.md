@@ -11,7 +11,7 @@ manifest directly.
 Start one foreground service for one project:
 
 ```text
-vibesound serve PROJECT [--host 127.0.0.1] [--port 8765]
+vibesound serve PROJECT [--host 127.0.0.1] [--port 8765] [--open]
 ```
 
 There is no automatic background daemon. Startup output is emitted only after
@@ -39,7 +39,7 @@ archive and refuses to rewrite it while an adjacent working sidecar exists.
 ## Command surface
 
 ```text
-vibesound serve PROJECT [--host HOST] [--port PORT] [--dry-run] [--json]
+vibesound serve PROJECT [--host HOST] [--port PORT] [--open] [--dry-run] [--json]
 
 vibesound server status PROJECT
 vibesound server capabilities PROJECT

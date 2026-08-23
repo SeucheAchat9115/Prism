@@ -32,11 +32,12 @@ validation, state changes, transport, rendering, and event publication.
 
 ## Current status
 
-This repository contains the completed Phase 6 command-line boundary:
+This repository contains the completed Phase 7 browser-session boundary:
 working-project storage, complete typed authoring, cached high-quality audio
 preparation, device-free runtime fallback, asynchronous render/export jobs, a
 hardened local v1 API, a typed Python client, and the complete service-backed
-CLI. The browser session UI is the next product phase.
+CLI now feed one packaged, realtime browser session with safe concurrent mixer
+editing and scene rendering.
 
 The project documentation is organized as follows:
 
@@ -48,6 +49,8 @@ The project documentation is organized as follows:
   jobs, runtime behavior, security limits, and acceptance commands.
 - [Phase 6 CLI](docs/PHASE_6.md) — commands, service lifecycle, JSON envelopes,
   dry runs, selectors, job waiting, and stable exit codes.
+- [Phase 7 browser session](docs/PHASE_7.md) — launch workflow, controls,
+  synchronization, conflict handling, local security, and browser tests.
 - [Manual examples](examples/README.md) — runnable examples for the current
   persistence, engine, rendering, CLI, and audio-backend features.
 
@@ -61,8 +64,9 @@ backends. Device-free tests run by default; the real-device smoke test is
 opt-in with `uv run pytest -m audio_device -s` on Windows.
 
 The [`examples/`](examples/README.md) folder mirrors this current feature
-boundary with ten numbered generated-audio scripts. Nine examples run without
-hardware; the PortAudio diagnostics and playback example is explicitly opt-in.
+boundary with eleven numbered generated-audio scripts. Nine examples run
+without hardware; PortAudio diagnostics and the blocking browser launcher are
+explicitly opt-in.
 
 The API is available through `vibesound.api.create_app()` for embedding,
 `vibesound.api.run_server(PROJECT)` for a loopback-only server, and
@@ -71,6 +75,14 @@ service explicitly; it never creates an invisible daemon:
 
 ```text
 vibesound serve demo.vibesound-work
+```
+
+Add `--open` to request the Phase 7 session in the system browser after the
+service has bound, or open the printed URL manually:
+
+```text
+vibesound demo demo.vibesound-work --open
+vibesound serve demo.vibesound-work --open
 ```
 
 Service-backed commands default to `http://127.0.0.1:8765`. Override it with
@@ -209,7 +221,8 @@ Once the environment is installed:
 
 ```powershell
 uv sync --extra dev
-uv run pytest
+uv run pytest -m "not audio_device and not browser"
+uv run pytest -m browser --browser chromium
 uv run ruff check .
 uv run mypy src/vibesound
 uv run python -m vibesound --help

@@ -37,7 +37,7 @@ jobs:
         run: uv sync --locked --extra dev
 
       - name: Run device-free tests and coverage gate
-        run: uv run pytest -m "not audio_device" --cov --cov-report=term-missing
+        run: uv run pytest -m "not audio_device and not browser" --cov --cov-report=term-missing
 
       - name: Run strict type checks
         run: uv run mypy src/vibesound
@@ -52,10 +52,49 @@ jobs:
           uv run vibesound version --json
           uv run vibesound project init ci-smoke.vibesound-work --dry-run --json
 
+  browser:
+    name: Chromium browser session
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+
+      - name: Install Python 3.12
+        run: uv python install 3.12
+
+      - name: Install Linux audio runtime libraries
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2 libsndfile1
+
+      - name: Install project dependencies
+        run: uv sync --locked --extra dev
+
+      - name: Install Chromium and operating-system dependencies
+        run: uv run python -m playwright install --with-deps chromium
+
+      - name: Run browser acceptance tests
+        run: >-
+          uv run pytest -m browser --browser chromium
+          --tracing=retain-on-failure --output=test-results
+
+      - name: Upload browser traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: chromium-traces
+          path: test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
   package:
     name: Build and clean-wheel acceptance
     runs-on: windows-latest
-    needs: validate
+    needs: [validate, browser]
 
     steps:
       - name: Check out repository
@@ -83,3 +122,4 @@ jobs:
           .wheel-smoke\Scripts\vibesound.exe version
           .wheel-smoke\Scripts\vibesound.exe demo "$env:RUNNER_TEMP\vibesound-demo.vibesound-work" --no-serve
           .wheel-smoke\Scripts\vibesound.exe serve "$env:RUNNER_TEMP\vibesound-demo.vibesound-work" --dry-run --json
+          .wheel-smoke\Scripts\python.exe ci\wheel_ui_smoke.py

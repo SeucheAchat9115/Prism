@@ -816,33 +816,36 @@ The complete command grammar and output contract are documented in
 
 ### Example maintenance gate
 
-- [ ] Add/update a manually runnable browser example or local launch workflow,
+- [x] Add/update a manually runnable browser example or local launch workflow,
   document its URL and prerequisites, and keep it separate from device-free
   command-line examples.
 
 ### Components
 
-1. Serve static HTML, CSS, and JavaScript from the Python application.
-2. Add a project header and revision indicator.
-3. Add transport controls.
-4. Add tempo display.
-5. Add a session grid.
-6. Add track and scene labels.
-7. Add clip launch buttons.
-8. Add active-clip state.
-9. Add gain and pan controls.
-10. Add mute and solo controls.
-11. Add render control.
-12. Add validation and error display.
-13. Subscribe to WebSocket events.
-14. Resolve stale revision errors without silently overwriting state.
+1. [x] Serve static HTML, CSS, and JavaScript from the Python application.
+2. [x] Add a project header and revision indicator.
+3. [x] Add transport controls.
+4. [x] Add tempo display.
+5. [x] Add a session grid.
+6. [x] Add track and scene labels.
+7. [x] Add clip launch buttons.
+8. [x] Add active-clip state.
+9. [x] Add gain and pan controls.
+10. [x] Add mute and solo controls.
+11. [x] Add render control.
+12. [x] Add validation and error display.
+13. [x] Subscribe to WebSocket events.
+14. [x] Resolve stale revision errors without silently overwriting state.
+
+The shipped UI, synchronization contract, launch commands, security boundary,
+and Chromium gate are documented in [`PHASE_7.md`](PHASE_7.md).
 
 ### Exit criteria
 
-- A user can launch and stop clips from the UI.
-- UI mix changes reach the engine.
-- CLI changes appear in the browser without refresh.
-- Browser errors remain understandable and recoverable.
+- [x] A user can launch and stop clips from the UI.
+- [x] UI mix changes reach the engine.
+- [x] CLI changes appear in the browser without refresh.
+- [x] Browser errors remain understandable and recoverable.
 
 ## Phase 8 — Reproducible POC release
 

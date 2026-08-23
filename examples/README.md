@@ -11,9 +11,10 @@ Run them from the repository root after installing the development environment:
 uv sync --extra dev
 ```
 
-For the Phase 5.5 installed-package acceptance flow, create the synthetic demo
-and start its loopback service with `vibesound demo demo.vibesound-work`. Add
-`--no-serve` when only generating and reopening the fixture in automation.
+For the installed-package acceptance flow, create the synthetic demo and start
+its loopback service with `vibesound demo demo.vibesound-work`. Add `--open` for
+the Phase 7 browser session or `--no-serve` when automation only needs the
+fixture.
 
 Artifact-producing examples create a unique run directory under
 `examples/output/` by default. That directory is ignored by Git. Use
@@ -33,6 +34,7 @@ Artifact-producing examples create a unique run directory under
 | 08 | [`08_backend_comparison.py`](08_backend_comparison.py) | Compare deterministic fake playback with the offline render backend | No |
 | 09 | [`09_audio_device_diagnostics.py`](09_audio_device_diagnostics.py) | Inspect stereo PortAudio devices and optionally play a generated clip | Opt-in |
 | 10 | [`10_agent_producer_workflow.py`](10_agent_producer_workflow.py) | Simulate an agent inspecting, editing, rendering, hashing, and reopening a song | No |
+| 11 | [`11_browser_session.py`](11_browser_session.py) | Create the synthetic demo, start its foreground loopback service, and open the Phase 7 studio UI | Browser, opt-in |
 
 ## Run the device-free examples
 
@@ -54,6 +56,20 @@ and shuts its foreground service down cleanly. The most approachable
 starting point is [02 — make a beat](02_make_beat.py); open its generated WAV
 and inspect its `.vibesound` archive with standard ZIP tools. The best example
 for a coding agent is [10 — agent producer workflow](10_agent_producer_workflow.py).
+
+## Run the browser example
+
+The browser example blocks while its local service is running and is therefore
+excluded from the normal example suite. It uses the system browser and needs no
+Node installation:
+
+```powershell
+uv run python examples/11_browser_session.py
+```
+
+Press Ctrl+C in that terminal to stop the service. Use `--no-open` to print and
+serve the URL without launching a browser, or pass `--port` to select another
+local port.
 
 ## Run the hardware example
 
@@ -77,11 +93,11 @@ are reported with the backend snapshot.
 
 ## What is not included yet
 
-There are no browser, VST3, MIDI, arrangement-editing, automation, routing, or
-recording examples yet because those product phases are not implemented. Each
-future phase must add the smallest numbered example for its new public surface,
-document its prerequisites here, and keep external-device or plugin examples
-opt-in.
+There are no VST3, MIDI, arrangement-editing, automation, routing, or recording
+examples yet because those product phases are not implemented. Each future
+phase must add the smallest numbered example for its new public surface,
+document its prerequisites here, and keep external-device, browser, or plugin
+examples opt-in.
 
 ## Keeping examples current
 

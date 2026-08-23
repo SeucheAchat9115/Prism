@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from queue import Empty
 from typing import Any, Literal
 from urllib.parse import urlsplit
@@ -10,10 +11,11 @@ from uuid import UUID
 
 from fastapi import FastAPI, File, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from starlette.responses import Response
+from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from vibesound import __version__
@@ -38,6 +40,17 @@ from vibesound.rendering.types import RenderMetadata
 
 _MAX_JSON_BODY_BYTES = 16 * 1024 * 1024
 _API_VERSION = "v1"
+_WEB_ROOT = Path(__file__).resolve().parents[1] / "web"
+_UI_SECURITY_HEADERS = {
+    "Cache-Control": "no-store",
+    "Content-Security-Policy": (
+        "default-src 'self'; script-src 'self'; style-src 'self'; "
+        "img-src 'self' data:; connect-src 'self' ws:; object-src 'none'; "
+        "base-uri 'none'; frame-ancestors 'none'; form-action 'self'"
+    ),
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+}
 
 
 class _BodyLimitExceeded(Exception):
@@ -121,7 +134,10 @@ def create_app(service: ApplicationService) -> FastAPI:
         origin = request.headers.get("origin")
         if origin is not None and not _same_origin(origin, host):
             return _error_response(403, "origin_rejected", "Request origin is not allowed")
-        return await call_next(request)
+        response = await call_next(request)
+        if request.url.path == "/" or request.url.path.startswith("/assets/"):
+            response.headers.update(_UI_SECURITY_HEADERS)
+        return response
 
     @app.exception_handler(ApplicationError)
     async def application_error_handler(
@@ -188,6 +204,10 @@ def create_app(service: ApplicationService) -> FastAPI:
     async def version() -> dict[str, object]:
         return {"application_version": __version__, "api_version": _API_VERSION}
 
+    @app.get("/", include_in_schema=False)
+    async def browser_session() -> FileResponse:
+        return FileResponse(_WEB_ROOT / "index.html", media_type="text/html")
+
     @app.get("/api/v1/capabilities")
     async def capabilities() -> dict[str, object]:
         return {
@@ -211,6 +231,7 @@ def create_app(service: ApplicationService) -> FastAPI:
                 "soxr_quality": "HQ",
             },
             "jobs": {"render": True, "export": True, "cancellation": True},
+            "ui": {"browser_session": True, "path": "/"},
         }
 
     @app.get("/api/v1/schemas")
@@ -488,6 +509,7 @@ def create_app(service: ApplicationService) -> FastAPI:
         finally:
             subscription.close()
 
+    app.mount("/assets", StaticFiles(directory=_WEB_ROOT / "assets"), name="web-assets")
     return app
 
 

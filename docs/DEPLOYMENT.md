@@ -4,8 +4,8 @@ This document explains how to turn a VibeSound checkout into an installable
 command-line tool, how to publish a release, and when to add platform-specific
 desktop installers.
 
-VibeSound is a local desktop application with a Python service, CLI, and future
-browser UI. Deployment therefore means installing the application on the
+VibeSound is a local desktop application with a Python service, CLI, and
+packaged browser UI. Deployment therefore means installing the application on the
 musician's or coding agent's machine; it does not currently mean running a
 central hosted service.
 
@@ -19,8 +19,11 @@ The repository currently has the foundation for a Python package:
 - Python 3.12 is currently required by `requires-python = ">=3.12,<3.13"`.
 - Continuous integration runs device-free tests, strict typing, lint, and the
   85% non-native coverage gate on Windows and Linux.
+- A dedicated Ubuntu job installs Chromium, runs the marked browser acceptance
+  suite, and retains Playwright traces on failure.
 - A packaging job installs the exact built wheel into a clean Python 3.12
-  environment and runs the synthetic demo acceptance launcher.
+  environment, runs the synthetic demo launcher, and verifies that the installed
+  package serves `/` and its browser assets.
 - No release workflow publishes artifacts yet.
 
 The recommended first distribution is a Python wheel and source archive. A
@@ -45,7 +48,9 @@ Install `uv`, then run the same checks used by CI:
 
 ```powershell
 uv sync --locked --extra dev
-uv run pytest
+uv run pytest -m "not audio_device and not browser"
+uv run python -m playwright install chromium
+uv run pytest -m browser --browser chromium
 uv run ruff check .
 uv run mypy src/vibesound
 ```
@@ -77,6 +82,19 @@ vibesound version
 vibesound --help
 vibesound demo demo.vibesound-work --no-serve
 ```
+
+The installed wheel contains the Phase 7 HTML, CSS, and JavaScript without a
+Node build. Start the local foreground service and open its UI with:
+
+```powershell
+vibesound demo demo.vibesound-work --open
+```
+
+For an existing working project, use `vibesound serve PROJECT --open`. Browser
+opening is opt-in and occurs only after the actual loopback port is bound. If
+the operating system declines the request, the command prints a warning and
+continues serving the URL. This surface is loopback-only and is not suitable as
+an authenticated remote deployment.
 
 On Linux, the equivalent path is:
 
@@ -131,7 +149,7 @@ Phase 6 `audio devices`, `audio restart`, `transport`, and `session` CLI groups.
 Run the normal device-free suite with:
 
 ```powershell
-uv run pytest -m "not audio_device"
+uv run pytest -m "not audio_device and not browser"
 ```
 
 On a Windows machine with a stereo output device, run the opt-in hardware
@@ -281,5 +299,6 @@ for project creation, project loading, audio import, and clean shutdown.
 
 - [README](../README.md)
 - [Implementation plan](IMPLEMENTATION_PLAN.md)
+- [Phase 7 browser session](PHASE_7.md)
 - [uv package guide](https://docs.astral.sh/uv/guides/package/)
 - [uv tools guide](https://docs.astral.sh/uv/guides/tools/)

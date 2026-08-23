@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import webbrowser
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4, uuid5
@@ -133,6 +134,11 @@ def demo(
     host: str = typer.Option("127.0.0.1", help="Loopback address for the local service."),
     port: int = typer.Option(8765, min=1, max=65535),
     serve: bool = typer.Option(True, "--serve/--no-serve"),
+    open_browser: bool = typer.Option(
+        False,
+        "--open",
+        help="Open the local browser session after the service binds.",
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Validate without creating files."),
     as_json: bool = typer.Option(False, "--json", help="Emit the stable JSON envelope."),
 ) -> None:
@@ -154,8 +160,24 @@ def demo(
                 CliExit.USAGE,
                 ApiIssue(code="non_loopback_host", path="/host", message="Host must be loopback"),
             )
+        if open_browser and not serve:
+            raise CliFailure(
+                CliExit.USAGE,
+                ApiIssue(
+                    code="open_requires_server",
+                    path="/open",
+                    message="--open requires --serve",
+                ),
+            )
         if dry_run:
-            data = {"path": str(destination), "host": host, "port": port, "serve": serve}
+            data = {
+                "path": str(destination),
+                "host": host,
+                "port": port,
+                "serve": serve,
+                "open_requested": open_browser,
+                "browser_opened": False,
+            }
             return CommandResult(data=data, human=(f"Would prepare demo at {destination}",))
         project = ensure_demo(destination)
         context = _context(destination, project)
@@ -170,9 +192,14 @@ def demo(
                     as_json,
                     context,
                     command="demo",
+                    open_browser=open_browser,
                 ),
             )
-        data = {"path": str(destination), "served": serve}
+        data = {
+            "path": str(destination),
+            "served": serve,
+            "open_requested": open_browser,
+        }
         return CommandResult(
             data=data,
             project=context,
@@ -187,6 +214,11 @@ def serve(
     project: Path = typer.Argument(..., help="Project served by this process."),
     host: str = typer.Option("127.0.0.1", help="Loopback bind address."),
     port: int = typer.Option(8765, min=1, max=65535),
+    open_browser: bool = typer.Option(
+        False,
+        "--open",
+        help="Open the local browser session after the service binds.",
+    ),
     dry_run: bool = typer.Option(False, "--dry-run", help="Validate without binding."),
     as_json: bool = typer.Option(False, "--json", help="Emit machine-readable lifecycle lines."),
 ) -> None:
@@ -206,7 +238,12 @@ def serve(
                 project=context,
             )
         service_url = _service_url(host, port)
-        data = {"url": service_url, "validated": True}
+        data = {
+            "url": service_url,
+            "validated": True,
+            "open_requested": open_browser,
+            "browser_opened": False,
+        }
         if dry_run:
             return CommandResult(
                 data=data,
@@ -223,6 +260,7 @@ def serve(
                 as_json,
                 context,
                 command="serve",
+                open_browser=open_browser,
             ),
         )
         return CommandResult(
@@ -1287,8 +1325,28 @@ def _emit_server_start(
     context: ProjectContext,
     *,
     command: str,
+    open_browser: bool = False,
 ) -> None:
     service_url = _service_url(host, port)
+    opened = False
+    warning: dict[str, str] | None = None
+    if not as_json:
+        typer.echo(f"Serving {context.id} on {service_url}")
+    if open_browser:
+        try:
+            opened = bool(webbrowser.open(service_url, new=2))
+        except Exception as error:  # pragma: no cover - platform browser boundary
+            warning = {
+                "code": "browser_open_failed",
+                "path": "/open",
+                "message": f"Could not open the browser session: {error}",
+            }
+        if not opened and warning is None:
+            warning = {
+                "code": "browser_open_failed",
+                "path": "/open",
+                "message": "The system browser did not accept the open request.",
+            }
     if as_json:
         typer.echo(
             json_line(
@@ -1298,11 +1356,20 @@ def _emit_server_start(
                     "command": command,
                     "project": context.model_dump(mode="json"),
                     "dry_run": False,
-                    "data": {"status": "starting", "url": service_url},
-                    "warnings": [],
+                    "data": {
+                        "status": "starting",
+                        "url": service_url,
+                        "open_requested": open_browser,
+                        "browser_opened": opened,
+                    },
+                    "warnings": [] if warning is None else [warning],
                     "errors": [],
                 }
             )
         )
-    else:
-        typer.echo(f"Serving {context.id} on {service_url}")
+    elif open_browser:
+        if opened:
+            typer.echo(f"Opened browser session at {service_url}")
+        else:
+            assert warning is not None
+            typer.echo(f"Warning: {warning['message']} Open {service_url} manually.", err=True)
