@@ -57,12 +57,14 @@ packages = ["src/prism"]
 
 [tool.hatch.build.targets.sdist]
 include = [
+    "/.agents",
     "/.github",
     "/docs",
     "/examples",
     "/src",
     "/tests",
     "/.gitignore",
+    "/AGENTS.md",
     "/README.md",
     "/pyproject.toml",
     "/uv.lock",

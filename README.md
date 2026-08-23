@@ -55,6 +55,29 @@ The project documentation is organized as follows:
 - [Manual examples](examples/README.md) — runnable examples for the current
   persistence, engine, rendering, CLI, and audio-backend features.
 
+## Agent guidance
+
+Prism includes a repository-wide [agent guide](AGENTS.md) and discoverable
+skills under [`.agents/skills/`](.agents/skills/). Together they teach a coding
+agent the repository architecture, product invariants, validation workflow, and
+which Prism interface to use for a task:
+
+- `$prism-repository-development` for source, tests, documentation, and release
+  work inside this repository.
+- `$prism-project-authoring` for safe project inspection and transactional edits.
+- `$prism-session-control` for transport, live sessions, audio, events, and the
+  browser UI.
+- `$prism-render-export` for audio import, render jobs, portable export, and
+  artifact verification.
+- `$prism-api-integration` for typed Python clients, raw HTTP/WebSocket clients,
+  errors, retries, and agent-tool wrappers.
+
+Compatible agents discover these skills from the repository automatically.
+They can also be invoked explicitly, for example: “Use
+`$prism-project-authoring` to add a track and scene, preview the transaction,
+and commit it.” The root guide routes cross-cutting tasks to the smallest useful
+combination of skills.
+
 The Phase 3 renderer is available through `prism.rendering.render()` for
 loaded projects with injected sources and `prism.rendering.render_project()`
 for self-contained `.prism` archives. Both produce deterministic stereo

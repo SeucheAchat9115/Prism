@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prism Render and Export"
+  short_description: "Import, render, and export Prism projects"
+  default_prompt: "Use $prism-render-export to import audio, render a scene, or export a Prism project."

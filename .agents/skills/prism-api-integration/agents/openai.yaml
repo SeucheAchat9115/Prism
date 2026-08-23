@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prism API Integration"
+  short_description: "Build agents against the Prism v1 API"
+  default_prompt: "Use $prism-api-integration to build a reliable agent workflow with the Prism v1 API."
