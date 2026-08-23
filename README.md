@@ -32,11 +32,11 @@ validation, state changes, transport, rendering, and event publication.
 
 ## Current status
 
-This repository contains the completed Phase 5.5 stabilization boundary:
+This repository contains the completed Phase 6 command-line boundary:
 working-project storage, complete typed authoring, cached high-quality audio
 preparation, device-free runtime fallback, asynchronous render/export jobs, a
-hardened local v1 API, and a typed Python client. The general CLI and browser
-session UI remain the next product phases.
+hardened local v1 API, a typed Python client, and the complete service-backed
+CLI. The browser session UI is the next product phase.
 
 The project documentation is organized as follows:
 
@@ -46,6 +46,8 @@ The project documentation is organized as follows:
   installation, releases, CD automation, and future standalone packages.
 - [Phase 5.5 contracts](docs/PHASE_5_5.md) — working storage, typed operations,
   jobs, runtime behavior, security limits, and acceptance commands.
+- [Phase 6 CLI](docs/PHASE_6.md) — commands, service lifecycle, JSON envelopes,
+  dry runs, selectors, job waiting, and stable exit codes.
 - [Manual examples](examples/README.md) — runnable examples for the current
   persistence, engine, rendering, CLI, and audio-backend features.
 
@@ -64,12 +66,16 @@ hardware; the PortAudio diagnostics and playback example is explicitly opt-in.
 
 The API is available through `vibesound.api.create_app()` for embedding,
 `vibesound.api.run_server(PROJECT)` for a loopback-only server, and
-`vibesound.api.VibeSoundClient` for typed callers. One installed command creates
-synthetic redistributable audio and starts the device-free acceptance service:
+`vibesound.api.VibeSoundClient` for typed callers. The CLI starts a foreground
+service explicitly; it never creates an invisible daemon:
 
 ```text
-vibesound demo demo.vibesound-work
+vibesound serve demo.vibesound-work
 ```
+
+Service-backed commands default to `http://127.0.0.1:8765`. Override it with
+`--url` or `VIBESOUND_URL`; only loopback targets are accepted. The named local
+project must match the project ID reported by readiness before a command runs.
 
 ## POC target
 
@@ -91,24 +97,30 @@ plugin-hosting complexity. It will support:
 The POC will not include VST hosting, MIDI instruments, recording, a linear
 arrangement timeline, automation lanes, collaboration, or remote access.
 
-## Planned agent workflow
+## Agent CLI workflow
 
-The CLI and API will expose the same application service. A typical future
-workflow will look like this:
+The CLI and API expose the same application service. Start it in one terminal:
 
 ```text
-vibesound project init demo.vibesound
-vibesound asset import demo.vibesound drums.wav --json
-vibesound project validate demo.vibesound --json
-vibesound transaction preview demo.vibesound operations.json
-vibesound transaction commit demo.vibesound operations.json
-vibesound render demo.vibesound --output exports/demo.wav
+vibesound project init demo.vibesound-work
+vibesound serve demo.vibesound-work
 ```
 
-Agent mutations will be structured transactions. Every transaction will include
-the project revision it was based on, will be validated before application, and
-will support a dry-run preview. Invalid or stale transactions will leave the
-project unchanged.
+Then use another terminal or agent process:
+
+```text
+vibesound audio import demo.vibesound-work drums.wav --json
+vibesound transaction preview demo.vibesound-work operations.json --json
+vibesound transaction commit demo.vibesound-work operations.json --json
+vibesound session launch demo.vibesound-work --track Drums --scene Verse --json
+vibesound render demo.vibesound-work --bars 8 --output demo.wav --json
+vibesound project export demo.vibesound-work --output demo.vibesound --json
+```
+
+Transactions accept either a complete request object or a bare operations array.
+Every mutation is revision-checked and has a server-backed preview or `--dry-run`
+path. JSON commands use a versioned envelope; invalid or stale requests leave the
+project unchanged and return stable, documented process exit codes.
 
 ## Project format
 

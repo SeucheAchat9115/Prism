@@ -764,7 +764,7 @@ local test.
 
 ### Example maintenance gate
 
-- [ ] Extend the CLI workflow example for every released command, including
+- [x] Extend the CLI workflow example for every released command, including
   transport, clip launch/stop, transaction preview/commit, render, and serve;
   keep JSON output and prerequisites current.
 
@@ -772,32 +772,45 @@ local test.
 
 ```text
 vibesound project init PATH
-vibesound project validate PATH
-vibesound project show PATH
-vibesound audio import PROJECT FILE --track TRACK_ID
-vibesound session launch PROJECT --track TRACK_ID --scene SCENE_ID
-vibesound session stop PROJECT --track TRACK_ID
-vibesound transport play PROJECT
-vibesound transport stop PROJECT
+vibesound project show|validate PROJECT [--portable]
+vibesound project state|export|detach-source PROJECT
+vibesound project migrate ARCHIVE
+vibesound server status|capabilities|schemas PROJECT
+vibesound entity list|resolve PROJECT TYPE
+vibesound audio import PROJECT FILE
+vibesound audio devices|restart PROJECT
+vibesound session launch|stop PROJECT
+vibesound transport play|pause|stop|reset PROJECT
 vibesound transaction preview PROJECT OPS_FILE
 vibesound transaction commit PROJECT OPS_FILE
-vibesound render PROJECT --output OUTPUT_FILE
+vibesound render PROJECT (--bars N | --seconds N)
+vibesound job list|show|wait|cancel PROJECT
+vibesound events watch PROJECT
 vibesound serve PROJECT
 ```
 
 ### CLI rules
 
-- Human-readable output by default.
-- `--json` for machine-readable output.
-- Stable non-zero exit codes for validation, revision, I/O, and render errors.
-- Mutating commands support preview or `--dry-run` where applicable.
-- Commands call the shared application service instead of editing JSON directly.
+- [x] Human-readable output by default.
+- [x] Versioned `--json` envelopes for finite machine-readable output and JSONL
+  for event streaming.
+- [x] Stable non-zero exit codes for usage, validation, conflict, I/O, service,
+  audio, job, internal, and interruption failures.
+- [x] Mutating commands support server-backed preview or `--dry-run`.
+- [x] Service commands call the shared API and verify local/service project IDs.
+- [x] Service discovery uses an explicit loopback URL and never starts a hidden
+  daemon.
+- [x] Entity selectors accept UUIDs or unique exact case-insensitive names.
+- [x] Render and export wait by default and support `--no-wait`.
+
+The complete command grammar and output contract are documented in
+[`PHASE_6.md`](PHASE_6.md).
 
 ### Exit criteria
 
-- An agent can complete the POC workflow without opening the browser.
-- JSON output is stable enough for agent tooling.
-- Every mutating command has a safe preview path.
+- [x] An agent can complete the POC workflow without opening the browser.
+- [x] JSON output is versioned and stable enough for agent tooling.
+- [x] Every mutating command has a safe preview path.
 
 ## Phase 7 — Browser session UI
 

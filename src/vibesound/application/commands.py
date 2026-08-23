@@ -185,23 +185,9 @@ class ProjectCommandService:
 
     def commit(self, request: TransactionRequest) -> tuple[TransactionResult, Project | None]:
         digest = _request_digest(request)
-        if request.idempotency_key is not None:
-            stored = self._repository.get_idempotency(request.idempotency_key)
-            if stored is not None:
-                if stored["request_sha256"] != digest:
-                    current = self._repository.get_project().revision.number
-                    return (
-                        _failure_result(
-                            request,
-                            current,
-                            "idempotency_conflict",
-                            "The idempotency key was already used for another request.",
-                        ),
-                        None,
-                    )
-                replay = TransactionResult.model_validate(stored["result"])
-                replay.idempotent_replay = True
-                return replay, self._repository.get_project()
+        replay = self.idempotent_replay(request)
+        if replay is not None:
+            return replay, self._repository.get_project() if replay.ok else None
 
         plan = self.prepare(request)
         if not plan.result.ok:
@@ -269,6 +255,26 @@ class ProjectCommandService:
                 plan.result.model_dump(mode="json"),
             )
         return plan.result, committed
+
+    def idempotent_replay(self, request: TransactionRequest) -> TransactionResult | None:
+        """Return a stored retry before current-state validation changes its meaning."""
+
+        if request.idempotency_key is None:
+            return None
+        stored = self._repository.get_idempotency(request.idempotency_key)
+        if stored is None:
+            return None
+        if stored["request_sha256"] != _request_digest(request):
+            current = self._repository.get_project().revision.number
+            return _failure_result(
+                request,
+                current,
+                "idempotency_conflict",
+                "The idempotency key was already used for another request.",
+            )
+        replay = TransactionResult.model_validate(stored["result"])
+        replay.idempotent_replay = True
+        return replay
 
     def resolve_name(self, entity_type: str, name: str) -> UUID:
         project = self._repository.get_project()
@@ -874,7 +880,10 @@ def _uuid_token(value: str, path: str) -> UUID:
 
 def _request_digest(request: TransactionRequest) -> str:
     payload = json.dumps(
-        request.model_dump(mode="json", exclude={"allow_runtime_reset"}),
+        request.model_dump(
+            mode="json",
+            exclude={"allow_runtime_reset", "base_revision"},
+        ),
         ensure_ascii=False,
         separators=(",", ":"),
         sort_keys=True,

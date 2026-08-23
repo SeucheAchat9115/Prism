@@ -49,6 +49,8 @@ jobs:
         run: |
           uv run python -m vibesound --help
           uv run vibesound version
+          uv run vibesound version --json
+          uv run vibesound project init ci-smoke.vibesound-work --dry-run --json
 
   package:
     name: Build and clean-wheel acceptance
@@ -80,3 +82,4 @@ jobs:
         run: |
           .wheel-smoke\Scripts\vibesound.exe version
           .wheel-smoke\Scripts\vibesound.exe demo "$env:RUNNER_TEMP\vibesound-demo.vibesound-work" --no-serve
+          .wheel-smoke\Scripts\vibesound.exe serve "$env:RUNNER_TEMP\vibesound-demo.vibesound-work" --dry-run --json

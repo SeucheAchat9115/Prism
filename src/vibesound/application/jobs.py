@@ -17,6 +17,7 @@ from vibesound.application.types import (
     ApiIssue,
     BackgroundJob,
     ExportJobRequest,
+    JobPreview,
     RenderJobRequest,
 )
 from vibesound.project import ProjectRepository, RepositorySnapshot, WorkingProjectError
@@ -70,6 +71,11 @@ class RenderJobService:
         )
         return self.get(job.job_id)
 
+    def preview_render(self, request: RenderJobRequest) -> JobPreview:
+        """Validate a render job target without reserving queue capacity."""
+
+        return self._preview("render", request.output_path, request.model_dump(mode="json"))
+
     def submit_export(self, request: ExportJobRequest) -> BackgroundJob:
         digest = _digest(request.model_dump(mode="json"))
         replay = self._idempotent_job(request.idempotency_key, digest)
@@ -90,6 +96,11 @@ class RenderJobService:
             lambda cancel: self._run_export(job.job_id, snapshot, request, cancel),
         )
         return self.get(job.job_id)
+
+    def preview_export(self, request: ExportJobRequest) -> JobPreview:
+        """Validate an export job target without creating output or metadata."""
+
+        return self._preview("export", request.output_path, request.model_dump(mode="json"))
 
     def get(self, job_id: UUID) -> BackgroundJob:
         with self._lock:
@@ -210,6 +221,22 @@ class RenderJobService:
             self._persist_unlocked(job)
             self._publish(job, "job.queued")
             return job
+
+    def _preview(
+        self,
+        kind: Literal["render", "export"],
+        output_path: str,
+        request: dict[str, object],
+    ) -> JobPreview:
+        snapshot = self._repository.snapshot()
+        output = self._repository.resolve_output(output_path)
+        return JobPreview(
+            kind=kind,
+            project_id=snapshot.project.project_id,
+            revision=snapshot.project.revision.number,
+            output_path=str(output),
+            request=request,
+        )
 
     def _enqueue(
         self,

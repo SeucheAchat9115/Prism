@@ -7,30 +7,61 @@ from typer.testing import CliRunner
 
 from vibesound.cli import app
 
-from ._helpers import write_wav
 
-
-def test_project_cli_workflow(tmp_path: Path) -> None:
+def test_portable_project_cli_workflow_uses_versioned_envelopes(tmp_path: Path) -> None:
     runner = CliRunner()
     project_path = tmp_path / "cli-demo.vibesound"
-    source_path = tmp_path / "sample.wav"
-    write_wav(source_path)
 
     initialized = runner.invoke(
         app,
-        ["project", "init", str(project_path), "--name", "CLI Demo"],
+        ["project", "init", str(project_path), "--name", "CLI Demo", "--json"],
     )
-    imported = runner.invoke(
+    validated = runner.invoke(
         app,
-        ["asset", "import", str(project_path), str(source_path), "--json"],
+        ["project", "validate", str(project_path), "--portable", "--json"],
     )
-    validated = runner.invoke(app, ["project", "validate", str(project_path), "--json"])
-    shown = runner.invoke(app, ["project", "show", str(project_path), "--json"])
+    shown = runner.invoke(
+        app,
+        ["project", "show", str(project_path), "--portable", "--json"],
+    )
 
     assert initialized.exit_code == 0, initialized.stdout
-    assert imported.exit_code == 0, imported.stdout
     assert validated.exit_code == 0, validated.stdout
     assert shown.exit_code == 0, shown.stdout
-    assert json.loads(imported.stdout)["kind"] == "audio"
-    assert json.loads(validated.stdout)["ok"] is True
-    assert json.loads(shown.stdout)["name"] == "CLI Demo"
+    initialized_json = json.loads(initialized.stdout)
+    validated_json = json.loads(validated.stdout)
+    shown_json = json.loads(shown.stdout)
+    assert initialized_json["cli_schema_version"] == 1
+    assert initialized_json["command"] == "project init"
+    assert validated_json["ok"] is True
+    assert validated_json["data"]["ok"] is True
+    assert shown_json["data"]["name"] == "CLI Demo"
+
+
+def test_project_init_dry_run_does_not_create_output(tmp_path: Path) -> None:
+    path = tmp_path / "dry.vibesound-work"
+    result = CliRunner().invoke(
+        app,
+        ["project", "init", str(path), "--dry-run", "--json"],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert json.loads(result.stdout)["dry_run"] is True
+    assert not path.exists()
+
+
+def test_serve_dry_run_renders_a_valid_ipv6_url(tmp_path: Path) -> None:
+    project_path = tmp_path / "ipv6.vibesound-work"
+    initialized = CliRunner().invoke(
+        app,
+        ["project", "init", str(project_path), "--json"],
+    )
+    assert initialized.exit_code == 0, initialized.stdout
+
+    result = CliRunner().invoke(
+        app,
+        ["serve", str(project_path), "--host", "::1", "--dry-run", "--json"],
+    )
+
+    assert result.exit_code == 0, result.stdout
+    assert json.loads(result.stdout)["data"]["url"] == "http://[::1]:8765"

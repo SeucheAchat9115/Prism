@@ -27,7 +27,7 @@ Artifact-producing examples create a unique run directory under
 | 02 | [`02_make_beat.py`](02_make_beat.py) | Generate drums, bass, pad, tracks, scenes, mixer settings, and a rendered beat preview | No |
 | 03 | [`03_session_performance.py`](03_session_performance.py) | Quantized scene launching, looping, scene switching, events, and stop scheduling | No |
 | 04 | [`04_render_song.py`](04_render_song.py) | Render an eight-bar arrangement and verify byte-identical rerendering | No |
-| 05 | [`05_cli_agent_workflow.py`](05_cli_agent_workflow.py) | Use the current `version`, `doctor`, project, validation, migration, and asset-import CLI commands | No |
+| 05 | [`05_cli_agent_workflow.py`](05_cli_agent_workflow.py) | Run the Phase 6 foreground service and exercise discovery, import, transactions, entities, session, transport, jobs, render, export, and portable inspection through the CLI | No |
 | 06 | [`06_transaction_safety.py`](06_transaction_safety.py) | Preview and commit agent transactions, validate values, and reject stale revisions | No |
 | 07 | [`07_api_client.py`](07_api_client.py) | Use HTTP and WebSocket API routes for state, transport, clip controls, transactions, events, and rendering | No |
 | 08 | [`08_backend_comparison.py`](08_backend_comparison.py) | Compare deterministic fake playback with the offline render backend | No |
@@ -48,7 +48,9 @@ uv run python examples/08_backend_comparison.py
 uv run python examples/10_agent_producer_workflow.py
 ```
 
-The generated project and WAV files are printed as JSON. The most approachable
+The generated project and WAV files are printed as JSON. Example 05 takes about
+one to two minutes because it launches each installed command in a fresh process
+and shuts its foreground service down cleanly. The most approachable
 starting point is [02 — make a beat](02_make_beat.py); open its generated WAV
 and inspect its `.vibesound` archive with standard ZIP tools. The best example
 for a coding agent is [10 — agent producer workflow](10_agent_producer_workflow.py).

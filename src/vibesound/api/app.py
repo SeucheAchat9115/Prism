@@ -27,6 +27,8 @@ from vibesound.application.types import (
     ExportJobRequest,
     ExternalChangeResolutionRequest,
     RenderJobRequest,
+    ScheduledActionModel,
+    SessionActionResult,
     TransactionRequest,
     TransactionResult,
     TransportRequest,
@@ -291,12 +293,19 @@ def create_app(service: ApplicationService) -> FastAPI:
     async def upload_audio(
         project_id: UUID,
         file: UploadFile = File(...),
+        upload_id: UUID | None = None,
     ) -> dict[str, object]:
         upload = require_project(project_id).stage_audio(
             file.file,
             file.filename or "upload.wav",
+            upload_id=upload_id,
         )
         return {"ok": True, "upload": upload.to_public_dict()}
+
+    @app.delete("/api/v1/projects/{project_id}/uploads/{upload_id}")
+    async def discard_upload(project_id: UUID, upload_id: UUID) -> dict[str, object]:
+        require_project(project_id).discard_upload(upload_id)
+        return {"ok": True, "upload_id": str(upload_id), "discarded": True}
 
     @app.post("/api/v1/projects/{project_id}/transactions/preview")
     async def preview_transaction(
@@ -357,6 +366,42 @@ def create_app(service: ApplicationService) -> FastAPI:
             "snapshot": current.get_snapshot().model_dump(mode="json"),
         }
 
+    @app.post("/api/v1/projects/{project_id}/session/launch")
+    async def launch_slot(
+        project_id: UUID,
+        request: ClipLaunchRequest,
+    ) -> dict[str, object]:
+        current = require_project(project_id)
+        clip_id, action = current.launch_slot(request)
+        return SessionActionResult(
+            accepted=action.changed,
+            clip_id=clip_id,
+            action=ScheduledActionModel(
+                target_frame=action.target_frame,
+                affected_track_ids=list(action.affected_track_ids),
+                changed=action.changed,
+            ),
+            snapshot=current.get_snapshot(),
+        ).model_dump(mode="json")
+
+    @app.post("/api/v1/projects/{project_id}/session/stop")
+    async def stop_track(
+        project_id: UUID,
+        request: ClipStopRequest,
+    ) -> dict[str, object]:
+        current = require_project(project_id)
+        clip_id, action = current.stop_track(request)
+        return SessionActionResult(
+            accepted=action.changed,
+            clip_id=clip_id,
+            action=ScheduledActionModel(
+                target_frame=action.target_frame,
+                affected_track_ids=list(action.affected_track_ids),
+                changed=action.changed,
+            ),
+            snapshot=current.get_snapshot(),
+        ).model_dump(mode="json")
+
     @app.get("/api/v1/audio/devices")
     async def devices() -> dict[str, object]:
         return {"devices": [item.model_dump(mode="json") for item in service.list_devices()]}
@@ -374,6 +419,13 @@ def create_app(service: ApplicationService) -> FastAPI:
         job = require_project(project_id).submit_render(request)
         return {"ok": True, "job": _job_json(job)}
 
+    @app.post("/api/v1/projects/{project_id}/render-jobs/preview")
+    async def preview_render_job(
+        project_id: UUID,
+        request: RenderJobRequest,
+    ) -> dict[str, object]:
+        return require_project(project_id).preview_render(request).model_dump(mode="json")
+
     @app.post("/api/v1/projects/{project_id}/export-jobs", status_code=202)
     async def submit_export_job(
         project_id: UUID,
@@ -381,6 +433,13 @@ def create_app(service: ApplicationService) -> FastAPI:
     ) -> dict[str, object]:
         job = require_project(project_id).submit_export(request)
         return {"ok": True, "job": _job_json(job)}
+
+    @app.post("/api/v1/projects/{project_id}/export-jobs/preview")
+    async def preview_export_job(
+        project_id: UUID,
+        request: ExportJobRequest,
+    ) -> dict[str, object]:
+        return require_project(project_id).preview_export(request).model_dump(mode="json")
 
     @app.get("/api/v1/projects/{project_id}/jobs")
     async def list_jobs(project_id: UUID) -> dict[str, object]:

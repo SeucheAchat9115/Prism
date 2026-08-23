@@ -395,6 +395,23 @@ class ApplicationSnapshot(APIModel):
     audio: AudioSnapshotModel
 
 
+class ReadinessResult(APIModel):
+    ok: Literal[True] = True
+    status: Literal["ready"] = "ready"
+    project_id: UUID
+    revision: NonNegativeInt
+
+
+class ValidationStageResult(APIModel):
+    ok: bool
+    issues: list[ApiIssue] = Field(default_factory=list)
+
+
+class LayeredValidationResult(APIModel):
+    ok: bool
+    stages: dict[str, ValidationStageResult]
+
+
 TransportOperation = Literal["play", "pause", "stop", "reset"]
 
 
@@ -409,6 +426,20 @@ class ClipLaunchRequest(APIModel):
 
 class ClipStopRequest(APIModel):
     track_id: UUID
+
+
+class ScheduledActionModel(APIModel):
+    target_frame: NonNegativeInt
+    affected_track_ids: list[UUID] = Field(default_factory=list)
+    changed: bool
+
+
+class SessionActionResult(APIModel):
+    ok: Literal[True] = True
+    accepted: bool
+    clip_id: UUID | None = None
+    action: ScheduledActionModel
+    snapshot: ApplicationSnapshot
 
 
 class RenderCommandRequest(APIModel):
@@ -468,6 +499,15 @@ class RenderJobRequest(APIModel):
 class ExportJobRequest(APIModel):
     output_path: str = Field(default="project.vibesound", min_length=1)
     idempotency_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class JobPreview(APIModel):
+    ok: Literal[True] = True
+    kind: Literal["render", "export"]
+    project_id: UUID
+    revision: NonNegativeInt
+    output_path: str
+    request: dict[str, Any]
 
 
 class AudioRestartRequest(APIModel):

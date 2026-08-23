@@ -258,6 +258,7 @@ def _write_atomic(
                 engine.advance(0)
             write_until(total_frames)
 
+        _normalize_wav_metadata(temporary_path)
         if progress is not None:
             progress(1.0)
 
@@ -287,6 +288,31 @@ def _write_atomic(
         frames=total_frames,
         duration_seconds=total_frames / project.transport.sample_rate,
     )
+
+
+def _normalize_wav_metadata(path: Path) -> None:
+    """Zero libsndfile's wall-clock PEAK timestamp so FLOAT WAV bytes are reproducible."""
+
+    with path.open("r+b") as stream:
+        header = stream.read(12)
+        if len(header) != 12 or header[:4] != b"RIFF" or header[8:] != b"WAVE":
+            raise RenderOutputError("Rendered output is not a RIFF/WAVE file")
+        while True:
+            chunk_header = stream.read(8)
+            if not chunk_header:
+                return
+            if len(chunk_header) != 8:
+                raise RenderOutputError("Rendered WAV contains a truncated chunk header")
+            chunk_id = chunk_header[:4]
+            chunk_size = int.from_bytes(chunk_header[4:], "little")
+            payload_start = stream.tell()
+            if chunk_id == b"PEAK":
+                if chunk_size < 8:
+                    raise RenderOutputError("Rendered WAV contains an invalid PEAK chunk")
+                stream.seek(payload_start + 4)
+                stream.write(b"\0\0\0\0")
+                return
+            stream.seek(payload_start + chunk_size + (chunk_size & 1))
 
 
 def _dispatch(engine: SessionEngine, command: RenderCommand) -> None:

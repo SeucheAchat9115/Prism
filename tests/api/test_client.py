@@ -7,8 +7,15 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from vibesound.api import VibeSoundClient, VibeSoundClientError
-from vibesound.application import ExportJobRequest, RenderJobRequest, TransactionRequest
+from vibesound.api import VibeSoundClient, VibeSoundClientError, VibeSoundEventStream
+from vibesound.application import (
+    ClipLaunchRequest,
+    ClipStopRequest,
+    ExportJobRequest,
+    RenderJobRequest,
+    TransactionRequest,
+    TransportRequest,
+)
 from vibesound.application.types import BackgroundJob, TransactionResult
 from vibesound.project.models import new_project
 
@@ -16,6 +23,7 @@ from vibesound.project.models import new_project
 def test_typed_client_covers_discovery_authoring_upload_and_jobs(tmp_path: Path) -> None:
     project = new_project("Client")
     job_id = uuid4()
+    upload_id = uuid4()
     job_polls = 0
 
     def job(state: str = "completed") -> dict[str, object]:
@@ -31,19 +39,47 @@ def test_typed_client_covers_discovery_authoring_upload_and_jobs(tmp_path: Path)
             created_at=1.0,
         ).model_dump(mode="json")
 
+    def snapshot() -> dict[str, object]:
+        return {
+            "project_id": str(project.project_id),
+            "revision": 0,
+            "engine": {
+                "mode": "stopped",
+                "position_frame": 0,
+                "active_clip_ids": [],
+                "pending_action_frames": [],
+            },
+            "audio": {
+                "state": "stopped",
+                "device": None,
+                "underrun_count": 0,
+                "last_error": None,
+            },
+        }
+
     def handler(request: httpx.Request) -> httpx.Response:
         nonlocal job_polls
         path = request.url.path
         if path.endswith("/health"):
             return httpx.Response(200, json={"ok": True, "status": "healthy"})
         if path.endswith("/readiness"):
-            return httpx.Response(200, json={"ok": True, "status": "ready"})
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "status": "ready",
+                    "project_id": str(project.project_id),
+                    "revision": project.revision.number,
+                },
+            )
         if path.endswith("/capabilities") or path.endswith("/schemas"):
             return httpx.Response(200, json={"ok": True})
         if path.endswith("/resolve"):
             return httpx.Response(200, json={"id": str(project.project_id)})
         if path.endswith("/uploads"):
-            return httpx.Response(201, json={"upload": {"upload_id": str(uuid4())}})
+            return httpx.Response(201, json={"upload": {"upload_id": str(upload_id)}})
+        if "/uploads/" in path and request.method == "DELETE":
+            return httpx.Response(200, json={"ok": True, "discarded": True})
         if path.endswith("/transactions") or path.endswith("/transactions/preview"):
             return httpx.Response(
                 200,
@@ -55,7 +91,54 @@ def test_typed_client_covers_discovery_authoring_upload_and_jobs(tmp_path: Path)
                     after_revision=1,
                     current_revision=1,
                 ).model_dump(mode="json"),
+                )
+        if path.endswith("/session/launch") or path.endswith("/session/stop"):
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "accepted": True,
+                    "clip_id": str(project.project_id),
+                    "action": {
+                        "target_frame": 0,
+                        "affected_track_ids": [str(project.project_id)],
+                        "changed": True,
+                    },
+                    "snapshot": snapshot(),
+                },
             )
+        if path.endswith("/transport"):
+            return httpx.Response(200, json={"ok": True, "snapshot": snapshot()})
+        if path.endswith("/audio/devices"):
+            return httpx.Response(200, json={"devices": []})
+        if path.endswith("/audio/restart"):
+            return httpx.Response(200, json={"ok": True, "snapshot": snapshot()})
+        if path.endswith("/render-jobs/preview"):
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "kind": "render",
+                    "project_id": str(project.project_id),
+                    "revision": 0,
+                    "output_path": "render.wav",
+                    "request": {"seconds": 1.0},
+                },
+            )
+        if path.endswith("/export-jobs/preview"):
+            return httpx.Response(
+                200,
+                json={
+                    "ok": True,
+                    "kind": "export",
+                    "project_id": str(project.project_id),
+                    "revision": 0,
+                    "output_path": "project.vibesound",
+                    "request": {},
+                },
+            )
+        if path.endswith("/external-change/resolve"):
+            return httpx.Response(200, json={"ok": True})
         if path.endswith("/render-jobs") or path.endswith("/export-jobs"):
             return httpx.Response(202, json={"job": job()})
         if path.endswith(f"/jobs/{job_id}"):
@@ -71,7 +154,7 @@ def test_typed_client_covers_discovery_authoring_upload_and_jobs(tmp_path: Path)
     transport = httpx.MockTransport(handler)
     with VibeSoundClient("http://testserver", transport=transport) as client:
         assert client.health()["status"] == "healthy"
-        assert client.readiness()["status"] == "ready"
+        assert client.readiness().status == "ready"
         assert client.capabilities()["ok"]
         assert client.schemas()["ok"]
         assert client.get_project(project.project_id).name == "Client"
@@ -83,7 +166,33 @@ def test_typed_client_covers_discovery_authoring_upload_and_jobs(tmp_path: Path)
         )
         assert client.preview_transaction(project.project_id, transaction).ok
         assert client.commit_transaction(project.project_id, transaction).committed
-        assert "upload_id" in client.upload_audio(project.project_id, audio)
+        assert client.upload_audio(project.project_id, audio, upload_id=upload_id)[
+            "upload_id"
+        ] == str(upload_id)
+        client.discard_upload(project.project_id, upload_id)
+        assert client.transport(
+            project.project_id,
+            TransportRequest(operation="play"),
+        ).engine.mode == "stopped"
+        assert client.launch_slot(
+            project.project_id,
+            ClipLaunchRequest(track_id=project.project_id, scene_id=project.project_id),
+        ).accepted
+        assert client.stop_track(
+            project.project_id,
+            ClipStopRequest(track_id=project.project_id),
+        ).accepted
+        assert client.list_devices() == []
+        assert client.restart_audio().audio.state == "stopped"
+        assert client.preview_render(
+            project.project_id,
+            RenderJobRequest(seconds=1.0),
+        ).kind == "render"
+        assert client.preview_export(
+            project.project_id,
+            ExportJobRequest(),
+        ).kind == "export"
+        client.resolve_external_change(project.project_id)
 
         rendered = client.submit_render(
             project.project_id,
@@ -124,3 +233,41 @@ def test_typed_client_normalizes_error_envelopes_and_invalid_json() -> None:
             client.health()
     finally:
         client.close()
+
+
+def test_typed_event_stream_is_bounded_and_decodes_json(monkeypatch) -> None:
+    project_id = uuid4()
+    captured: dict[str, object] = {}
+
+    class Connection:
+        def recv(self, timeout=None):
+            captured["timeout"] = timeout
+            return json.dumps(
+                {
+                    "type": "transport.changed",
+                    "project_id": str(project_id),
+                    "revision": 2,
+                    "payload": {"operation": "play"},
+                }
+            )
+
+        def close(self) -> None:
+            captured["closed"] = True
+
+    def fake_connect(uri, **kwargs):
+        captured["uri"] = uri
+        captured.update(kwargs)
+        return Connection()
+
+    monkeypatch.setattr("vibesound.api.client.connect", fake_connect)
+    with VibeSoundEventStream("http://127.0.0.1:8765", project_id, timeout=3.0) as stream:
+        event = stream.receive(timeout=1.0)
+
+    assert event.type == "transport.changed"
+    assert event.payload == {"operation": "play"}
+    assert captured["uri"] == f"ws://127.0.0.1:8765/api/v1/projects/{project_id}/events"
+    assert captured["max_size"] == 1024 * 1024
+    assert captured["max_queue"] == 16
+    assert captured["proxy"] is None
+    assert captured["timeout"] == 1.0
+    assert captured["closed"] is True

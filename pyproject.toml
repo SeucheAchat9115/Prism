@@ -20,6 +20,7 @@ dependencies = [
     "soxr>=0.5,<2",
     "typer>=0.15,<1",
     "uvicorn>=0.30,<1",
+    "websockets>=17,<18",
 ]
 
 [project.optional-dependencies]

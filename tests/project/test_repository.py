@@ -3,6 +3,7 @@ from __future__ import annotations
 import io
 import os
 from pathlib import Path
+from uuid import uuid4
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
@@ -13,6 +14,7 @@ from vibesound.project import (
     ProjectRepository,
     ProjectResourceLimitError,
     RepositoryLimits,
+    StagedUploadError,
     WorkingProjectError,
     create_project,
     import_audio,
@@ -75,6 +77,35 @@ def test_staged_upload_is_streamed_and_does_not_change_revision(tmp_path: Path) 
         assert upload.path.is_file()
         assert repository.get_project().revision.number == before
         assert "path" not in upload.to_public_dict()
+
+
+def test_requested_upload_id_replays_only_identical_staged_audio(tmp_path: Path) -> None:
+    archive = tmp_path / "idempotent-upload.vibesound"
+    source = tmp_path / "source.wav"
+    payload = write_wav(source)
+    upload_id = uuid4()
+    create_project(archive, "Idempotent upload", sample_rate=8000)
+
+    with ProjectRepository.open(archive) as repository:
+        first = repository.stage_audio(
+            io.BytesIO(payload),
+            "source.wav",
+            upload_id=upload_id,
+        )
+        replay = repository.stage_audio(
+            io.BytesIO(payload),
+            "renamed.wav",
+            upload_id=upload_id,
+        )
+
+        assert replay == first
+        with pytest.raises(StagedUploadError, match="different audio"):
+            repository.stage_audio(
+                io.BytesIO(payload + b"different"),
+                "source.wav",
+                upload_id=upload_id,
+            )
+        assert repository.get_upload(upload_id) == first
 
 
 def test_external_source_change_pauses_writes_until_detached(tmp_path: Path) -> None:

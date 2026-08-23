@@ -126,8 +126,9 @@ Verify the packages against the target distribution before putting them in an
 installer or deployment image. See the [`sounddevice` installation guide](https://python-sounddevice.readthedocs.io/en/latest/)
 and [`soundfile` documentation](https://python-soundfile.readthedocs.io/en/latest/index.html).
 
-Windows playback is exposed by the Python `vibesound.audio` package in this
-phase, not by a CLI command yet. Run the normal device-free suite with:
+Windows playback is exposed by the Python `vibesound.audio` package and the
+Phase 6 `audio devices`, `audio restart`, `transport`, and `session` CLI groups.
+Run the normal device-free suite with:
 
 ```powershell
 uv run pytest -m "not audio_device"

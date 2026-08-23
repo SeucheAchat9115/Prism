@@ -25,6 +25,7 @@ from vibesound.application.types import (
     EngineSnapshotModel,
     EventEnvelope,
     ExportJobRequest,
+    JobPreview,
     RenderJobRequest,
     RuntimeImpact,
     TransactionRequest,
@@ -136,9 +137,8 @@ class ApplicationService:
     def commit_transaction(self, request: TransactionRequest) -> TransactionResult:
         with self._lock:
             self._require_open()
-            current_revision = self._project.revision.number
-            if request.idempotency_key is not None and request.base_revision != current_revision:
-                replay, _ = self._commands.commit(request)
+            replay = self._commands.idempotent_replay(request)
+            if replay is not None:
                 return replay
             preview = self._commands.preview(request)
             self._refine_runtime_impact(preview)
@@ -232,53 +232,71 @@ class ApplicationService:
                     code="clip_not_in_slot",
                     status_code=422,
                 )
-            try:
-                action = self._runtime.launch_slot(request.track_id, request.scene_id)
-            except (AudioBackendError, EngineError) as error:
-                raise ApplicationError(str(error), code="audio_error", status_code=503) from error
-            position = self._runtime.snapshot().engine_snapshot.position_frame
-            if action.changed and action.target_frame > position:
-                self._publish(
-                    "clip.scheduled",
-                    {
-                        "clip_id": str(clip_id),
-                        "track_id": str(request.track_id),
-                        "scene_id": str(request.scene_id),
-                        "target_frame": action.target_frame,
-                    },
+            return self._launch_slot_unlocked(clip_id, request.track_id, request.scene_id)
+
+    def launch_slot(self, request: ClipLaunchRequest) -> tuple[UUID, ScheduledAction]:
+        """Launch the populated slot identified by a track and scene."""
+
+        with self._lock:
+            self._require_open()
+            self._require_track(request.track_id)
+            self._require_scene(request.scene_id)
+            slot = next(
+                (
+                    item
+                    for item in self._project.clip_slots
+                    if item.track_id == request.track_id and item.scene_id == request.scene_id
+                ),
+                None,
+            )
+            if slot is None or slot.clip_id is None:
+                raise ApplicationError(
+                    "The requested track/scene slot is empty",
+                    code="slot_empty",
+                    status_code=404,
                 )
-            return action
+            self._require_clip(slot.clip_id)
+            return slot.clip_id, self._launch_slot_unlocked(
+                slot.clip_id,
+                request.track_id,
+                request.scene_id,
+            )
 
     def stop_clip(self, clip_id: UUID, request: ClipStopRequest) -> ScheduledAction:
         with self._lock:
             self._require_open()
             self._require_clip(clip_id)
             self._require_track(request.track_id)
-            try:
-                action = self._runtime.stop_track(request.track_id)
-            except (AudioBackendError, EngineError) as error:
-                raise ApplicationError(str(error), code="audio_error", status_code=503) from error
-            position = self._runtime.snapshot().engine_snapshot.position_frame
-            if action.changed and action.target_frame > position:
-                self._publish(
-                    "clip.stop_scheduled",
-                    {
-                        "clip_id": str(clip_id),
-                        "track_id": str(request.track_id),
-                        "target_frame": action.target_frame,
-                    },
-                )
-            return action
+            return self._stop_track_unlocked(request.track_id, clip_id=clip_id)
 
-    def stage_audio(self, stream: BinaryIO, original_name: str) -> StagedAudioUpload:
+    def stop_track(self, request: ClipStopRequest) -> tuple[UUID | None, ScheduledAction]:
+        """Stop the active or pending slot on one track."""
+
+        with self._lock:
+            self._require_open()
+            self._require_track(request.track_id)
+            active = dict(self._runtime.snapshot().engine_snapshot.active_clip_ids)
+            clip_id = active.get(request.track_id)
+            return clip_id, self._stop_track_unlocked(request.track_id, clip_id=clip_id)
+
+    def stage_audio(
+        self,
+        stream: BinaryIO,
+        original_name: str,
+        *,
+        upload_id: UUID | None = None,
+    ) -> StagedAudioUpload:
         try:
-            return self._repository.stage_audio(stream, original_name)
+            return self._repository.stage_audio(stream, original_name, upload_id=upload_id)
         except (ProjectArchiveError, WorkingProjectError, OSError, ValueError) as error:
             raise ApplicationError(
                 str(error),
                 code="asset_upload_invalid",
                 status_code=422,
             ) from error
+
+    def discard_upload(self, upload_id: UUID) -> None:
+        self._repository.discard_upload(upload_id)
 
     def resolve_name(self, entity_type: str, name: str) -> UUID:
         return self._commands.resolve_name(entity_type, name)
@@ -291,9 +309,25 @@ class ApplicationService:
                 str(error), code="output_policy_error", status_code=422
             ) from error
 
+    def preview_render(self, request: RenderJobRequest) -> JobPreview:
+        try:
+            return self._jobs.preview_render(request)
+        except WorkingProjectError as error:
+            raise ApplicationError(
+                str(error), code="output_policy_error", status_code=422
+            ) from error
+
     def submit_export(self, request: ExportJobRequest) -> BackgroundJob:
         try:
             return self._jobs.submit_export(request)
+        except WorkingProjectError as error:
+            raise ApplicationError(
+                str(error), code="output_policy_error", status_code=422
+            ) from error
+
+    def preview_export(self, request: ExportJobRequest) -> JobPreview:
+        try:
+            return self._jobs.preview_export(request)
         except WorkingProjectError as error:
             raise ApplicationError(
                 str(error), code="output_policy_error", status_code=422
@@ -392,6 +426,51 @@ class ApplicationService:
         ):
             result.runtime_impact = RuntimeImpact.RESET
             result.runtime_reset_required = True
+
+    def _launch_slot_unlocked(
+        self,
+        clip_id: UUID,
+        track_id: UUID,
+        scene_id: UUID,
+    ) -> ScheduledAction:
+        try:
+            action = self._runtime.launch_slot(track_id, scene_id)
+        except (AudioBackendError, EngineError) as error:
+            raise ApplicationError(str(error), code="audio_error", status_code=503) from error
+        position = self._runtime.snapshot().engine_snapshot.position_frame
+        if action.changed and action.target_frame > position:
+            self._publish(
+                "clip.scheduled",
+                {
+                    "clip_id": str(clip_id),
+                    "track_id": str(track_id),
+                    "scene_id": str(scene_id),
+                    "target_frame": action.target_frame,
+                },
+            )
+        return action
+
+    def _stop_track_unlocked(
+        self,
+        track_id: UUID,
+        *,
+        clip_id: UUID | None,
+    ) -> ScheduledAction:
+        try:
+            action = self._runtime.stop_track(track_id)
+        except (AudioBackendError, EngineError) as error:
+            raise ApplicationError(str(error), code="audio_error", status_code=503) from error
+        position = self._runtime.snapshot().engine_snapshot.position_frame
+        if action.changed and action.target_frame > position:
+            self._publish(
+                "clip.stop_scheduled",
+                {
+                    "clip_id": None if clip_id is None else str(clip_id),
+                    "track_id": str(track_id),
+                    "target_frame": action.target_frame,
+                },
+            )
+        return action
 
     def _publish(self, event_type: str, payload: dict[str, object]) -> None:
         with self._lock:

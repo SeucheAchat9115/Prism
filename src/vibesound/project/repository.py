@@ -362,23 +362,34 @@ class ProjectRepository:
             self._manifest_sha256 = _hash_file(self._manifest_path)
             return self._project.model_copy(deep=True)
 
-    def stage_audio(self, stream: BinaryIO, original_name: str) -> StagedAudioUpload:
+    def stage_audio(
+        self,
+        stream: BinaryIO,
+        original_name: str,
+        *,
+        upload_id: UUID | None = None,
+    ) -> StagedAudioUpload:
         """Stream, bound, hash, and inspect one audio upload without changing revision."""
 
         with self._mutex:
             self._require_writable()
             self._cleanup_staging()
+            suffix = Path(original_name).suffix.lower()
+            if suffix not in {".wav", ".aif", ".aiff"}:
+                raise AssetImportError("Audio uploads must be WAV or AIFF files")
+            if upload_id is not None and self._upload_metadata_path(upload_id).is_file():
+                existing = self.get_upload(upload_id)
+                return self._replay_staged_audio(stream, existing)
             uploads = list(self._iter_upload_metadata())
             if len(uploads) >= self._limits.max_staged_uploads:
                 raise ProjectResourceLimitError("Too many staged uploads")
             staged_total = sum(upload.size_bytes for upload in uploads)
             if staged_total >= self._limits.max_staged_bytes:
                 raise ProjectResourceLimitError("Staged upload storage is full")
-            suffix = Path(original_name).suffix.lower()
-            if suffix not in {".wav", ".aif", ".aiff"}:
-                raise AssetImportError("Audio uploads must be WAV or AIFF files")
-            upload_id = uuid4()
+            upload_id = upload_id or uuid4()
             data_path = self._staging_path / f"{upload_id}{suffix}"
+            if not self._upload_metadata_path(upload_id).exists():
+                data_path.unlink(missing_ok=True)
             digest = hashlib.sha256()
             size = 0
             try:
@@ -419,6 +430,29 @@ class ProjectRepository:
             )
             _atomic_json_write(self._upload_metadata_path(upload_id), upload.to_storage_dict())
             return upload
+
+    def _replay_staged_audio(
+        self,
+        stream: BinaryIO,
+        existing: StagedAudioUpload,
+    ) -> StagedAudioUpload:
+        """Return an identical caller-named upload without replacing staged bytes."""
+
+        digest = hashlib.sha256()
+        size = 0
+        while True:
+            chunk = stream.read(_COPY_CHUNK_BYTES)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > self._limits.max_asset_bytes:
+                raise ProjectResourceLimitError("Audio upload exceeds the asset limit")
+            digest.update(chunk)
+        if size != existing.size_bytes or digest.hexdigest() != existing.sha256:
+            raise StagedUploadError(
+                f"Staged upload ID was already used for different audio: {existing.upload_id}"
+            )
+        return existing
 
     def get_upload(self, upload_id: UUID) -> StagedAudioUpload:
         with self._mutex:

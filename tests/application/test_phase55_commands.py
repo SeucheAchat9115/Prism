@@ -57,13 +57,22 @@ def test_public_transaction_builds_complete_project_and_replays_idempotently(
     try:
         preview = service.preview_transaction(request)
         committed = service.commit_transaction(request)
-        replay = service.commit_transaction(request)
+        replay = service.commit_transaction(request.model_copy(update={"base_revision": 1}))
+        conflicting_reuse = service.commit_transaction(
+            TransactionRequest(
+                base_revision=1,
+                idempotency_key="build-demo-1",
+                operations=[{"op": "project.rename", "name": "Different request"}],
+            )
+        )
 
         assert preview.ok and not preview.committed
         assert preview.created_ids.tracks == [track_id]
         assert committed.ok and committed.committed
         assert committed.runtime_impact == "transport_preserving_rebuild"
         assert replay.ok and replay.idempotent_replay
+        assert not conflicting_reuse.ok
+        assert conflicting_reuse.errors[0].code == "idempotency_conflict"
         assert service.get_project().revision.number == 1
         assert service.resolve_name("track", "drums") == track_id
     finally:
