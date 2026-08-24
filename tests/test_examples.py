@@ -66,3 +66,15 @@ def test_browser_session_example_help_is_available() -> None:
         )
         assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
         assert expected_option in result.stdout
+
+
+def test_vst3_example_help_is_available_without_a_plugin() -> None:
+    result = subprocess.run(
+        [sys.executable, str(EXAMPLES / "13_vst3_effect.py"), "--help"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+    assert "--plugin" in result.stdout
+    assert "--registry-id" in result.stdout

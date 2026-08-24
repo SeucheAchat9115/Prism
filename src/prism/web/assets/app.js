@@ -19,6 +19,12 @@ const elements = {
   sessionFoot: byId("session-foot"),
   sessionSummary: byId("session-summary"),
   mixerList: byId("mixer-list"),
+  pluginScan: byId("plugin-scan"),
+  pluginAttachForm: byId("plugin-attach-form"),
+  pluginTrack: byId("plugin-track"),
+  pluginRegistry: byId("plugin-registry"),
+  pluginAttach: byId("plugin-attach"),
+  pluginList: byId("plugin-list"),
   saving: byId("saving-state"),
   renderForm: byId("render-form"),
   renderScene: byId("render-scene"),
@@ -42,6 +48,8 @@ const store = {
   snapshot: null,
   validation: null,
   jobs: [],
+  pluginRegistry: [],
+  pluginCompatibility: [],
   hydrated: false,
   eventBuffer: [],
   socket: null,
@@ -123,19 +131,44 @@ function renderActivity() {
 async function fetchConsistentData() {
   let mismatch = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const [projectEnvelope, snapshot, validation, jobsEnvelope] = await Promise.all([
+    const [projectEnvelope, snapshot, validation, jobsEnvelope, pluginData] = await Promise.all([
       api.project(store.projectId),
       api.state(store.projectId),
       api.validation(store.projectId),
       api.jobs(store.projectId),
+      fetchPluginData(),
     ]);
     const project = projectEnvelope.project;
     if (project.revision.number === snapshot.revision) {
-      return { project, snapshot, validation, jobs: jobsEnvelope.jobs };
+      return {
+        project,
+        snapshot,
+        validation,
+        jobs: jobsEnvelope.jobs,
+        pluginRegistry: pluginData.registry,
+        pluginCompatibility: pluginData.compatibility,
+        pluginWarning: pluginData.warning,
+      };
     }
     mismatch = `${project.revision.number}/${snapshot.revision}`;
   }
   throw new Error(`Could not obtain one consistent project revision (${mismatch}).`);
+}
+
+async function fetchPluginData() {
+  try {
+    const [registry, compatibility] = await Promise.all([
+      api.plugins(),
+      api.pluginCompatibility(store.projectId),
+    ]);
+    return {
+      registry: registry.plugins,
+      compatibility: compatibility.plugins,
+      warning: null,
+    };
+  } catch (error) {
+    return { registry: [], compatibility: [], warning: issueMessage(error) };
+  }
 }
 
 function applyData(data) {
@@ -143,7 +176,10 @@ function applyData(data) {
   store.snapshot = data.snapshot;
   store.validation = data.validation;
   store.jobs = data.jobs;
+  store.pluginRegistry = data.pluginRegistry;
+  store.pluginCompatibility = data.pluginCompatibility;
   renderAll();
+  if (data.pluginWarning) addActivity("plugin.unavailable", data.pluginWarning);
 }
 
 async function fullSync({ announce = false } = {}) {
@@ -271,6 +307,7 @@ function renderAll() {
   renderTransport();
   renderSession();
   renderMixer();
+  renderPlugins();
   renderSceneOptions();
   renderJob();
   renderValidation();
@@ -485,6 +522,220 @@ function renderMixer() {
     strip.append(toggles);
     elements.mixerList.append(strip);
   });
+}
+
+function renderPlugins() {
+  const tracks = sorted(store.project.tracks);
+  const ready = store.pluginRegistry.filter((item) => item.available && item.trusted);
+  const emptyTracks = tracks.filter((track) => !track.effects?.length);
+  const selectedTrack = elements.pluginTrack.value;
+  const selectedPlugin = elements.pluginRegistry.value;
+  elements.pluginTrack.replaceChildren();
+  elements.pluginRegistry.replaceChildren();
+  for (const track of emptyTracks) {
+    const option = create("option", { text: track.name });
+    option.value = track.id;
+    elements.pluginTrack.append(option);
+  }
+  for (const plugin of ready) {
+    const option = create("option", { text: `${plugin.name} · ${plugin.manufacturer}` });
+    option.value = plugin.registry_id;
+    elements.pluginRegistry.append(option);
+  }
+  if (emptyTracks.some((track) => track.id === selectedTrack)) {
+    elements.pluginTrack.value = selectedTrack;
+  }
+  if (ready.some((plugin) => plugin.registry_id === selectedPlugin)) {
+    elements.pluginRegistry.value = selectedPlugin;
+  }
+  elements.pluginAttach.disabled = !emptyTracks.length || !ready.length;
+
+  const compatibility = new Map(
+    store.pluginCompatibility.map((item) => [item.instance_id, item]),
+  );
+  elements.pluginList.replaceChildren();
+  let count = 0;
+  for (const track of tracks) {
+    for (const effect of track.effects ?? []) {
+      count += 1;
+      const state = compatibility.get(effect.id);
+      const card = create("article", {
+        className: "plugin-card",
+        testId: `plugin-${effect.id}`,
+      });
+      const heading = create("div", { className: "plugin-card-heading" });
+      const copy = create("div");
+      copy.append(
+        create("strong", { text: effect.name }),
+        create("small", { text: `${track.name} · ${effect.manufacturer}` }),
+      );
+      heading.append(
+        copy,
+        create("span", {
+          className: `plugin-state plugin-state-${state?.status ?? "missing"}`,
+          text: state?.status ?? "missing",
+        }),
+      );
+      const actions = create("div", { className: "plugin-actions" });
+      const bypass = create("button", {
+        className: "text-button",
+        type: "button",
+        text: effect.bypassed ? "Activate" : "Bypass",
+      });
+      bypass.addEventListener("click", () => togglePluginBypass(effect, bypass));
+      const parameters = create("button", {
+        className: "text-button",
+        type: "button",
+        text: "Parameters",
+      });
+      const parameterList = create("div", { className: "plugin-parameters" });
+      parameters.addEventListener("click", () => loadPluginParameters(effect, parameterList, parameters));
+      const saveState = create("button", {
+        className: "text-button",
+        type: "button",
+        text: "Save state",
+      });
+      saveState.addEventListener("click", () => capturePluginState(effect, saveState));
+      const remove = create("button", {
+        className: "quiet-button danger",
+        type: "button",
+        text: "Remove",
+      });
+      remove.addEventListener("click", () => removePlugin(effect, remove));
+      actions.append(bypass, parameters, saveState, remove);
+      card.append(heading, actions, parameterList);
+      elements.pluginList.append(card);
+    }
+  }
+  if (!count) {
+    elements.pluginList.append(
+      create("p", {
+        className: "panel-note plugin-empty",
+        text: ready.length
+          ? "Choose an empty track and trusted plugin to add an offline effect."
+          : "No trusted plugins are ready. Add a path, trust a binary, and scan with the CLI.",
+      }),
+    );
+  }
+}
+
+async function scanPlugins() {
+  elements.pluginScan.disabled = true;
+  try {
+    const response = await api.scanPlugins();
+    addActivity("plugin.registry.changed", `${response.plugins.length} entries`);
+    await fullSync();
+  } catch (error) {
+    toast(issueMessage(error), "error");
+  } finally {
+    elements.pluginScan.disabled = false;
+  }
+}
+
+async function attachPlugin(event) {
+  event.preventDefault();
+  elements.pluginAttach.disabled = true;
+  try {
+    await api.attachPlugin(
+      store.projectId,
+      elements.pluginTrack.value,
+      elements.pluginRegistry.value,
+      { base_revision: store.project.revision.number },
+    );
+    addActivity("plugin.attached", `track ${elements.pluginTrack.value.slice(0, 8)}`);
+    await fullSync();
+  } catch (error) {
+    toast(issueMessage(error), "error");
+  } finally {
+    elements.pluginAttach.disabled = false;
+  }
+}
+
+async function togglePluginBypass(effect, button) {
+  button.disabled = true;
+  try {
+    await api.updatePluginBypass(store.projectId, effect.id, {
+      base_revision: store.project.revision.number,
+      bypassed: !effect.bypassed,
+    });
+    await fullSync();
+  } catch (error) {
+    toast(issueMessage(error), "error");
+    button.disabled = false;
+  }
+}
+
+async function loadPluginParameters(effect, container, button) {
+  button.disabled = true;
+  container.replaceChildren(create("p", { className: "panel-note", text: "Loading worker…" }));
+  try {
+    const response = await api.pluginParameters(store.projectId, effect.id);
+    container.replaceChildren();
+    for (const parameter of response.parameters) {
+      const row = create("label", { className: "plugin-parameter" });
+      const name = create("span", { text: parameter.name });
+      const input = create("input");
+      input.type = "range";
+      input.min = 0;
+      input.max = 1;
+      input.step = 0.001;
+      input.value = parameter.raw_value;
+      const output = create("output", { text: Number(parameter.raw_value).toFixed(3) });
+      input.addEventListener("input", () => { output.textContent = Number(input.value).toFixed(3); });
+      input.addEventListener("change", async () => {
+        input.disabled = true;
+        try {
+          await api.updatePluginParameter(store.projectId, effect.id, parameter.id, {
+            base_revision: store.project.revision.number,
+            raw_value: Number(input.value),
+          });
+          await fullSync();
+        } catch (error) {
+          toast(issueMessage(error), "error");
+          input.disabled = false;
+        }
+      });
+      row.append(name, input, output);
+      container.append(row);
+    }
+    if (!response.parameters.length) {
+      container.append(create("p", { className: "panel-note", text: "No parameters exposed." }));
+    }
+  } catch (error) {
+    container.replaceChildren();
+    toast(issueMessage(error), "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function capturePluginState(effect, button) {
+  button.disabled = true;
+  try {
+    await api.capturePluginState(store.projectId, effect.id, {
+      base_revision: store.project.revision.number,
+    });
+    toast(`Saved opaque state for ${effect.name}.`);
+    await fullSync();
+  } catch (error) {
+    toast(issueMessage(error), "error");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function removePlugin(effect, button) {
+  button.disabled = true;
+  try {
+    await api.commitTransaction(store.projectId, {
+      base_revision: store.project.revision.number,
+      operations: [{ op: "plugin.remove", instance_id: effect.id }],
+    });
+    await fullSync();
+  } catch (error) {
+    toast(issueMessage(error), "error");
+    button.disabled = false;
+  }
 }
 
 function renderSceneOptions() {
@@ -822,6 +1073,8 @@ document.querySelectorAll("[data-transport]").forEach((button) => {
   button.addEventListener("click", () => transport(button.dataset.transport, button));
 });
 elements.renderForm.addEventListener("submit", submitRender);
+elements.pluginAttachForm.addEventListener("submit", attachPlugin);
+elements.pluginScan.addEventListener("click", scanPlugins);
 byId("clear-activity").addEventListener("click", () => {
   store.activity = [];
   renderActivity();

@@ -31,6 +31,7 @@ class ValidationStage(StrEnum):
     SCHEMA = "schema"
     PROJECT_REFERENCES = "project_references"
     PLAYBACK_READINESS = "playback_readiness"
+    PLUGIN_COMPATIBILITY = "plugin_compatibility"
     DEVICE_COMPATIBILITY = "device_compatibility"
 
 
@@ -101,7 +102,54 @@ def project_reference_issues(project: Project) -> tuple[ValidationIssue, ...]:
     asset_ids = check_unique(project.assets, "assets")
     slot_ids = check_unique(project.clip_slots, "clip_slots")
 
-    del slot_ids
+    plugin_ids: set[Any] = set()
+    state_paths: set[str] = set()
+    for track_index, track in enumerate(project.tracks):
+        for effect_index, effect in enumerate(track.effects):
+            path = f"/tracks/{track_index}/effects/{effect_index}"
+            if effect.id in plugin_ids:
+                issues.append(
+                    ValidationIssue(
+                        code="duplicate_id",
+                        path=f"{path}/id",
+                        message=f"Duplicate plugin instance ID: {effect.id}",
+                    )
+                )
+            plugin_ids.add(effect.id)
+            if effect.state is not None:
+                if effect.state.member_path in state_paths:
+                    issues.append(
+                        ValidationIssue(
+                            code="duplicate_plugin_state_member",
+                            path=f"{path}/state/member_path",
+                            message="Plugin state members must be unique per instance.",
+                        )
+                    )
+                state_paths.add(effect.state.member_path)
+
+    collections = {
+        "tracks": track_ids,
+        "scenes": scene_ids,
+        "clips": clip_ids,
+        "assets": asset_ids,
+        "clip_slots": slot_ids,
+        "plugin_instances": plugin_ids,
+    }
+    owners: dict[Any, str] = {}
+    for collection, ids in collections.items():
+        for entity_id in ids:
+            previous = owners.get(entity_id)
+            if previous is not None:
+                issues.append(
+                    ValidationIssue(
+                        code="duplicate_id",
+                        path=f"/{collection}",
+                        message=(
+                            f"Entity ID {entity_id} is shared by {previous} and {collection}."
+                        ),
+                    )
+                )
+            owners[entity_id] = collection
 
     for index, clip in enumerate(project.clips):
         if clip.asset_id not in asset_ids:

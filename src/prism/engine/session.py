@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import cos, pi, sin
-from typing import Literal
+from typing import Literal, Protocol
 from uuid import UUID
 
 import numpy as np
@@ -51,10 +51,27 @@ class _ActiveClip:
     launch_frame: int
 
 
+class TrackEffectProcessor(Protocol):
+    """Optional offline effect boundary kept outside the deterministic scheduler."""
+
+    def process(
+        self,
+        track_id: UUID,
+        samples: np.ndarray,
+        sample_rate: int,
+    ) -> np.ndarray: ...
+
+
 class SessionEngine:
     """A thread-free, sample-frame deterministic session engine."""
 
-    def __init__(self, project: Project, sources: ClipSourceProvider) -> None:
+    def __init__(
+        self,
+        project: Project,
+        sources: ClipSourceProvider,
+        *,
+        effect_processor: TrackEffectProcessor | None = None,
+    ) -> None:
         issues = project_reference_issues(project)
         if issues:
             messages = "; ".join(f"{issue.path}: {issue.message}" for issue in issues)
@@ -77,6 +94,7 @@ class SessionEngine:
             sorted(self._project.tracks, key=lambda track: (track.order, str(track.id)))
         )
         self._buffers = self._load_referenced_sources(sources)
+        self._effect_processor = effect_processor
 
     @property
     def project(self) -> Project:
@@ -127,7 +145,11 @@ class SessionEngine:
     ) -> "SessionEngine":
         """Build a new graph while retaining valid transport, active clips, and launches."""
 
-        replacement = SessionEngine(project, sources)
+        replacement = SessionEngine(
+            project,
+            sources,
+            effect_processor=self._effect_processor,
+        )
         if self._project.transport.sample_rate != project.transport.sample_rate:
             return replacement
         replacement._mode = self._mode
@@ -503,6 +525,41 @@ class SessionEngine:
         solo_ids = {track.id for track in self._track_order if track.mixer.solo}
         for track in self._track_order:
             active = self._active.get(track.id)
+            if (
+                self._effect_processor is not None
+                and track.effects
+                and not track.effects[0].bypassed
+            ):
+                if active is None:
+                    source = np.zeros((length, 2), dtype=np.float32)
+                else:
+                    source = self._clip_samples(active, start_frame, length)
+                    clip_gain = 10.0 ** (active.clip.gain_db / 20.0)
+                    source = np.asarray(source * clip_gain, dtype=np.float32)
+                processed = np.asarray(
+                    self._effect_processor.process(
+                        track.id,
+                        source,
+                        self._project.transport.sample_rate,
+                    ),
+                    dtype=np.float32,
+                )
+                if processed.shape != source.shape:
+                    raise EngineValidationError(
+                        f"Track effect returned shape {processed.shape}; expected {source.shape}"
+                    )
+                if track.mixer.muted or (solo_ids and track.id not in solo_ids):
+                    continue
+                gain = 10.0 ** (track.mixer.gain_db / 20.0)
+                if processed.shape[1] == 1:
+                    angle = (track.mixer.pan + 1.0) * pi / 4.0
+                    mixed[:, 0] += processed[:, 0].astype(np.float64) * gain * cos(angle)
+                    mixed[:, 1] += processed[:, 0].astype(np.float64) * gain * sin(angle)
+                else:
+                    left_gain, right_gain = self._stereo_balance(track.mixer.pan)
+                    mixed[:, 0] += processed[:, 0].astype(np.float64) * gain * left_gain
+                    mixed[:, 1] += processed[:, 1].astype(np.float64) * gain * right_gain
+                continue
             if active is None or track.mixer.muted or (solo_ids and track.id not in solo_ids):
                 continue
             source = self._clip_samples(active, start_frame, length)

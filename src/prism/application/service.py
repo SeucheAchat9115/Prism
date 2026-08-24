@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
 from threading import RLock
 from typing import BinaryIO
@@ -26,6 +27,14 @@ from prism.application.types import (
     EventEnvelope,
     ExportJobRequest,
     JobPreview,
+    PluginAttachOperation,
+    PluginAttachRequest,
+    PluginBypassRequest,
+    PluginBypassUpdateOperation,
+    PluginParameterRequest,
+    PluginParameterUpdateOperation,
+    PluginStateCaptureRequest,
+    PluginStateUpdateOperation,
     RenderJobRequest,
     RuntimeImpact,
     TransactionRequest,
@@ -35,6 +44,14 @@ from prism.application.types import (
 from prism.audio import AudioBackendError, OfflineRenderBackend
 from prism.engine import EngineError
 from prism.engine.types import ScheduledAction
+from prism.plugins import (
+    PluginError,
+    PluginManager,
+    PluginParameter,
+    PluginRegistryDocument,
+    PluginTrustRecord,
+    PluginWorkerStatus,
+)
 from prism.project import (
     LayeredValidationReport,
     ProjectArchiveError,
@@ -42,7 +59,9 @@ from prism.project import (
     StagedAudioUpload,
     WorkingProjectError,
 )
-from prism.project.models import Project
+from prism.project.errors import ValidationIssue
+from prism.project.models import PluginInstance, Project
+from prism.project.validation import ValidationStage
 from prism.rendering import RenderError
 from prism.rendering.types import RenderMetadata
 
@@ -56,6 +75,7 @@ class ApplicationService:
         *,
         backend_factory: BackendFactory | None = None,
         renderer: OfflineRenderBackend | None = None,
+        plugin_manager: PluginManager | None = None,
     ) -> None:
         del renderer  # synchronous rendering is now a compatibility adapter over jobs
         self._project_path = Path(project_path)
@@ -71,7 +91,12 @@ class ApplicationService:
                 backend_factory=backend_factory,
                 publisher=self._publish,
             )
-            self._jobs = RenderJobService(self._repository, publisher=self._publish)
+            self._plugins = plugin_manager or PluginManager()
+            self._jobs = RenderJobService(
+                self._repository,
+                publisher=self._publish,
+                plugin_store=self._plugins.store,
+            )
         except (ProjectArchiveError, WorkingProjectError, RenderError, ValueError) as error:
             repository = getattr(self, "_repository", None)
             if repository is not None:
@@ -102,7 +127,30 @@ class ApplicationService:
             return self._project.model_copy(deep=True)
 
     def validate(self) -> LayeredValidationReport:
-        return self._repository.validation_report()
+        report = self._repository.validation_report()
+        plugin_issues = list(report.reports[ValidationStage.PLUGIN_COMPATIBILITY])
+        try:
+            compatibility = self._plugins.compatibility(self.get_project())
+            for item in compatibility:
+                if item.status not in {"ready", "bypassed"}:
+                    plugin_issues.append(
+                        ValidationIssue(
+                            code=f"plugin_{item.status}",
+                            path=f"/plugin_instances/{item.instance_id}",
+                            message=item.message,
+                        )
+                    )
+        except PluginError as error:
+            plugin_issues.append(
+                ValidationIssue(
+                    code="plugin_configuration_error",
+                    path="/plugin_instances",
+                    message=str(error),
+                )
+            )
+        reports: dict[ValidationStage, Iterable[ValidationIssue]] = dict(report.reports)
+        reports[ValidationStage.PLUGIN_COMPATIBILITY] = plugin_issues
+        return LayeredValidationReport(reports)
 
     def get_snapshot(self) -> ApplicationSnapshot:
         with self._lock:
@@ -131,6 +179,7 @@ class ApplicationService:
         with self._lock:
             self._require_open()
             result = self._commands.preview(request)
+            self._preflight_plugin_operations(request, result)
             self._refine_runtime_impact(result)
             return result
 
@@ -141,6 +190,7 @@ class ApplicationService:
             if replay is not None:
                 return replay
             preview = self._commands.preview(request)
+            self._preflight_plugin_operations(request, preview)
             self._refine_runtime_impact(preview)
             if not preview.ok:
                 return preview
@@ -193,7 +243,230 @@ class ApplicationService:
                     "runtime_reset_performed": result.runtime_reset_performed,
                 },
             )
+            self._sync_plugin_worker(request, result)
             return result
+
+    def plugin_config(self) -> dict[str, object]:
+        try:
+            return self._plugins.store.load().model_dump(mode="json")
+        except PluginError as error:
+            raise self._plugin_application_error(error) from error
+
+    def add_plugin_search_path(self, path: Path | str) -> list[str]:
+        try:
+            paths = self._plugins.add_search_path(path)
+            self._publish("plugin.search_paths.changed", {"search_paths": paths})
+            return paths
+        except (PluginError, OSError) as error:
+            raise self._plugin_application_error(error) from error
+
+    def remove_plugin_search_path(self, path: Path | str) -> list[str]:
+        try:
+            paths = self._plugins.remove_search_path(path)
+            self._publish("plugin.search_paths.changed", {"search_paths": paths})
+            return paths
+        except (PluginError, OSError) as error:
+            raise self._plugin_application_error(error) from error
+
+    def trust_plugin(self, path: Path | str) -> PluginTrustRecord:
+        try:
+            record = self._plugins.trust(path)
+            self._publish(
+                "plugin.trust.changed",
+                {"path": record.path, "trusted": True, "sha256": record.binary_sha256},
+            )
+            return record
+        except (PluginError, OSError) as error:
+            raise self._plugin_application_error(error) from error
+
+    def revoke_plugin(self, path: Path | str) -> None:
+        try:
+            self._plugins.revoke(path)
+            self._publish("plugin.trust.changed", {"path": str(path), "trusted": False})
+        except (PluginError, OSError) as error:
+            raise self._plugin_application_error(error) from error
+
+    def scan_plugins(self) -> PluginRegistryDocument:
+        try:
+            document = self._plugins.scan()
+            self._publish(
+                "plugin.registry.changed",
+                {
+                    "scanned_at": document.scanned_at,
+                    "plugin_count": len(document.plugins),
+                },
+            )
+            return document
+        except (PluginError, OSError) as error:
+            raise self._plugin_application_error(error) from error
+
+    def list_plugins(self) -> PluginRegistryDocument:
+        try:
+            return self._plugins.list_plugins()
+        except PluginError as error:
+            raise self._plugin_application_error(error) from error
+
+    def plugin_worker_status(self) -> PluginWorkerStatus:
+        return self._plugins.status()
+
+    def restart_plugin_worker(self) -> PluginWorkerStatus:
+        try:
+            status = self._plugins.restart()
+            self._publish("plugin.worker.restarted", status.model_dump(mode="json"))
+            return status
+        except PluginError as error:
+            self._publish("plugin.worker.failed", {"message": str(error)})
+            raise self._plugin_application_error(error, status_code=503) from error
+
+    def plugin_compatibility(self) -> list[dict[str, object]]:
+        try:
+            return [
+                item.model_dump(mode="json")
+                for item in self._plugins.compatibility(self.get_project())
+            ]
+        except PluginError as error:
+            raise self._plugin_application_error(error) from error
+
+    def attach_plugin(
+        self,
+        track_id: UUID,
+        registry_id: UUID,
+        request: PluginAttachRequest,
+        *,
+        preview: bool = False,
+    ) -> TransactionResult:
+        try:
+            record = self._plugins.require_record(registry_id)
+        except PluginError as error:
+            raise self._plugin_application_error(error) from error
+        transaction = TransactionRequest(
+            base_revision=request.base_revision,
+            idempotency_key=request.idempotency_key,
+            operations=[
+                PluginAttachOperation(
+                    op="plugin.attach",
+                    track_id=track_id,
+                    registry_id=record.registry_id,
+                    instance_id=request.instance_id,
+                    plugin_identifier=record.plugin_identifier,
+                    binary_sha256=record.binary_sha256,
+                    name=record.name,
+                    manufacturer=record.manufacturer,
+                    version=record.version,
+                    category=record.category,
+                )
+            ],
+        )
+        if preview:
+            return self.preview_transaction(transaction)
+        return self.commit_transaction(transaction)
+
+    def plugin_parameters(self, instance_id: UUID) -> list[PluginParameter]:
+        try:
+            self._ensure_plugin_loaded(instance_id)
+            return self._plugins.parameters(instance_id)
+        except (PluginError, OSError) as error:
+            raise self._plugin_application_error(error, status_code=503) from error
+
+    def update_plugin_parameter(
+        self,
+        instance_id: UUID,
+        parameter_id: str,
+        request: PluginParameterRequest,
+        *,
+        preview: bool = False,
+    ) -> TransactionResult:
+        if not preview:
+            parameters = {item.id for item in self.plugin_parameters(instance_id)}
+            if parameter_id not in parameters:
+                raise ApplicationError(
+                    f"Plugin parameter does not exist: {parameter_id}",
+                    code="plugin_parameter_not_found",
+                    status_code=404,
+                )
+        transaction = TransactionRequest(
+            base_revision=request.base_revision,
+            idempotency_key=request.idempotency_key,
+            operations=[
+                PluginParameterUpdateOperation(
+                    op="plugin.parameter.update",
+                    instance_id=instance_id,
+                    parameter_id=parameter_id,
+                    raw_value=request.raw_value,
+                )
+            ],
+        )
+        if preview:
+            return self.preview_transaction(transaction)
+        return self.commit_transaction(transaction)
+
+    def update_plugin_bypass(
+        self,
+        instance_id: UUID,
+        request: PluginBypassRequest,
+        *,
+        preview: bool = False,
+    ) -> TransactionResult:
+        transaction = TransactionRequest(
+            base_revision=request.base_revision,
+            idempotency_key=request.idempotency_key,
+            operations=[
+                PluginBypassUpdateOperation(
+                    op="plugin.bypass.update",
+                    instance_id=instance_id,
+                    bypassed=request.bypassed,
+                )
+            ],
+        )
+        if preview:
+            return self.preview_transaction(transaction)
+        return self.commit_transaction(transaction)
+
+    def capture_plugin_state(
+        self,
+        instance_id: UUID,
+        request: PluginStateCaptureRequest,
+    ) -> TransactionResult:
+        effect = self._find_plugin_instance(instance_id)
+        try:
+            previous = (
+                self._repository.plugin_state_path(effect).read_bytes()
+                if effect.state is not None
+                else None
+            )
+        except (OSError, WorkingProjectError) as error:
+            raise self._plugin_application_error(error, status_code=503) from error
+        try:
+            self._ensure_plugin_loaded(instance_id)
+            config = self._plugins.store.load()
+            payload = self._plugins.capture_state(instance_id, config.max_state_bytes)
+            reference = self._repository.install_plugin_state(instance_id, payload)
+            result = self.commit_transaction(
+                TransactionRequest(
+                    base_revision=request.base_revision,
+                    idempotency_key=request.idempotency_key,
+                    operations=[
+                        PluginStateUpdateOperation(
+                            op="plugin.state.update",
+                            instance_id=instance_id,
+                            member_path=reference.member_path,
+                            size_bytes=reference.size_bytes,
+                            sha256=reference.sha256,
+                        )
+                    ],
+                )
+            )
+            if not result.ok:
+                self._restore_plugin_state(instance_id, previous)
+            else:
+                self._publish(
+                    "plugin.state.captured",
+                    {"instance_id": str(instance_id), "size_bytes": len(payload)},
+                )
+            return result
+        except (PluginError, OSError, WorkingProjectError) as error:
+            self._restore_plugin_state(instance_id, previous)
+            raise self._plugin_application_error(error, status_code=503) from error
 
     def transport(self, request: TransportRequest) -> ApplicationSnapshot:
         with self._lock:
@@ -405,6 +678,7 @@ class ApplicationService:
             self._closed = True
         self._jobs.close()
         self._runtime.close()
+        self._plugins.close()
         self._repository.close()
         self._events.close()
 
@@ -426,6 +700,124 @@ class ApplicationService:
         ):
             result.runtime_impact = RuntimeImpact.RESET
             result.runtime_reset_required = True
+
+    def _preflight_plugin_operations(
+        self,
+        request: TransactionRequest,
+        result: TransactionResult,
+    ) -> None:
+        if not result.ok:
+            return
+        for operation in request.operations:
+            if not isinstance(operation, PluginAttachOperation):
+                continue
+            try:
+                record = self._plugins.require_record(operation.registry_id)
+            except PluginError as error:
+                result.ok = False
+                result.errors.append(
+                    ApiIssue(code="plugin_unavailable", message=str(error))
+                )
+                return
+            expected = {
+                "plugin_identifier": record.plugin_identifier,
+                "binary_sha256": record.binary_sha256,
+                "name": record.name,
+                "manufacturer": record.manufacturer,
+                "version": record.version,
+                "category": record.category,
+            }
+            if any(getattr(operation, field) != value for field, value in expected.items()):
+                result.ok = False
+                result.errors.append(
+                    ApiIssue(
+                        code="plugin_registry_mismatch",
+                        message="Plugin metadata must match the current trusted registry entry.",
+                    )
+                )
+                return
+
+    def _sync_plugin_worker(
+        self,
+        request: TransactionRequest,
+        result: TransactionResult,
+    ) -> None:
+        try:
+            for operation in request.operations:
+                if (
+                    isinstance(operation, PluginParameterUpdateOperation)
+                    and self._plugins.is_loaded(operation.instance_id)
+                ):
+                    self._plugins.set_parameter(
+                        operation.instance_id,
+                        operation.parameter_id,
+                        operation.raw_value,
+                    )
+                elif (
+                    isinstance(operation, PluginBypassUpdateOperation)
+                    and self._plugins.is_loaded(operation.instance_id)
+                ):
+                    self._plugins.set_bypass(operation.instance_id, operation.bypassed)
+            for instance_id in result.deleted_ids.plugin_instances:
+                self._plugins.unload(instance_id)
+                self._repository.remove_plugin_state(instance_id)
+        except (PluginError, OSError) as error:
+            result.warnings.append(
+                ApiIssue(
+                    code="plugin_worker_sync_failed",
+                    message=f"Project committed but plugin worker sync failed: {error}",
+                )
+            )
+            self._publish("plugin.worker.failed", {"message": str(error)})
+
+    def _find_plugin_instance(self, instance_id: UUID) -> PluginInstance:
+        for track in self._project.tracks:
+            for effect in track.effects:
+                if effect.id == instance_id:
+                    return effect
+        raise ApplicationError(
+            f"Plugin instance does not exist: {instance_id}",
+            code="plugin_instance_not_found",
+            status_code=404,
+        )
+
+    def _ensure_plugin_loaded(self, instance_id: UUID) -> PluginInstance:
+        effect = self._find_plugin_instance(instance_id)
+        if self._plugins.is_loaded(instance_id):
+            return effect
+        state = (
+            self._repository.plugin_state_path(effect).read_bytes()
+            if effect.state is not None
+            else None
+        )
+        self._plugins.load_instance(
+            effect,
+            sample_rate=self._project.transport.sample_rate,
+            state=state,
+        )
+        self._publish(
+            "plugin.instance.loaded",
+            {"instance_id": str(effect.id), "registry_id": str(effect.registry_id)},
+        )
+        return effect
+
+    def _restore_plugin_state(self, instance_id: UUID, payload: bytes | None) -> None:
+        if payload is None:
+            self._repository.remove_plugin_state(instance_id)
+        else:
+            self._repository.install_plugin_state(instance_id, payload)
+
+    @staticmethod
+    def _plugin_application_error(
+        error: Exception,
+        *,
+        status_code: int = 422,
+    ) -> ApplicationError:
+        return ApplicationError(
+            str(error),
+            code="plugin_error",
+            status_code=status_code,
+        )
 
     def _launch_slot_unlocked(
         self,

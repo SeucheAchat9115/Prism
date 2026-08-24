@@ -34,6 +34,7 @@ from prism.project.validation import (
 PROJECT_SUFFIX = ".prism"
 MANIFEST_MEMBER = "project.json"
 ASSET_PREFIX = "assets/audio/"
+PLUGIN_STATE_PREFIX = "assets/plugin-state/"
 _ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
 
@@ -179,17 +180,39 @@ def _read_archive_document(
                     message=f"Referenced archive member does not exist: {asset.member_path}",
                 )
             )
+    for track_index, track in enumerate(project.tracks):
+        for effect_index, effect in enumerate(track.effects):
+            if effect.state is None:
+                continue
+            if effect.state.member_path not in members:
+                issues.append(
+                    ValidationIssue(
+                        code="missing_plugin_state_member",
+                        path=f"/tracks/{track_index}/effects/{effect_index}/state/member_path",
+                        message=(
+                            "Referenced plugin state member does not exist: "
+                            f"{effect.state.member_path}"
+                        ),
+                    )
+                )
     if issues:
         raise ProjectValidationError(issues)
     return project, member_names
 
 
 def _existing_asset_payloads(path: Path, project: Project) -> dict[str, bytes]:
-    if not project.assets:
+    state_paths = [
+        effect.state.member_path
+        for track in project.tracks
+        for effect in track.effects
+        if effect.state is not None
+    ]
+    member_paths = [asset.member_path for asset in project.assets] + state_paths
+    if not member_paths:
         return {}
     try:
         with ZipFile(path, mode="r") as archive:
-            return {asset.member_path: archive.read(asset.member_path) for asset in project.assets}
+            return {member_path: archive.read(member_path) for member_path in member_paths}
     except (BadZipFile, KeyError, OSError) as exc:
         raise InvalidArchiveError(f"Cannot preserve existing project assets: {path}") from exc
 
@@ -264,6 +287,32 @@ def validate_project(
                             message="Archive asset hash does not match the manifest.",
                         )
                     )
+            for track_index, track in enumerate(project.tracks):
+                for effect_index, effect in enumerate(track.effects):
+                    if effect.state is None:
+                        continue
+                    payload = archive.read(effect.state.member_path)
+                    actual_hash = hashlib.sha256(payload).hexdigest()
+                    path = f"/tracks/{track_index}/effects/{effect_index}/state"
+                    if len(payload) != effect.state.size_bytes:
+                        issues.append(
+                            ValidationIssue(
+                                code="plugin_state_size_mismatch",
+                                path=f"{path}/size_bytes",
+                                message=(
+                                    f"Expected {effect.state.size_bytes} bytes, "
+                                    f"found {len(payload)}"
+                                ),
+                            )
+                        )
+                    if actual_hash != effect.state.sha256:
+                        issues.append(
+                            ValidationIssue(
+                                code="plugin_state_hash_mismatch",
+                                path=f"{path}/sha256",
+                                message="Plugin state hash does not match the manifest.",
+                            )
+                        )
             return ValidationReport(issues)
     except ProjectArchiveError as exc:
         if isinstance(exc, ProjectValidationError):

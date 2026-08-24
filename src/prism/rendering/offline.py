@@ -11,6 +11,7 @@ from threading import Event
 import soundfile as sf
 
 from prism.engine import ClipSourceProvider, EngineError, SessionEngine
+from prism.engine.session import TrackEffectProcessor
 from prism.project import (
     ProjectArchiveError,
     load_project,
@@ -110,6 +111,7 @@ def render_snapshot(
     *,
     cancel_event: Event | None = None,
     progress: ProgressCallback | None = None,
+    effect_processor: TrackEffectProcessor | None = None,
 ) -> RenderMetadata:
     """Render an immutable working-project snapshot with job control hooks."""
 
@@ -127,6 +129,7 @@ def render_snapshot(
         request,
         cancel_event=cancel_event,
         progress=progress,
+        effect_processor=effect_processor,
     )
 
 
@@ -195,9 +198,14 @@ def _render_prepared(
     *,
     cancel_event: Event | None = None,
     progress: ProgressCallback | None = None,
+    effect_processor: TrackEffectProcessor | None = None,
 ) -> RenderMetadata:
     try:
-        engine = SessionEngine(runtime_project, sources)
+        engine = SessionEngine(
+            runtime_project,
+            sources,
+            effect_processor=effect_processor,
+        )
     except EngineError as exc:
         raise RenderValidationError(f"Project sources cannot be rendered: {exc}") from exc
     return _write_atomic(

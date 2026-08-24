@@ -2,8 +2,9 @@
 
 This document turns the Prism concept into small, testable implementation
 steps. The sequence is intentionally POC-first: establish a trustworthy project
-and agent-control loop before adding the failure modes of MIDI, recording, and
-third-party plugins.
+and agent-control loop before adding advanced surfaces. Phase 9 introduces
+third-party effects behind an explicit-trust, isolated-worker boundary; MIDI,
+recording, and live plugin processing remain later work.
 
 For build, installation, release, and deployment decisions, see the
 [deployment guide](DEPLOYMENT.md).
@@ -883,35 +884,44 @@ The acceptance flow is:
 The POC is complete: CI runs this flow against the exact installed wheel on a
 clean Windows environment without third-party plugins.
 
-## Phase 9 — VST3 plugin worker
+## Phase 9 — VST3 plugin worker ✅ Complete
+
+**Completed:** 2026-08-24
+
+Phase 9 adds one optional VST3 effect slot per track for offline renders. The
+main process owns trust, project state, jobs, and events while all third-party
+code loading and audio processing stays behind a bounded JSON-lines subprocess
+protocol with shared-memory audio transfer. Live playback intentionally stays
+dry until a later real-time milestone.
 
 ### Example maintenance gate
 
-- [ ] Add an opt-in plugin example for discovery, parameter control, state
+- [x] Add an opt-in plugin example for discovery, parameter control, state
   round-trip, and failure recovery; document the user-installed plugin
   prerequisite and keep it out of the normal smoke suite.
 
-Begin only after the POC acceptance flow is stable.
+The Phase 8 POC acceptance flow remains the device- and plugin-free baseline.
 
 ### Components
 
-1. Configure user plugin search paths.
-2. Add an explicit plugin allowlist.
-3. Discover plugins in a separate process.
-4. Store plugin metadata in a registry.
-5. Load one known compatible VST3 effect.
-6. Enumerate parameters.
-7. Read and write parameters.
-8. Add bypass control.
-9. Save and restore plugin state.
-10. Process audio offline through the worker.
-11. Add a worker request/response protocol.
-12. Add worker timeouts.
-13. Detect worker crashes.
-14. Automatically bypass a failed plugin.
-15. Publish plugin error events.
-16. Restart the worker safely.
-17. Attempt real-time integration only after offline processing is stable.
+1. [x] Configure user plugin search paths.
+2. [x] Add an explicit exact-binary plugin allowlist.
+3. [x] Discover and probe trusted plugins in a separate process.
+4. [x] Store machine-local plugin metadata in an atomic registry cache.
+5. [x] Load one known compatible VST3 effect per track.
+6. [x] Enumerate normalized parameters.
+7. [x] Read and write normalized parameters.
+8. [x] Add persisted bypass control.
+9. [x] Save and restore hashed opaque plugin state in portable projects.
+10. [x] Process per-track audio offline through shared memory.
+11. [x] Add a versioned JSON-lines worker request/response protocol.
+12. [x] Add discovery and processing timeouts.
+13. [x] Detect worker exits, malformed responses, and crashes.
+14. [x] Restart once and automatically pass dry audio after repeated failure.
+15. [x] Publish registry, trust, load, state, worker, and bypass events.
+16. [x] Restart the worker safely and reload healthy render instances.
+17. [x] Keep real-time integration explicitly deferred until offline processing
+    is stable.
 
 Keep the plugin implementation behind this interface:
 
@@ -928,6 +938,25 @@ unload_plugin(plugin_id)
 
 Third-party plugins are user-installed dependencies. Prism must not ship
 plugin binaries or bypass plugin licensing.
+
+### Delivered contracts
+
+- Project schema 2 adds `Track.effects` and bounded references under
+  `assets/plugin-state/`; schema 1 migrates to empty effect lists.
+- `%APPDATA%\Prism\plugins.json` (or `PRISM_PLUGIN_CONFIG`) owns search paths
+  and exact SHA-256 trust; the adjacent registry is only a local cache.
+- Base installations never import Pedalboard. `uv sync --extra plugins`
+  enables the worker host.
+- The CLI, typed client, HTTP API, browser panel, validation report, event
+  stream, portable export, and offline job path expose the same state.
+- Signal order is clip gain → plugin → track mixer → stereo mix. Projects with
+  no effects retain the Phase 8 dry engine path.
+- Worker failures never execute plugin code in the application process. A
+  render restarts once, then bypasses only the failed instance without mutating
+  persisted bypass intent.
+
+See [Phase 9 VST3 worker](PHASE_9.md) for setup, commands, routes, schema,
+security policy, recovery behavior, and verification.
 
 ## Phase 10 — Features after the POC
 

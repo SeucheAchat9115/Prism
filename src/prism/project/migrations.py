@@ -54,4 +54,16 @@ class MigrationRegistry:
         return migrated
 
 
+def _migrate_v1_to_v2(document: dict[str, Any]) -> dict[str, Any]:
+    tracks = document.get("tracks", [])
+    if not isinstance(tracks, list):
+        raise MigrationError("Schema 1 tracks must be an array")
+    for track in tracks:
+        if not isinstance(track, dict):
+            raise MigrationError("Schema 1 track entries must be objects")
+        track.setdefault("effects", [])
+    return document
+
+
 DEFAULT_REGISTRY = MigrationRegistry()
+DEFAULT_REGISTRY.register(1, 2, _migrate_v1_to_v2)

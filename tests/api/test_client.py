@@ -17,6 +17,13 @@ from prism.application import (
     TransportRequest,
 )
 from prism.application.types import BackgroundJob, TransactionResult
+from prism.plugins import (
+    PluginConfig,
+    PluginRecord,
+    PluginRegistryDocument,
+    PluginTrustRecord,
+    PluginWorkerStatus,
+)
 from prism.project.models import new_project
 
 
@@ -233,6 +240,62 @@ def test_typed_client_normalizes_error_envelopes_and_invalid_json() -> None:
             client.health()
     finally:
         client.close()
+
+
+def test_typed_client_covers_machine_plugin_policy_and_worker_control() -> None:
+    registry_id = uuid4()
+    trust = PluginTrustRecord(
+        path="C:/Plugins/Gain.vst3",
+        binary_sha256="a" * 64,
+        trusted_at=1.0,
+    )
+    registry = PluginRegistryDocument(
+        scanned_at=2.0,
+        plugins=[
+            PluginRecord(
+                registry_id=registry_id,
+                path=trust.path,
+                plugin_identifier="com.example.gain",
+                binary_sha256=trust.binary_sha256,
+                name="Gain",
+                trusted=True,
+                available=True,
+            )
+        ],
+    )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/config"):
+            return httpx.Response(200, json={"config": PluginConfig().model_dump(mode="json")})
+        if path.endswith("/search-paths"):
+            return httpx.Response(200, json={"search_paths": ["C:/Plugins"]})
+        if path.endswith("/trust"):
+            if request.method == "DELETE":
+                return httpx.Response(200, json={"ok": True})
+            return httpx.Response(200, json={"trust": trust.model_dump(mode="json")})
+        if path.endswith("/scan") or path.endswith("/plugins"):
+            return httpx.Response(200, json=registry.model_dump(mode="json"))
+        if path.endswith("/worker/restart") or path.endswith("/worker"):
+            return httpx.Response(
+                200,
+                json=PluginWorkerStatus(state="ready", pid=1234).model_dump(mode="json"),
+            )
+        raise AssertionError(f"Unexpected plugin request: {request.method} {path}")
+
+    with PrismClient(
+        "http://testserver",
+        transport=httpx.MockTransport(handler),
+    ) as client:
+        assert client.plugin_config()["schema_version"] == 1
+        assert client.add_plugin_search_path("C:/Plugins") == ["C:/Plugins"]
+        assert client.remove_plugin_search_path("C:/Plugins") == ["C:/Plugins"]
+        assert client.trust_plugin(trust.path) == trust
+        client.revoke_plugin(trust.path)
+        assert client.scan_plugins() == registry
+        assert client.list_plugins() == registry
+        assert client.plugin_worker_status().state == "ready"
+        assert client.restart_plugin_worker().pid == 1234
 
 
 def test_typed_event_stream_is_bounded_and_decodes_json(monkeypatch) -> None:

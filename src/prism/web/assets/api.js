@@ -48,6 +48,38 @@ export const api = {
   project: (projectId) => request(projectPath(projectId)),
   state: (projectId) => request(projectPath(projectId, "/state")),
   validation: (projectId) => request(projectPath(projectId, "/validation")),
+  plugins: () => request("/api/v1/plugins"),
+  scanPlugins: () => request("/api/v1/plugins/scan", { method: "POST" }),
+  pluginCompatibility: (projectId) =>
+    request(projectPath(projectId, "/plugins/compatibility")),
+  attachPlugin: (projectId, trackId, registryId, body, preview = false) =>
+    request(
+      projectPath(
+        projectId,
+        `/tracks/${encodeURIComponent(trackId)}/plugins/${encodeURIComponent(registryId)}?preview=${preview}`,
+      ),
+      { method: "POST", body },
+    ),
+  pluginParameters: (projectId, instanceId) =>
+    request(projectPath(projectId, `/plugins/${encodeURIComponent(instanceId)}/parameters`)),
+  updatePluginParameter: (projectId, instanceId, parameterId, body) =>
+    request(
+      projectPath(
+        projectId,
+        `/plugins/${encodeURIComponent(instanceId)}/parameters/${encodeURIComponent(parameterId)}`,
+      ),
+      { method: "POST", body },
+    ),
+  updatePluginBypass: (projectId, instanceId, body) =>
+    request(projectPath(projectId, `/plugins/${encodeURIComponent(instanceId)}/bypass`), {
+      method: "POST",
+      body,
+    }),
+  capturePluginState: (projectId, instanceId, body) =>
+    request(projectPath(projectId, `/plugins/${encodeURIComponent(instanceId)}/state`), {
+      method: "POST",
+      body,
+    }),
   jobs: (projectId) => request(projectPath(projectId, "/jobs")),
   job: (projectId, jobId) => request(projectPath(projectId, `/jobs/${jobId}`)),
   transport: (projectId, operation) =>

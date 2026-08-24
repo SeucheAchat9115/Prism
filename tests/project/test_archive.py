@@ -151,11 +151,12 @@ def test_registered_migration_is_in_memory_until_explicit_save(tmp_path: Path) -
     before = project_path.read_bytes()
     registry = MigrationRegistry()
     registry.register(0, 1, lambda value: value)
+    registry.register(1, 2, lambda value: value)
 
-    assert load_project(project_path, registry=registry).schema_version == 1
+    assert load_project(project_path, registry=registry).schema_version == 2
     assert project_path.read_bytes() == before
 
     migrate_project(project_path, registry=registry)
 
-    assert load_project(project_path).schema_version == 1
+    assert load_project(project_path).schema_version == 2
     assert project_path.read_bytes() != before

@@ -37,6 +37,7 @@ Artifact-producing examples create a unique run directory under
 | 10 | [`10_agent_producer_workflow.py`](10_agent_producer_workflow.py) | Simulate an agent inspecting, editing, rendering, hashing, and reopening a song | No |
 | 11 | [`11_browser_session.py`](11_browser_session.py) | Create the synthetic demo, start its foreground loopback service, and open the Phase 7 studio UI | Browser, opt-in |
 | 12 | [`12_reproducible_poc.py`](12_reproducible_poc.py) | Drive the canonical fixture through browser launches, CLI control, safe transactions, rendering, shutdown, and reopen | Chromium, opt-in |
+| 13 | [`13_vst3_effect.py`](13_vst3_effect.py) | Trust, discover, attach, control, state-round-trip, restart, and offline-render one user-installed VST3 effect | VST3 + `plugins` extra, opt-in |
 
 ## Run the device-free examples
 
@@ -105,13 +106,30 @@ This example is intentionally excluded from the normal test suite. A missing
 audio device is an environment condition, not a code failure; playback errors
 are reported with the backend snapshot.
 
+## Run the VST3 example
+
+Install the optional worker host and provide a licensed effect already present
+on your machine:
+
+```powershell
+uv sync --extra dev --extra plugins
+uv run python examples/13_vst3_effect.py --plugin "C:\Path\Example.vst3"
+```
+
+The example redirects machine policy into its unique output directory, trusts
+the exact supplied bytes, scans in isolation, attaches one effect to the demo,
+round-trips parameters and opaque state, restarts/reloads the worker, and writes
+an offline WAV. Use `--registry-id` when one VST3 container exposes multiple
+effects. It is excluded from device-free smoke tests because Prism does not ship
+a third-party VST3 fixture.
+
 ## What is not included yet
 
-There are no VST3, MIDI, arrangement-editing, automation, routing, or recording
-examples yet because those product phases are not implemented. Each future
-phase must add the smallest numbered example for its new public surface,
-document its prerequisites here, and keep external-device, browser, or plugin
-examples opt-in.
+There are no live VST3, plugin-instrument, MIDI, arrangement-editing,
+automation, routing, or recording examples yet because those product phases are
+not implemented. Each future phase must add the smallest numbered example for
+its new public surface, document its prerequisites here, and keep external-
+device, browser, or plugin examples opt-in.
 
 ## Keeping examples current
 

@@ -231,6 +231,50 @@ class MixerUpdateOperation(APIModel):
         return self
 
 
+class PluginAttachOperation(APIModel):
+    op: Literal["plugin.attach"]
+    op_id: str | None = Field(default=None, min_length=1, max_length=128)
+    track_id: UUID
+    registry_id: UUID
+    instance_id: UUID | None = None
+    plugin_identifier: str = Field(min_length=1, max_length=500)
+    binary_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    name: str = Field(min_length=1, max_length=200)
+    manufacturer: str = Field(default="Unknown", min_length=1, max_length=200)
+    version: str = Field(default="Unknown", min_length=1, max_length=100)
+    category: str = Field(default="Effect", min_length=1, max_length=100)
+
+
+class PluginRemoveOperation(APIModel):
+    op: Literal["plugin.remove"]
+    op_id: str | None = Field(default=None, min_length=1, max_length=128)
+    instance_id: UUID
+
+
+class PluginParameterUpdateOperation(APIModel):
+    op: Literal["plugin.parameter.update"]
+    op_id: str | None = Field(default=None, min_length=1, max_length=128)
+    instance_id: UUID
+    parameter_id: str = Field(min_length=1, max_length=200)
+    raw_value: float = Field(ge=0.0, le=1.0)
+
+
+class PluginBypassUpdateOperation(APIModel):
+    op: Literal["plugin.bypass.update"]
+    op_id: str | None = Field(default=None, min_length=1, max_length=128)
+    instance_id: UUID
+    bypassed: bool
+
+
+class PluginStateUpdateOperation(APIModel):
+    op: Literal["plugin.state.update"]
+    op_id: str | None = Field(default=None, min_length=1, max_length=128)
+    instance_id: UUID
+    member_path: str = Field(min_length=1, max_length=500)
+    size_bytes: NonNegativeInt
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 ProjectOperation = Annotated[
     SetOperation
     | ProjectRenameOperation
@@ -252,7 +296,12 @@ ProjectOperation = Annotated[
     | SlotReplaceOperation
     | SlotClearOperation
     | TransportUpdateOperation
-    | MixerUpdateOperation,
+    | MixerUpdateOperation
+    | PluginAttachOperation
+    | PluginRemoveOperation
+    | PluginParameterUpdateOperation
+    | PluginBypassUpdateOperation
+    | PluginStateUpdateOperation,
     Field(discriminator="op"),
 ]
 
@@ -283,11 +332,12 @@ class EntityChanges(APIModel):
     assets: list[UUID] = Field(default_factory=list)
     clips: list[UUID] = Field(default_factory=list)
     slots: list[UUID] = Field(default_factory=list)
+    plugin_instances: list[UUID] = Field(default_factory=list)
 
 
 class CascadeImpact(APIModel):
     operation_index: NonNegativeInt
-    entity_type: Literal["track", "scene", "asset", "clip"]
+    entity_type: Literal["track", "scene", "asset", "clip", "plugin"]
     entity_id: UUID
     dependent_ids: EntityChanges = Field(default_factory=EntityChanges)
 
@@ -516,6 +566,33 @@ class AudioRestartRequest(APIModel):
 
 class ExternalChangeResolutionRequest(APIModel):
     resolution: Literal["detach_source"]
+
+
+class PluginPathRequest(APIModel):
+    path: str = Field(min_length=1)
+
+
+class PluginAttachRequest(APIModel):
+    base_revision: NonNegativeInt
+    instance_id: UUID | None = None
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class PluginParameterRequest(APIModel):
+    base_revision: NonNegativeInt
+    raw_value: float = Field(ge=0.0, le=1.0)
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class PluginBypassRequest(APIModel):
+    base_revision: NonNegativeInt
+    bypassed: bool
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class PluginStateCaptureRequest(APIModel):
+    base_revision: NonNegativeInt
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 JobState = Literal["queued", "running", "completed", "failed", "cancelled"]

@@ -18,7 +18,7 @@ from prism.project.validation import project_reference_issues
 def test_new_project_has_schema_and_transport_defaults() -> None:
     project = new_project("Demo")
 
-    assert project.schema_version == 1
+    assert project.schema_version == 2
     assert project.revision.number == 0
     assert project.transport.tempo_bpm == 120
     assert project.transport.sample_rate == 44100

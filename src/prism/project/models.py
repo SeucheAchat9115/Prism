@@ -6,10 +6,21 @@ from pathlib import PurePosixPath
 from typing import Annotated, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt, field_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    NonNegativeInt,
+    PositiveInt,
+    field_validator,
+    model_validator,
+)
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 EntityId = UUID
+Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+ParameterId = Annotated[str, Field(min_length=1, max_length=200)]
+NormalizedParameterValue = Annotated[float, Field(ge=0.0, le=1.0)]
 
 
 class StrictModel(BaseModel):
@@ -36,6 +47,53 @@ class MixerState(StrictModel):
     solo: bool = False
 
 
+class PluginStateReference(StrictModel):
+    """Opaque state captured from one VST3 instance and stored in the project."""
+
+    member_path: str
+    size_bytes: NonNegativeInt
+    sha256: Sha256
+
+    @field_validator("member_path")
+    @classmethod
+    def validate_member_path(cls, value: str) -> str:
+        path = PurePosixPath(value)
+        if (
+            not value
+            or "\\" in value
+            or path.is_absolute()
+            or ".." in path.parts
+            or not value.startswith("assets/plugin-state/")
+        ):
+            raise ValueError("member_path must be a safe relative assets/plugin-state path")
+        return value
+
+
+class PluginInstance(StrictModel):
+    """Portable identity and controls for one allowlisted track effect."""
+
+    id: EntityId = Field(default_factory=uuid4)
+    registry_id: EntityId
+    plugin_identifier: str = Field(min_length=1, max_length=500)
+    binary_sha256: Sha256
+    name: str = Field(min_length=1, max_length=200)
+    manufacturer: str = Field(default="Unknown", min_length=1, max_length=200)
+    version: str = Field(default="Unknown", min_length=1, max_length=100)
+    category: str = Field(default="Effect", min_length=1, max_length=100)
+    bypassed: bool = False
+    parameters: dict[ParameterId, NormalizedParameterValue] = Field(default_factory=dict)
+    state: PluginStateReference | None = None
+
+    _normalize_name = field_validator("name", mode="before")(_clean_name)
+
+    @model_validator(mode="after")
+    def state_belongs_to_instance(self) -> "PluginInstance":
+        expected = f"assets/plugin-state/{self.id}.bin"
+        if self.state is not None and self.state.member_path != expected:
+            raise ValueError(f"plugin state member_path must be {expected}")
+        return self
+
+
 class TransportState(StrictModel):
     tempo_bpm: float = Field(default=120.0, ge=20.0, le=300.0)
     sample_rate: PositiveInt = Field(default=44100, le=192000)
@@ -49,6 +107,7 @@ class Track(StrictModel):
     name: str = Field(min_length=1, max_length=200)
     order: NonNegativeInt = 0
     mixer: MixerState = Field(default_factory=MixerState)
+    effects: list[PluginInstance] = Field(default_factory=list, max_length=1)
 
     _normalize_name = field_validator("name", mode="before")(_clean_name)
 
@@ -67,7 +126,7 @@ class AssetReference(StrictModel):
     member_path: str
     original_name: str = Field(min_length=1, max_length=255)
     size_bytes: NonNegativeInt
-    sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    sha256: Sha256
     sample_rate: PositiveInt
     channels: PositiveInt
     frames: NonNegativeInt
@@ -110,7 +169,7 @@ class ClipSlot(StrictModel):
 
 
 class Project(StrictModel):
-    schema_version: Literal[1] = 1
+    schema_version: Literal[2] = 2
     project_id: EntityId = Field(default_factory=uuid4)
     name: str = Field(min_length=1, max_length=200)
     revision: ProjectRevision = Field(default_factory=ProjectRevision)

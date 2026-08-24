@@ -17,6 +17,11 @@ from prism.application import (
     ClipLaunchRequest,
     ClipStopRequest,
     ExportJobRequest,
+    PluginAttachRequest,
+    PluginBypassRequest,
+    PluginParameterRequest,
+    PluginRemoveOperation,
+    PluginStateCaptureRequest,
     RenderJobRequest,
     TransactionRequest,
     TransportRequest,
@@ -43,6 +48,7 @@ from prism.command_line.support import (
     wait_for_job,
 )
 from prism.demo import ensure_demo
+from prism.plugins import PluginManager
 from prism.project import (
     Project,
     ProjectRepository,
@@ -76,6 +82,10 @@ transaction_app = typer.Typer(
 )
 job_app = typer.Typer(help="Inspect, wait for, and cancel background jobs.", no_args_is_help=True)
 events_app = typer.Typer(help="Watch the project event stream.", no_args_is_help=True)
+plugin_app = typer.Typer(
+    help="Discover, trust, attach, and control isolated VST3 effects.",
+    no_args_is_help=True,
+)
 
 app.add_typer(server_app, name="server")
 app.add_typer(project_app, name="project")
@@ -87,6 +97,7 @@ app.add_typer(session_app, name="session")
 app.add_typer(transaction_app, name="transaction")
 app.add_typer(job_app, name="job")
 app.add_typer(events_app, name="events")
+app.add_typer(plugin_app, name="plugin")
 
 
 @app.command()
@@ -123,6 +134,375 @@ def doctor(
             human=("Prism CLI is installed and ready.",),
         ),
     )
+
+
+@plugin_app.command("path-add")
+def plugin_path_add(
+    path: Path = typer.Argument(..., exists=True, file_okay=False, resolve_path=True),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Add a machine-local VST3 discovery root."""
+
+    def action() -> CommandResult:
+        manager = PluginManager()
+        try:
+            paths = manager.add_search_path(path)
+        finally:
+            manager.close()
+        return CommandResult(
+            data={"search_paths": paths},
+            human=(f"Added plugin search path: {path}",),
+        )
+
+    run_command("plugin path-add", as_json=as_json, action=action)
+
+
+@plugin_app.command("path-remove")
+def plugin_path_remove(
+    path: Path = typer.Argument(..., resolve_path=True),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Remove a machine-local VST3 discovery root."""
+
+    def action() -> CommandResult:
+        manager = PluginManager()
+        try:
+            paths = manager.remove_search_path(path)
+        finally:
+            manager.close()
+        return CommandResult(
+            data={"search_paths": paths},
+            human=(f"Removed plugin search path: {path}",),
+        )
+
+    run_command("plugin path-remove", as_json=as_json, action=action)
+
+
+@plugin_app.command("trust")
+def plugin_trust(
+    vst3: Path = typer.Argument(..., exists=True, resolve_path=True),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Allowlist the exact current bytes of one VST3 file or bundle."""
+
+    def action() -> CommandResult:
+        manager = PluginManager()
+        try:
+            record = manager.trust(vst3)
+        finally:
+            manager.close()
+        return CommandResult(
+            data=record.model_dump(mode="json"),
+            human=(f"Trusted {record.path} ({record.binary_sha256[:12]}…)",),
+        )
+
+    run_command("plugin trust", as_json=as_json, action=action)
+
+
+@plugin_app.command("revoke")
+def plugin_revoke(
+    vst3: Path = typer.Argument(..., resolve_path=True),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Remove a VST3 path from the machine-local allowlist."""
+
+    def action() -> CommandResult:
+        manager = PluginManager()
+        try:
+            manager.revoke(vst3)
+        finally:
+            manager.close()
+        return CommandResult(
+            data={"path": str(vst3), "trusted": False},
+            human=(f"Revoked plugin trust: {vst3}",),
+        )
+
+    run_command("plugin revoke", as_json=as_json, action=action)
+
+
+@plugin_app.command("scan")
+def plugin_scan(
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Discover candidates and probe only allowlisted VST3 binaries."""
+
+    def action() -> CommandResult:
+        manager = PluginManager()
+        try:
+            document = manager.scan()
+        finally:
+            manager.close()
+        return CommandResult(
+            data=document.model_dump(mode="json"),
+            human=tuple(
+                f"{item.registry_id} {item.name} "
+                f"({'ready' if item.available else item.error or 'unavailable'})"
+                for item in document.plugins
+            )
+            or ("No VST3 candidates found.",),
+        )
+
+    run_command("plugin scan", as_json=as_json, action=action)
+
+
+@plugin_app.command("list")
+def plugin_list(
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """List the cached local VST3 registry without loading plugins."""
+
+    def action() -> CommandResult:
+        manager = PluginManager()
+        try:
+            document = manager.list_plugins()
+        finally:
+            manager.close()
+        return CommandResult(
+            data=document.model_dump(mode="json"),
+            human=tuple(
+                f"{item.registry_id} {item.name} "
+                f"({'ready' if item.available else item.error or 'unavailable'})"
+                for item in document.plugins
+            )
+            or ("Plugin registry is empty; run `prism plugin scan`.",),
+        )
+
+    run_command("plugin list", as_json=as_json, action=action)
+
+
+@plugin_app.command("compatibility")
+def plugin_compatibility(
+    project: Path = typer.Argument(...),
+    url: str = typer.Option(DEFAULT_SERVICE_URL, "--url", envvar="PRISM_URL"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Check project effect identities against this machine's trusted registry."""
+
+    def action() -> CommandResult:
+        with connected_project(project, url) as service:
+            items = service.client.plugin_compatibility(service.context.id)
+            return CommandResult(
+                data={"plugins": [item.model_dump(mode="json") for item in items]},
+                project=service.context,
+                human=tuple(
+                    f"{item.instance_id} {item.status}: {item.message}" for item in items
+                )
+                or ("Project has no plugin instances.",),
+            )
+
+    run_command("plugin compatibility", as_json=as_json, action=action)
+
+
+@plugin_app.command("worker-status")
+def plugin_worker_status(
+    project: Path = typer.Argument(...),
+    url: str = typer.Option(DEFAULT_SERVICE_URL, "--url", envvar="PRISM_URL"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Inspect the worker owned by the project service."""
+
+    def action() -> CommandResult:
+        with connected_project(project, url) as service:
+            status = service.client.plugin_worker_status()
+            return CommandResult(
+                data=status.model_dump(mode="json"),
+                project=service.context,
+                human=(f"Plugin worker: {status.state} pid={status.pid or '-'}",),
+            )
+
+    run_command("plugin worker-status", as_json=as_json, action=action)
+
+
+@plugin_app.command("worker-restart")
+def plugin_worker_restart(
+    project: Path = typer.Argument(...),
+    url: str = typer.Option(DEFAULT_SERVICE_URL, "--url", envvar="PRISM_URL"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Restart the isolated worker owned by the project service."""
+
+    def action() -> CommandResult:
+        with connected_project(project, url) as service:
+            status = service.client.restart_plugin_worker()
+            return CommandResult(
+                data=status.model_dump(mode="json"),
+                project=service.context,
+                human=(f"Restarted plugin worker (pid {status.pid}).",),
+            )
+
+    run_command("plugin worker-restart", as_json=as_json, action=action)
+
+
+@plugin_app.command("attach")
+def plugin_attach(
+    project: Path = typer.Argument(...),
+    track: str = typer.Option(..., "--track", help="Track UUID or unique name."),
+    registry_id: UUID = typer.Option(..., "--registry-id"),
+    instance_id: UUID | None = typer.Option(None, "--instance-id"),
+    idempotency_key: str | None = typer.Option(None, "--idempotency-key"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    url: str = typer.Option(DEFAULT_SERVICE_URL, "--url", envvar="PRISM_URL"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Attach one trusted VST3 to a track's Phase 9 effect slot."""
+
+    def action() -> CommandResult:
+        with connected_project(project, url) as service:
+            track_id = resolve_selector(service.client, service.context.id, "track", track)
+            result = service.client.attach_plugin(
+                service.context.id,
+                track_id,
+                registry_id,
+                PluginAttachRequest(
+                    base_revision=service.context.revision,
+                    instance_id=instance_id,
+                    idempotency_key=idempotency_key,
+                ),
+                preview=dry_run,
+            )
+            return _plugin_result(service.context, result, "attach", dry_run)
+
+    run_command("plugin attach", as_json=as_json, dry_run=dry_run, action=action)
+
+
+@plugin_app.command("parameters")
+def plugin_parameters(
+    project: Path = typer.Argument(...),
+    instance_id: UUID = typer.Argument(...),
+    url: str = typer.Option(DEFAULT_SERVICE_URL, "--url", envvar="PRISM_URL"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Load an instance in isolation and list its normalized controls."""
+
+    def action() -> CommandResult:
+        with connected_project(project, url) as service:
+            parameters = service.client.plugin_parameters(service.context.id, instance_id)
+            return CommandResult(
+                data={"parameters": [item.model_dump(mode="json") for item in parameters]},
+                project=service.context,
+                human=tuple(
+                    f"{item.id} {item.name}: {item.raw_value:.4f} {item.value}".rstrip()
+                    for item in parameters
+                )
+                or ("Plugin exposes no parameters.",),
+            )
+
+    run_command("plugin parameters", as_json=as_json, action=action)
+
+
+@plugin_app.command("set")
+def plugin_set(
+    project: Path = typer.Argument(...),
+    instance_id: UUID = typer.Argument(...),
+    parameter_id: str = typer.Argument(...),
+    raw_value: float = typer.Argument(..., min=0.0, max=1.0),
+    idempotency_key: str | None = typer.Option(None, "--idempotency-key"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    url: str = typer.Option(DEFAULT_SERVICE_URL, "--url", envvar="PRISM_URL"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Persist one normalized plugin parameter value."""
+
+    def action() -> CommandResult:
+        with connected_project(project, url) as service:
+            result = service.client.update_plugin_parameter(
+                service.context.id,
+                instance_id,
+                parameter_id,
+                PluginParameterRequest(
+                    base_revision=service.context.revision,
+                    raw_value=raw_value,
+                    idempotency_key=idempotency_key,
+                ),
+                preview=dry_run,
+            )
+            return _plugin_result(service.context, result, "set parameter", dry_run)
+
+    run_command("plugin set", as_json=as_json, dry_run=dry_run, action=action)
+
+
+@plugin_app.command("bypass")
+def plugin_bypass(
+    project: Path = typer.Argument(...),
+    instance_id: UUID = typer.Argument(...),
+    bypassed: bool = typer.Option(True, "--bypassed/--active"),
+    idempotency_key: str | None = typer.Option(None, "--idempotency-key"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    url: str = typer.Option(DEFAULT_SERVICE_URL, "--url", envvar="PRISM_URL"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Persist an instance's explicit bypass state."""
+
+    def action() -> CommandResult:
+        with connected_project(project, url) as service:
+            result = service.client.update_plugin_bypass(
+                service.context.id,
+                instance_id,
+                PluginBypassRequest(
+                    base_revision=service.context.revision,
+                    bypassed=bypassed,
+                    idempotency_key=idempotency_key,
+                ),
+                preview=dry_run,
+            )
+            return _plugin_result(service.context, result, "update bypass", dry_run)
+
+    run_command("plugin bypass", as_json=as_json, dry_run=dry_run, action=action)
+
+
+@plugin_app.command("state-save")
+def plugin_state_save(
+    project: Path = typer.Argument(...),
+    instance_id: UUID = typer.Argument(...),
+    idempotency_key: str | None = typer.Option(None, "--idempotency-key"),
+    url: str = typer.Option(DEFAULT_SERVICE_URL, "--url", envvar="PRISM_URL"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Capture opaque plugin state into the portable project."""
+
+    def action() -> CommandResult:
+        with connected_project(project, url) as service:
+            result = service.client.capture_plugin_state(
+                service.context.id,
+                instance_id,
+                PluginStateCaptureRequest(
+                    base_revision=service.context.revision,
+                    idempotency_key=idempotency_key,
+                ),
+            )
+            return _plugin_result(service.context, result, "capture state", False)
+
+    run_command("plugin state-save", as_json=as_json, action=action)
+
+
+@plugin_app.command("remove")
+def plugin_remove(
+    project: Path = typer.Argument(...),
+    instance_id: UUID = typer.Argument(...),
+    idempotency_key: str | None = typer.Option(None, "--idempotency-key"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    url: str = typer.Option(DEFAULT_SERVICE_URL, "--url", envvar="PRISM_URL"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Remove a plugin instance and its saved opaque state."""
+
+    def action() -> CommandResult:
+        with connected_project(project, url) as service:
+            request = TransactionRequest(
+                base_revision=service.context.revision,
+                idempotency_key=idempotency_key,
+                operations=[
+                    PluginRemoveOperation(op="plugin.remove", instance_id=instance_id)
+                ],
+            )
+            result = (
+                service.client.preview_transaction(service.context.id, request)
+                if dry_run
+                else service.client.commit_transaction(service.context.id, request)
+            )
+            return _plugin_result(service.context, result, "remove", dry_run)
+
+    run_command("plugin remove", as_json=as_json, dry_run=dry_run, action=action)
 
 
 @app.command()
@@ -1213,6 +1593,27 @@ def events_watch(
                     received += 1
     except (Exception, KeyboardInterrupt) as error:
         emit_stream_failure(command, as_json, error)
+
+
+def _plugin_result(
+    context: ProjectContext,
+    result: Any,
+    action: str,
+    preview: bool,
+) -> CommandResult:
+    updated = _revision_context(
+        context,
+        context.revision if preview else result.after_revision,
+    )
+    if not result.ok:
+        raise failed_transaction(result, result.errors, updated)
+    verb = "Would" if preview else "Did"
+    return CommandResult(
+        data=result.model_dump(mode="json"),
+        project=updated,
+        human=(f"{verb} {action} at revision {result.after_revision}.",),
+        warnings=result.warnings,
+    )
 
 
 def _job_command_result(

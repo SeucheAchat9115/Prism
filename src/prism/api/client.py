@@ -24,12 +24,23 @@ from prism.application.types import (
     ExportJobRequest,
     JobPreview,
     LayeredValidationResult,
+    PluginAttachRequest,
+    PluginBypassRequest,
+    PluginParameterRequest,
+    PluginStateCaptureRequest,
     ReadinessResult,
     RenderJobRequest,
     SessionActionResult,
     TransactionRequest,
     TransactionResult,
     TransportRequest,
+)
+from prism.plugins import (
+    PluginCompatibility,
+    PluginParameter,
+    PluginRegistryDocument,
+    PluginTrustRecord,
+    PluginWorkerStatus,
 )
 from prism.project.models import (
     AssetReference,
@@ -160,6 +171,133 @@ class PrismClient:
     def get_project(self, project_id: UUID) -> Project:
         payload = self._json("GET", f"/api/v1/projects/{project_id}")
         return Project.model_validate(payload["project"])
+
+    def plugin_config(self) -> dict[str, Any]:
+        return cast(dict[str, Any], self._json("GET", "/api/v1/plugins/config")["config"])
+
+    def add_plugin_search_path(self, path: Path | str) -> list[str]:
+        payload = self._json(
+            "POST", "/api/v1/plugins/search-paths", json={"path": str(path)}
+        )
+        return [str(item) for item in payload["search_paths"]]
+
+    def remove_plugin_search_path(self, path: Path | str) -> list[str]:
+        payload = self._json(
+            "DELETE", "/api/v1/plugins/search-paths", json={"path": str(path)}
+        )
+        return [str(item) for item in payload["search_paths"]]
+
+    def trust_plugin(self, path: Path | str) -> PluginTrustRecord:
+        payload = self._json("POST", "/api/v1/plugins/trust", json={"path": str(path)})
+        return PluginTrustRecord.model_validate(payload["trust"])
+
+    def revoke_plugin(self, path: Path | str) -> None:
+        self._json("DELETE", "/api/v1/plugins/trust", json={"path": str(path)})
+
+    def scan_plugins(self) -> PluginRegistryDocument:
+        return PluginRegistryDocument.model_validate(
+            self._json("POST", "/api/v1/plugins/scan")
+        )
+
+    def list_plugins(self) -> PluginRegistryDocument:
+        return PluginRegistryDocument.model_validate(self._json("GET", "/api/v1/plugins"))
+
+    def plugin_worker_status(self) -> PluginWorkerStatus:
+        return PluginWorkerStatus.model_validate(
+            self._json("GET", "/api/v1/plugins/worker")
+        )
+
+    def restart_plugin_worker(self) -> PluginWorkerStatus:
+        return PluginWorkerStatus.model_validate(
+            self._json("POST", "/api/v1/plugins/worker/restart")
+        )
+
+    def plugin_compatibility(self, project_id: UUID) -> list[PluginCompatibility]:
+        payload = self._json(
+            "GET", f"/api/v1/projects/{project_id}/plugins/compatibility"
+        )
+        return [PluginCompatibility.model_validate(item) for item in payload["plugins"]]
+
+    def attach_plugin(
+        self,
+        project_id: UUID,
+        track_id: UUID,
+        registry_id: UUID,
+        request: PluginAttachRequest,
+        *,
+        preview: bool = False,
+    ) -> TransactionResult:
+        payload = self._json(
+            "POST",
+            f"/api/v1/projects/{project_id}/tracks/{track_id}/plugins/{registry_id}",
+            params={"preview": preview},
+            json=request.model_dump(mode="json", exclude_unset=True),
+            allow_error_envelope=True,
+        )
+        return TransactionResult.model_validate(payload)
+
+    def plugin_parameters(
+        self,
+        project_id: UUID,
+        instance_id: UUID,
+    ) -> list[PluginParameter]:
+        payload = self._json(
+            "GET",
+            f"/api/v1/projects/{project_id}/plugins/{instance_id}/parameters",
+        )
+        return [PluginParameter.model_validate(item) for item in payload["parameters"]]
+
+    def update_plugin_parameter(
+        self,
+        project_id: UUID,
+        instance_id: UUID,
+        parameter_id: str,
+        request: PluginParameterRequest,
+        *,
+        preview: bool = False,
+    ) -> TransactionResult:
+        payload = self._json(
+            "POST",
+            (
+                f"/api/v1/projects/{project_id}/plugins/{instance_id}/parameters/"
+                f"{parameter_id}"
+            ),
+            params={"preview": preview},
+            json=request.model_dump(mode="json", exclude_unset=True),
+            allow_error_envelope=True,
+        )
+        return TransactionResult.model_validate(payload)
+
+    def update_plugin_bypass(
+        self,
+        project_id: UUID,
+        instance_id: UUID,
+        request: PluginBypassRequest,
+        *,
+        preview: bool = False,
+    ) -> TransactionResult:
+        payload = self._json(
+            "POST",
+            f"/api/v1/projects/{project_id}/plugins/{instance_id}/bypass",
+            params={"preview": preview},
+            json=request.model_dump(mode="json", exclude_unset=True),
+            allow_error_envelope=True,
+        )
+        return TransactionResult.model_validate(payload)
+
+    def capture_plugin_state(
+        self,
+        project_id: UUID,
+        instance_id: UUID,
+        request: PluginStateCaptureRequest,
+    ) -> TransactionResult:
+        payload = self._json(
+            "POST",
+            f"/api/v1/projects/{project_id}/plugins/{instance_id}/state",
+            json=request.model_dump(mode="json", exclude_unset=True),
+            allow_error_envelope=True,
+        )
+        return TransactionResult.model_validate(payload)
 
     def get_state(self, project_id: UUID) -> ApplicationSnapshot:
         payload = self._json("GET", f"/api/v1/projects/{project_id}/state")

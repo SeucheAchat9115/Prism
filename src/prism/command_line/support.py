@@ -20,6 +20,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from prism.api import PrismClient, PrismClientError
 from prism.application import ApiIssue, BackgroundJob, ReadinessResult, TransactionRequest
 from prism.application.errors import ApplicationError
+from prism.plugins import PluginError
 from prism.project import (
     ExternalProjectChangeError,
     InvalidArchiveError,
@@ -178,6 +179,9 @@ def run_command(
     except (ProjectArchiveError, WorkingProjectError, OSError) as error:
         issue = ApiIssue(code="io_error", message=str(error))
         _emit_failure(command, as_json, dry_run, CliFailure(CliExit.IO, issue))
+    except PluginError as error:
+        issue = ApiIssue(code="plugin_error", message=str(error))
+        _emit_failure(command, as_json, dry_run, CliFailure(CliExit.VALIDATION, issue))
     except KeyboardInterrupt:
         issue = ApiIssue(code="interrupted", message="Command interrupted")
         _emit_failure(command, as_json, dry_run, CliFailure(CliExit.INTERRUPTED, issue))

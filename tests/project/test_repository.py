@@ -153,6 +153,7 @@ def test_layered_validation_and_output_policy_are_explicit(tmp_path: Path) -> No
             "schema",
             "project_references",
             "playback_readiness",
+            "plugin_compatibility",
             "device_compatibility",
         }
         assert repository.resolve_output("nested/render.wav").is_relative_to(

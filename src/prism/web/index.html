@@ -123,6 +123,23 @@
             <div class="mixer-list" id="mixer-list" data-testid="mixer-list"></div>
           </section>
 
+          <section class="panel plugin-panel" aria-labelledby="plugin-heading">
+            <div class="panel-heading compact">
+              <div>
+                <span class="eyebrow">Isolated VST3 · offline only</span>
+                <h2 id="plugin-heading">Track effects</h2>
+              </div>
+              <button class="quiet-button" type="button" id="plugin-scan" data-testid="plugin-scan">Scan</button>
+            </div>
+            <form id="plugin-attach-form" class="plugin-attach-form">
+              <label><span class="field-label">Track</span><select id="plugin-track" required></select></label>
+              <label><span class="field-label">Trusted plugin</span><select id="plugin-registry" required></select></label>
+              <button class="action-button" type="submit" id="plugin-attach" data-testid="plugin-attach">Attach</button>
+            </form>
+            <p class="plugin-policy">Effects are applied by a crash-isolated worker during offline renders. Live transport remains dry in Phase 9.</p>
+            <div class="plugin-list" id="plugin-list" data-testid="plugin-list"></div>
+          </section>
+
           <section class="panel render-panel" aria-labelledby="render-heading">
             <div class="panel-heading compact">
               <div>

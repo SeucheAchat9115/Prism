@@ -36,6 +36,18 @@ jobs:
       - name: Install project dependencies
         run: uv sync --locked --extra dev
 
+      - name: Install optional VST3 worker host
+        if: runner.os == 'Windows'
+        run: uv sync --locked --extra dev --extra plugins
+
+      - name: Smoke-test isolated VST3 worker
+        if: runner.os == 'Windows'
+        run: >-
+          uv run python -c "import pedalboard;
+          from prism.plugins import PluginWorkerClient;
+          worker = PluginWorkerClient(); worker.start();
+          assert worker.status().state == 'ready'; worker.close()"
+
       - name: Run device-free tests and coverage gate
         run: uv run pytest -m "not audio_device and not browser" --cov --cov-report=term-missing
 

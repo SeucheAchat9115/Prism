@@ -34,7 +34,15 @@ from prism.project.errors import (
     ValidationIssue,
     WorkingProjectError,
 )
-from prism.project.models import AssetReference, Project, new_project
+from prism.project.migrations import DEFAULT_REGISTRY
+from prism.project.models import (
+    CURRENT_SCHEMA_VERSION,
+    AssetReference,
+    PluginInstance,
+    PluginStateReference,
+    Project,
+    new_project,
+)
 from prism.project.validation import (
     LayeredValidationReport,
     ValidationStage,
@@ -47,6 +55,7 @@ WORKING_SUFFIX = ".prism-work"
 WORKING_FORMAT_VERSION = 1
 INTERNAL_DIRECTORY = ".prism"
 ASSET_DIRECTORY = "assets/audio"
+PLUGIN_STATE_DIRECTORY = "assets/plugin-state"
 HISTORY_DIRECTORY = "history"
 EXPORT_DIRECTORY = "exports"
 _ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
@@ -60,6 +69,7 @@ class RepositoryLimits:
     max_archive_members: int = 10_000
     max_manifest_bytes: int = 16 * 1024 * 1024
     max_asset_bytes: int = 16 * 1024**3
+    max_plugin_state_bytes: int = 16 * 1024**2
     max_expanded_bytes: int = 64 * 1024**3
     max_compression_ratio: float = 1000.0
     max_staged_uploads: int = 16
@@ -85,6 +95,7 @@ class RepositorySnapshot:
     project: Project
     working_path: Path
     asset_paths: Mapping[UUID, Path]
+    plugin_state_paths: Mapping[UUID, Path]
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,7 +258,13 @@ class ProjectRepository:
             self._require_open()
             project = self._project.model_copy(deep=True)
             paths = {asset.id: self.asset_path(asset) for asset in project.assets}
-            return RepositorySnapshot(project, self._working_path, paths)
+            state_paths = {
+                effect.id: self.plugin_state_path(effect)
+                for track in project.tracks
+                for effect in track.effects
+                if effect.state is not None
+            }
+            return RepositorySnapshot(project, self._working_path, paths, state_paths)
 
     def validation_report(self) -> LayeredValidationReport:
         """Run explicit layered validation, including asset hashes and decodability."""
@@ -266,6 +283,7 @@ class ProjectRepository:
                     )
                 )
             playback_issues = list(project_playback_issues(self._project))
+            plugin_issues: list[ValidationIssue] = []
             for index, asset in enumerate(self._project.assets):
                 path = self.asset_path(asset)
                 try:
@@ -306,6 +324,41 @@ class ProjectRepository:
                             message=f"Working audio asset is not decodable: {error}",
                         )
                     )
+            for track_index, track in enumerate(self._project.tracks):
+                for effect_index, effect in enumerate(track.effects):
+                    if effect.state is None:
+                        continue
+                    path = self.plugin_state_path(effect)
+                    issue_path = f"/tracks/{track_index}/effects/{effect_index}/state"
+                    try:
+                        if path.stat().st_size != effect.state.size_bytes:
+                            plugin_issues.append(
+                                ValidationIssue(
+                                    code="plugin_state_size_mismatch",
+                                    path=f"{issue_path}/size_bytes",
+                                    message=(
+                                        "Working plugin state size does not match the manifest."
+                                    ),
+                                )
+                            )
+                        if _hash_file(path) != effect.state.sha256:
+                            plugin_issues.append(
+                                ValidationIssue(
+                                    code="plugin_state_hash_mismatch",
+                                    path=f"{issue_path}/sha256",
+                                    message=(
+                                        "Working plugin state hash does not match the manifest."
+                                    ),
+                                )
+                            )
+                    except OSError as error:
+                        plugin_issues.append(
+                            ValidationIssue(
+                                code="plugin_state_unreadable",
+                                path=f"{issue_path}/member_path",
+                                message=f"Working plugin state is unreadable: {error}",
+                            )
+                        )
             return LayeredValidationReport(
                 {
                     ValidationStage.ARCHIVE_INTEGRITY: archive_issues,
@@ -314,6 +367,7 @@ class ProjectRepository:
                         self._project
                     ),
                     ValidationStage.PLAYBACK_READINESS: playback_issues,
+                    ValidationStage.PLUGIN_COMPATIBILITY: plugin_issues,
                     ValidationStage.DEVICE_COMPATIBILITY: (),
                 }
             )
@@ -323,6 +377,56 @@ class ProjectRepository:
         if not path.is_relative_to(self._working_path):
             raise InvalidArchiveError(f"Unsafe working asset path: {asset.member_path}")
         return path
+
+    def plugin_state_path(self, effect: PluginInstance) -> Path:
+        """Resolve one referenced opaque plugin-state member inside the working project."""
+
+        if effect.state is None:
+            raise WorkingProjectError(f"Plugin instance has no persisted state: {effect.id}")
+        path = (
+            self._working_path / PurePosixPath(effect.state.member_path)
+        ).resolve(strict=False)
+        if not path.is_relative_to(self._working_path):
+            raise InvalidArchiveError(
+                f"Unsafe working plugin state path: {effect.state.member_path}"
+            )
+        return path
+
+    def install_plugin_state(
+        self,
+        instance_id: UUID,
+        payload: bytes,
+    ) -> PluginStateReference:
+        """Atomically install bounded opaque state before its metadata commit point."""
+
+        with self._mutex:
+            self._require_writable()
+            if len(payload) > self._limits.max_plugin_state_bytes:
+                raise ProjectResourceLimitError("Plugin state exceeds the configured limit")
+            member_path = f"{PLUGIN_STATE_DIRECTORY}/{instance_id}.bin"
+            destination = self._working_path / PurePosixPath(member_path)
+            temporary = _temporary_sibling(destination)
+            try:
+                with temporary.open("xb") as output:
+                    output.write(payload)
+                    output.flush()
+                    os.fsync(output.fileno())
+                os.replace(temporary, destination)
+            except Exception:
+                temporary.unlink(missing_ok=True)
+                raise
+            return PluginStateReference(
+                member_path=member_path,
+                size_bytes=len(payload),
+                sha256=hashlib.sha256(payload).hexdigest(),
+            )
+
+    def remove_plugin_state(self, instance_id: UUID) -> None:
+        """Remove unreferenced state left by a failed or completed effect removal."""
+
+        with self._mutex:
+            path = self._working_path / PLUGIN_STATE_DIRECTORY / f"{instance_id}.bin"
+            path.unlink(missing_ok=True)
 
     def commit_project(self, candidate: Project, *, history: Mapping[str, Any]) -> Project:
         """Atomically commit validated metadata as the next project revision."""
@@ -348,6 +452,10 @@ class ProjectRepository:
             ]
             if missing:
                 raise WorkingProjectError(f"Candidate references missing assets: {missing[0]}")
+            for track in candidate.tracks:
+                for effect in track.effects:
+                    if effect.state is not None:
+                        _verify_plugin_state(effect, self.plugin_state_path(effect))
             history_document = dict(history)
             history_document.update(
                 {
@@ -695,6 +803,25 @@ class ProjectRepository:
                         snapshot.asset_paths[asset.id],
                         compression=ZIP_STORED,
                     )
+                effects = (
+                    effect
+                    for track in snapshot.project.tracks
+                    for effect in track.effects
+                    if effect.state is not None
+                )
+                for effect in sorted(
+                    effects,
+                    key=lambda item: item.state.member_path if item.state else "",
+                ):
+                    assert effect.state is not None
+                    _zip_copy_file(
+                        archive,
+                        effect.state.member_path,
+                        snapshot.plugin_state_paths[effect.id],
+                        compression=ZIP_DEFLATED,
+                        expected_size=effect.state.size_bytes,
+                        expected_sha256=effect.state.sha256,
+                    )
             _fsync_file(temporary)
             os.replace(temporary, destination)
         except Exception:
@@ -755,6 +882,13 @@ class ProjectRepository:
     def _read_working_project(self) -> Project:
         try:
             document = json.loads(self._manifest_path.read_text(encoding="utf-8"))
+            schema_version = document.get("schema_version")
+            if isinstance(schema_version, int) and schema_version < CURRENT_SCHEMA_VERSION:
+                document = DEFAULT_REGISTRY.migrate(
+                    document,
+                    from_version=schema_version,
+                    target_version=CURRENT_SCHEMA_VERSION,
+                )
             project = Project.model_validate(document)
         except OSError as error:
             raise WorkingProjectError("Could not read working project manifest") from error
@@ -779,6 +913,21 @@ class ProjectRepository:
                         )
                     ]
                 )
+        for track in project.tracks:
+            for effect in track.effects:
+                if effect.state is not None and not self.plugin_state_path(effect).is_file():
+                    raise ProjectValidationError(
+                        [
+                            ValidationIssue(
+                                code="missing_plugin_state_member",
+                                path=f"/tracks/{track.id}/effects/{effect.id}/state/member_path",
+                                message=(
+                                    "Working plugin state is missing: "
+                                    f"{effect.state.member_path}"
+                                ),
+                            )
+                        ]
+                    )
         return project
 
     def _verify_source_identity(self, source: Path) -> None:
@@ -841,6 +990,7 @@ def working_path_for_archive(path: Path | str) -> Path:
 
 def _create_layout(working: Path) -> None:
     (working / ASSET_DIRECTORY).mkdir(parents=True, exist_ok=True)
+    (working / PLUGIN_STATE_DIRECTORY).mkdir(parents=True, exist_ok=True)
     (working / HISTORY_DIRECTORY).mkdir(parents=True, exist_ok=True)
     (working / EXPORT_DIRECTORY).mkdir(parents=True, exist_ok=True)
     internal = working / INTERNAL_DIRECTORY
@@ -889,6 +1039,44 @@ def _import_archive(source: Path, working: Path, limits: RepositoryLimits) -> No
                     raise InvalidArchiveError(
                         f"Archive asset integrity mismatch: {asset.member_path}"
                     )
+            for track in project.tracks:
+                for effect in track.effects:
+                    if effect.state is None:
+                        continue
+                    destination = temporary / PurePosixPath(effect.state.member_path)
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    digest = hashlib.sha256()
+                    size = 0
+                    try:
+                        with archive.open(effect.state.member_path, "r") as member, (
+                            destination.open("xb")
+                        ) as output:
+                            while True:
+                                chunk = member.read(_COPY_CHUNK_BYTES)
+                                if not chunk:
+                                    break
+                                size += len(chunk)
+                                if size > limits.max_plugin_state_bytes:
+                                    raise ProjectResourceLimitError(
+                                        "Archive plugin state exceeds limit: "
+                                        f"{effect.state.member_path}"
+                                    )
+                                digest.update(chunk)
+                                output.write(chunk)
+                            output.flush()
+                            os.fsync(output.fileno())
+                    except KeyError as error:
+                        raise InvalidArchiveError(
+                            f"Archive plugin state is missing: {effect.state.member_path}"
+                        ) from error
+                    if (
+                        size != effect.state.size_bytes
+                        or digest.hexdigest() != effect.state.sha256
+                    ):
+                        raise InvalidArchiveError(
+                            "Archive plugin state integrity mismatch: "
+                            f"{effect.state.member_path}"
+                        )
         _atomic_json_write(temporary / MANIFEST_MEMBER, project.model_dump(mode="json"))
         fingerprint = _fingerprint(source)
         _atomic_json_write(
@@ -946,6 +1134,17 @@ def _validate_archive_limits(path: Path, limits: RepositoryLimits) -> None:
                         raise ProjectResourceLimitError(
                             f"Portable asset compression ratio is unsafe: {info.filename}"
                         )
+                if info.filename.startswith(f"{PLUGIN_STATE_DIRECTORY}/"):
+                    if info.file_size > limits.max_plugin_state_bytes:
+                        raise ProjectResourceLimitError(
+                            f"Portable plugin state exceeds size limit: {info.filename}"
+                        )
+                    ratio = info.file_size / max(info.compress_size, 1)
+                    if ratio > limits.max_compression_ratio:
+                        raise ProjectResourceLimitError(
+                            "Portable plugin state compression ratio is unsafe: "
+                            f"{info.filename}"
+                        )
                 expanded_total += info.file_size
                 if expanded_total > limits.max_expanded_bytes:
                     raise ProjectResourceLimitError(
@@ -983,6 +1182,21 @@ def _hash_file(path: Path) -> str:
         while chunk := source.read(_COPY_CHUNK_BYTES):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def _verify_plugin_state(effect: PluginInstance, path: Path) -> None:
+    assert effect.state is not None
+    try:
+        size = path.stat().st_size
+        digest = _hash_file(path)
+    except OSError as error:
+        raise WorkingProjectError(
+            f"Plugin state is unavailable: {effect.state.member_path}"
+        ) from error
+    if size != effect.state.size_bytes or digest != effect.state.sha256:
+        raise WorkingProjectError(
+            f"Plugin state integrity mismatch: {effect.state.member_path}"
+        )
 
 
 def _json_bytes(value: Mapping[str, Any]) -> bytes:
@@ -1037,11 +1251,29 @@ def _zip_write_bytes(archive: ZipFile, name: str, payload: bytes, *, compression
     archive.writestr(_zip_info(name, compression), payload, compresslevel=9)
 
 
-def _zip_copy_file(archive: ZipFile, name: str, source: Path, *, compression: int) -> None:
+def _zip_copy_file(
+    archive: ZipFile,
+    name: str,
+    source: Path,
+    *,
+    compression: int,
+    expected_size: int | None = None,
+    expected_sha256: str | None = None,
+) -> None:
     info = _zip_info(name, compression)
     info.file_size = source.stat().st_size
     with source.open("rb") as input_file, archive.open(info, "w", force_zip64=True) as output:
-        shutil.copyfileobj(input_file, output, length=_COPY_CHUNK_BYTES)
+        digest = hashlib.sha256()
+        size = 0
+        while chunk := input_file.read(_COPY_CHUNK_BYTES):
+            output.write(chunk)
+            if expected_size is not None or expected_sha256 is not None:
+                size += len(chunk)
+                digest.update(chunk)
+        if expected_size is not None and size != expected_size:
+            raise WorkingProjectError(f"Plugin state size changed during export: {name}")
+        if expected_sha256 is not None and digest.hexdigest() != expected_sha256:
+            raise WorkingProjectError(f"Plugin state hash changed during export: {name}")
 
 
 def _load_upload(path: Path) -> StagedAudioUpload:

@@ -32,11 +32,10 @@ validation, state changes, transport, rendering, and event publication.
 
 ## Current status
 
-This repository contains the completed Phase 8 proof of concept: working-project
-storage, typed authoring, deterministic rendering, device-free runtime fallback,
-a hardened local v1 API, the complete service-backed CLI, and the packaged
-browser session are now exercised together against the exact built wheel on a
-clean Windows environment.
+This repository contains the completed Phase 9 proof of concept: the Phase 8
+working-project, authoring, rendering, runtime, API, CLI, and browser loop now
+also supports explicitly trusted user-installed VST3 effects in a crash-isolated
+worker for offline rendering.
 
 The project documentation is organized as follows:
 
@@ -52,6 +51,8 @@ The project documentation is organized as follows:
   synchronization, conflict handling, local security, and browser tests.
 - [Phase 8 reproducible POC](docs/PHASE_8.md) — canonical fixture, full
   browser/CLI acceptance flow, artifacts, and clean-wheel Windows gate.
+- [Phase 9 VST3 worker](docs/PHASE_9.md) — opt-in host installation, exact
+  binary trust, registry, project schema, worker recovery, and offline effects.
 - [Manual examples](examples/README.md) — runnable examples for the current
   persistence, engine, rendering, CLI, and audio-backend features.
 
@@ -71,6 +72,8 @@ which Prism interface to use for a task:
   artifact verification.
 - `$prism-api-integration` for typed Python clients, raw HTTP/WebSocket clients,
   errors, retries, and agent-tool wrappers.
+- `$prism-plugin-control` for VST3 discovery/trust, project effects,
+  parameters, state, compatibility, offline renders, and worker recovery.
 
 Compatible agents discover these skills from the repository automatically.
 They can also be invoked explicitly, for example: “Use
@@ -88,9 +91,9 @@ backends. Device-free tests run by default; the real-device smoke test is
 opt-in with `uv run pytest -m audio_device -s` on Windows.
 
 The [`examples/`](examples/README.md) folder mirrors this current feature
-boundary with twelve numbered generated-audio scripts. Nine examples run
-without hardware; PortAudio diagnostics, the blocking browser launcher, and the
-complete Playwright-driven POC are explicitly opt-in.
+boundary with thirteen numbered scripts. Nine examples run without hardware;
+PortAudio diagnostics, browser acceptance, and the user-supplied VST3 workflow
+are explicitly opt-in.
 
 The API is available through `prism.api.create_app()` for embedding,
 `prism.api.run_server(PROJECT)` for a loopback-only server, and
@@ -129,9 +132,12 @@ complexity. It supports:
 - A CLI for inspection and mutation.
 - A versioned local HTTP/WebSocket API for coding agents.
 - A lightweight browser UI served by the Python process.
+- One explicitly trusted VST3 effect per track for isolated offline rendering,
+  with normalized parameters, bypass, opaque state, and fail-safe dry fallback.
 
-The POC does not include VST hosting, MIDI instruments, recording, a linear
-arrangement timeline, automation lanes, collaboration, or remote access.
+The POC does not include live VST3 processing, plugin instruments, MIDI,
+recording, a linear arrangement timeline, automation lanes, collaboration, or
+remote access.
 
 ## Agent CLI workflow
 
@@ -158,6 +164,35 @@ Every mutation is revision-checked and has a server-backed preview or `--dry-run
 path. JSON commands use a versioned envelope; invalid or stale requests leave the
 project unchanged and return stable, documented process exit codes.
 
+## Opt-in VST3 effects
+
+Install the optional host, then establish machine-local discovery and exact
+binary trust explicitly:
+
+```powershell
+uv sync --extra dev --extra plugins
+uv run prism plugin path-add "C:\Program Files\Common Files\VST3"
+uv run prism plugin trust "C:\Program Files\Common Files\VST3\Example.vst3" --json
+uv run prism plugin scan --json
+```
+
+With a foreground project service running, preview and attach a ready registry
+entry, inspect its normalized controls, and render:
+
+```powershell
+uv run prism plugin attach song.prism-work --track Drums --registry-id REGISTRY_UUID --dry-run --json
+uv run prism plugin attach song.prism-work --track Drums --registry-id REGISTRY_UUID --json
+uv run prism plugin parameters song.prism-work INSTANCE_UUID --json
+uv run prism plugin state-save song.prism-work INSTANCE_UUID --json
+uv run prism render song.prism-work --bars 8 --output effected.wav --json
+```
+
+Search paths do not grant trust. Approval is invalidated when binary bytes
+change. Effects run only in offline renders; Phase 9 live transport remains dry.
+The worker retries once after a timeout/crash, then bypasses the failed instance
+for that render and publishes failure events. See [Phase 9](docs/PHASE_9.md) for
+the complete CLI, API, storage, and recovery contracts.
+
 ## Project format
 
 Portable projects are self-contained ZIP archives with a custom `.prism`
@@ -168,14 +203,18 @@ directory and portable ZIP creation is explicit:
 demo.prism
 ├── project.json
 └── assets/
-    └── audio/
-        └── <asset-uuid>.wav
+    ├── audio/
+    │   └── <asset-uuid>.wav
+    └── plugin-state/
+        └── <instance-uuid>.bin
 ```
 
-The archive contains versioned project metadata, stable UUIDs, tracks, scenes,
-clip slots, clips, transport settings, mixer state, and asset metadata in
-`project.json`. Imported audio is copied into `assets/audio/`, keeping each
-project portable and safe for agent-driven workflows.
+The schema 2 archive contains versioned project metadata, stable UUIDs, tracks,
+scenes, clip slots, clips, transport/mixer state, asset metadata, and optional
+plugin instances in `project.json`. Imported audio is copied into
+`assets/audio/`; bounded opaque plugin state is integrity-checked by the
+manifest under `assets/plugin-state/`. Plugin binaries and machine trust are
+never embedded.
 
 Archive writes are deterministic and atomic. Prism validates member paths,
 rejects traversal and symlink entries, preserves imported audio bytes, and only
@@ -212,8 +251,8 @@ environment management. The planned building blocks are:
 - Typer for the CLI.
 - HTML, CSS, and vanilla JavaScript served as static assets, with no Node build
   requirement.
-- Pedalboard as the first VST3 hosting candidate after the POC, behind an
-  isolated worker interface.
+- Pedalboard as the optional VST3 host behind a versioned isolated-worker
+  interface.
 
 Real-time audio and VST hosting rely on native components behind Python APIs;
 “Python-first” describes the product and orchestration boundary, not a promise

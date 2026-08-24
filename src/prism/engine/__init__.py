@@ -8,7 +8,7 @@ from prism.engine.errors import (
     InvalidEngineCommandError,
     MissingAudioSourceError,
 )
-from prism.engine.session import SessionEngine
+from prism.engine.session import SessionEngine, TrackEffectProcessor
 from prism.engine.sinks import AudioSink, FakeAudioSink
 from prism.engine.sources import AudioBuffer, ClipSourceProvider, InMemoryClipSourceProvider
 from prism.engine.types import (
@@ -42,6 +42,7 @@ __all__ = [
     "MissingAudioSourceError",
     "ScheduledAction",
     "SessionEngine",
+    "TrackEffectProcessor",
     "TransportChangedEvent",
     "TransportClock",
     "TransportMode",

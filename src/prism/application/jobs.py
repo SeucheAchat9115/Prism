@@ -20,6 +20,8 @@ from prism.application.types import (
     JobPreview,
     RenderJobRequest,
 )
+from prism.plugins.config import PluginConfigStore
+from prism.plugins.render import IsolatedPluginRenderProcessor
 from prism.project import ProjectRepository, RepositorySnapshot, WorkingProjectError
 from prism.rendering import RenderCancelledError, RenderError, render_snapshot
 
@@ -37,9 +39,11 @@ class RenderJobService:
         repository: ProjectRepository,
         *,
         publisher: JobPublisher | None = None,
+        plugin_store: PluginConfigStore | None = None,
     ) -> None:
         self._repository = repository
         self._publisher = publisher or (lambda _event, _payload: None)
+        self._plugin_store = plugin_store
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="prism-job")
         self._capacity = BoundedSemaphore(9)
         self._lock = RLock()
@@ -307,13 +311,29 @@ class RenderJobService:
                 self._persist_unlocked(job)
                 self._publish(job, "job.progress")
 
-        metadata = render_snapshot(
-            snapshot,
-            output,
-            request.to_domain(),
-            cancel_event=cancel,
-            progress=progress,
-        )
+        has_effects = any(track.effects for track in snapshot.project.tracks)
+        if has_effects:
+            with IsolatedPluginRenderProcessor(
+                snapshot,
+                store=self._plugin_store,
+                publisher=self._publisher,
+            ) as processor:
+                metadata = render_snapshot(
+                    snapshot,
+                    output,
+                    request.to_domain(),
+                    cancel_event=cancel,
+                    progress=progress,
+                    effect_processor=processor,
+                )
+        else:
+            metadata = render_snapshot(
+                snapshot,
+                output,
+                request.to_domain(),
+                cancel_event=cancel,
+                progress=progress,
+            )
         self._finish_completed(job_id, metadata.output_path, _hash_file(metadata.output_path))
 
     def _run_export(

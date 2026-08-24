@@ -20,6 +20,11 @@ from prism.application.types import (
     ClipUpdateOperation,
     EntityChanges,
     MixerUpdateOperation,
+    PluginAttachOperation,
+    PluginBypassUpdateOperation,
+    PluginParameterUpdateOperation,
+    PluginRemoveOperation,
+    PluginStateUpdateOperation,
     ProjectRenameOperation,
     RuntimeImpact,
     SceneCreateOperation,
@@ -49,6 +54,8 @@ from prism.project.models import (
     AssetReference,
     AudioClip,
     ClipSlot,
+    PluginInstance,
+    PluginStateReference,
     Project,
     Scene,
     Track,
@@ -283,6 +290,7 @@ class ProjectCommandService:
             "scene": project.scenes,
             "clip": project.clips,
             "asset": project.assets,
+            "plugin": [effect for track in project.tracks for effect in track.effects],
         }
         try:
             items = collections[entity_type]
@@ -490,6 +498,62 @@ class ProjectCommandService:
                 mutation.changed_paths.append(f"/tracks/{track.id}/mixer/{name}")
             mutation.changed["tracks"].add(track.id)
             mutation.mark_impact(RuntimeImpact.INCREMENTAL)
+        elif isinstance(operation, PluginAttachOperation):
+            track = _entity(project.tracks, operation.track_id, "track")
+            if track.effects:
+                raise ApplicationError(
+                    "Phase 9 supports one VST3 effect per track.",
+                    code="plugin_slot_occupied",
+                    status_code=409,
+                )
+            instance_id = operation.instance_id or _created_id(
+                project, request, operation, index
+            )
+            _require_unused_id(project, instance_id)
+            effect = PluginInstance(
+                id=instance_id,
+                registry_id=operation.registry_id,
+                plugin_identifier=operation.plugin_identifier,
+                binary_sha256=operation.binary_sha256,
+                name=operation.name,
+                manufacturer=operation.manufacturer,
+                version=operation.version,
+                category=operation.category,
+            )
+            track.effects.append(effect)
+            mutation.created["plugin_instances"].add(effect.id)
+            mutation.changed["tracks"].add(track.id)
+            mutation.changed_paths.append(f"/tracks/{track.id}/effects/{effect.id}")
+        elif isinstance(operation, PluginRemoveOperation):
+            track, effect = _plugin_instance(project, operation.instance_id)
+            track.effects = [item for item in track.effects if item.id != effect.id]
+            mutation.deleted["plugin_instances"].add(effect.id)
+            mutation.changed["tracks"].add(track.id)
+            mutation.changed_paths.append(f"/tracks/{track.id}/effects/{effect.id}")
+        elif isinstance(operation, PluginParameterUpdateOperation):
+            track, effect = _plugin_instance(project, operation.instance_id)
+            effect.parameters[operation.parameter_id] = operation.raw_value
+            mutation.changed["plugin_instances"].add(effect.id)
+            mutation.changed["tracks"].add(track.id)
+            mutation.changed_paths.append(
+                f"/tracks/{track.id}/effects/{effect.id}/parameters/{operation.parameter_id}"
+            )
+        elif isinstance(operation, PluginBypassUpdateOperation):
+            track, effect = _plugin_instance(project, operation.instance_id)
+            effect.bypassed = operation.bypassed
+            mutation.changed["plugin_instances"].add(effect.id)
+            mutation.changed["tracks"].add(track.id)
+            mutation.changed_paths.append(f"/tracks/{track.id}/effects/{effect.id}/bypassed")
+        elif isinstance(operation, PluginStateUpdateOperation):
+            track, effect = _plugin_instance(project, operation.instance_id)
+            effect.state = PluginStateReference(
+                member_path=operation.member_path,
+                size_bytes=operation.size_bytes,
+                sha256=operation.sha256,
+            )
+            mutation.changed["plugin_instances"].add(effect.id)
+            mutation.changed["tracks"].add(track.id)
+            mutation.changed_paths.append(f"/tracks/{track.id}/effects/{effect.id}/state")
         else:  # pragma: no cover - discriminated contract guards this boundary
             raise ApplicationError(
                 "Unsupported project operation",
@@ -499,7 +563,17 @@ class ProjectCommandService:
 
 
 def _change_sets() -> dict[str, set[UUID]]:
-    return {name: set() for name in ("tracks", "scenes", "assets", "clips", "slots")}
+    return {
+        name: set()
+        for name in (
+            "tracks",
+            "scenes",
+            "assets",
+            "clips",
+            "slots",
+            "plugin_instances",
+        )
+    }
 
 
 def _entity_changes(values: dict[str, set[UUID]]) -> EntityChanges:
@@ -528,6 +602,7 @@ def _require_unused_id(project: Project, entity_id: UUID) -> None:
         project.assets,
         project.clips,
         project.clip_slots,
+        [effect for track in project.tracks for effect in track.effects],
     ):
         if any(item.id == entity_id for item in collection):
             raise ApplicationError(
@@ -544,6 +619,18 @@ def _entity(items: list[Any], entity_id: UUID, kind: str) -> Any:
     raise ApplicationError(
         f"{kind.title()} does not exist: {entity_id}",
         code=f"{kind}_not_found",
+        status_code=404,
+    )
+
+
+def _plugin_instance(project: Project, instance_id: UUID) -> tuple[Track, PluginInstance]:
+    for track in project.tracks:
+        for effect in track.effects:
+            if effect.id == instance_id:
+                return track, effect
+    raise ApplicationError(
+        f"Plugin instance does not exist: {instance_id}",
+        code="plugin_instance_not_found",
         status_code=404,
     )
 
@@ -565,19 +652,22 @@ def _reorder(mutation: _Mutation, collection_name: str, entity_id: UUID, order: 
 
 def _delete_track(mutation: _Mutation, operation: TrackDeleteOperation, index: int) -> None:
     project = mutation.project
-    _entity(project.tracks, operation.track_id, "track")
+    track = _entity(project.tracks, operation.track_id, "track")
     slots = [slot for slot in project.clip_slots if slot.track_id == operation.track_id]
     cascade = CascadeImpact(
         operation_index=index,
         entity_type="track",
         entity_id=operation.track_id,
-        dependent_ids=EntityChanges(slots=[slot.id for slot in slots]),
+        dependent_ids=EntityChanges(
+            slots=[slot.id for slot in slots],
+            plugin_instances=[effect.id for effect in track.effects],
+        ),
     )
-    if slots:
+    if slots or track.effects:
         mutation.cascades.append(cascade)
-    if slots and not operation.cascade:
+    if (slots or track.effects) and not operation.cascade:
         raise ApplicationError(
-            "Track has dependent slots; preview and retry with cascade=true.",
+            "Track has dependent slots or effects; preview and retry with cascade=true.",
             code="cascade_required",
             status_code=409,
         )
@@ -587,6 +677,7 @@ def _delete_track(mutation: _Mutation, operation: TrackDeleteOperation, index: i
     ]
     mutation.deleted["tracks"].add(operation.track_id)
     mutation.deleted["slots"].update(slot.id for slot in slots)
+    mutation.deleted["plugin_instances"].update(effect.id for effect in track.effects)
     mutation.changed_paths.append(f"/tracks/{operation.track_id}")
     _normalize_orders(mutation, "tracks")
     mutation.mark_impact(RuntimeImpact.REBUILD)

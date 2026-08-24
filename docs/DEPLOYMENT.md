@@ -176,10 +176,13 @@ sample rate and reports device-open, callback, and underrun failures through
 typed backend state. It does not install, bundle, or redistribute PortAudio
 device drivers or third-party plugins.
 
-VST3 support will use plugins installed by the user. Prism must not copy,
-redistribute, or silently install third-party plugin binaries. A future
-installer may check plugin search paths and report missing plugins, but plugin
-licensing and installation remain outside the Prism package.
+Phase 9 VST3 support uses plugins installed by the user. Prism must not copy,
+redistribute, or silently install third-party plugin binaries. The Python host
+is also optional: install it with `uv sync --extra plugins` (or install the
+published `prism[plugins]` extra). Plugin licensing and binary installation
+remain outside the Prism package. Search paths, exact-hash trust, and registry
+metadata are machine-local; portable projects contain identity, normalized
+controls, and bounded opaque state only. See [Phase 9](PHASE_9.md).
 
 ## CI versus CD
 
@@ -290,8 +293,8 @@ for project creation, project loading, audio import, and clean shutdown.
 4. **Standalone CLI:** add Windows executable and Linux portable artifacts.
 5. **Desktop release:** add signed Windows/Linux installers after the GUI and
    audio engine stabilize.
-6. **Plugin-aware release:** add plugin discovery diagnostics without bundling
-   third-party plugin binaries.
+6. **Plugin-aware release:** validate the optional `plugins` extra and discovery
+   diagnostics without bundling third-party plugin binaries.
 
 ## Release checklist
 
@@ -312,5 +315,6 @@ for project creation, project loading, audio import, and clean shutdown.
 - [Implementation plan](IMPLEMENTATION_PLAN.md)
 - [Phase 7 browser session](PHASE_7.md)
 - [Phase 8 reproducible POC](PHASE_8.md)
+- [Phase 9 isolated VST3 worker](PHASE_9.md)
 - [uv package guide](https://docs.astral.sh/uv/guides/package/)
 - [uv tools guide](https://docs.astral.sh/uv/guides/tools/)

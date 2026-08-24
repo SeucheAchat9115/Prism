@@ -3,7 +3,7 @@
 These instructions apply to the entire repository. Prism is a Python 3.12,
 Python-first digital audio workstation whose browser UI, CLI, and typed client
 all call one loopback application service. The current product boundary is the
-completed Phase 8 proof of concept.
+completed Phase 9 offline VST3 worker.
 
 ## Skill routing
 
@@ -20,6 +20,9 @@ automatically. Load the smallest set that covers the request:
   for results, and verify artifacts.
 - `$prism-api-integration`: build an agent or other client against the typed
   Python client, HTTP API, or WebSocket event stream.
+- `$prism-plugin-control`: discover and explicitly trust user-installed VST3
+  effects, manage project instances, parameters, bypass/state, compatibility,
+  offline rendering, and isolated-worker recovery.
 
 For a repository implementation that changes a public workflow, use
 `$prism-repository-development` plus the affected domain skill. For operating
@@ -47,6 +50,8 @@ an existing project without changing Prism source, use only the domain skill.
 - `src/prism/engine/`: deterministic transport, scheduling, sources, and sinks.
 - `src/prism/rendering/`: deterministic offline render contracts and mixing.
 - `src/prism/audio/`: fake, offline, and PortAudio backend boundary.
+- `src/prism/plugins/`: machine-local trust/registry, versioned worker
+  protocol, subprocess control, and fail-safe offline effect processing.
 - `src/prism/application/`: the state owner, typed operations, runtime, events,
   and background jobs.
 - `src/prism/api/`: FastAPI routes, loopback server, and typed synchronous
@@ -69,9 +74,12 @@ in `src/prism/application/types.py` and keep unknown fields rejected.
   runtime reset requirements, and idempotency keys.
 - Render and export outputs stay inside the working project's `exports/` tree.
 - Device-free fallback is valid behavior. Real-device tests remain opt-in.
-- Do not claim support for VST3, MIDI, recording, arrangement editing,
-  automation, advanced routing, collaboration, or remote access; those phases
-  are not implemented.
+- VST3 support is opt-in, effect-only, one instance per track, and offline
+  render-only. Exact binary trust is machine-local; opaque state is portable.
+  Never claim that live transport is plugin-processed.
+- Do not claim support for plugin instruments, MIDI, recording, arrangement
+  editing, automation, advanced routing, collaboration, or remote access;
+  those phases are not implemented.
 
 ## Repository workflow
 
@@ -101,6 +109,9 @@ Additional gates:
   `uv run pytest -m browser --browser chromium --tracing=retain-on-failure`.
 - Persistence/render/audio changes: run their focused test directories and the
   affected numbered examples.
+- Plugin changes: run `tests/plugins`, `tests/project/test_plugins_phase9.py`,
+  and `tests/api/test_phase9_plugins.py`; keep real third-party VST3 examples
+  opt-in and never add plugin binaries to fixtures.
 - Release-facing changes: run `uv build --no-sources`, test the exact wheel in
   a clean environment, and run `examples/12_reproducible_poc.py` against it.
 

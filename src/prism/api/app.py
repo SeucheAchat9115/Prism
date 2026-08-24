@@ -28,6 +28,11 @@ from prism.application.types import (
     ClipStopRequest,
     ExportJobRequest,
     ExternalChangeResolutionRequest,
+    PluginAttachRequest,
+    PluginBypassRequest,
+    PluginParameterRequest,
+    PluginPathRequest,
+    PluginStateCaptureRequest,
     RenderJobRequest,
     ScheduledActionModel,
     SessionActionResult,
@@ -231,6 +236,14 @@ def create_app(service: ApplicationService) -> FastAPI:
                 "soxr_quality": "HQ",
             },
             "jobs": {"render": True, "export": True, "cancellation": True},
+            "plugins": {
+                "vst3": True,
+                "optional_host": "pedalboard",
+                "isolated_worker": True,
+                "offline_render": True,
+                "realtime": False,
+                "max_effects_per_track": 1,
+            },
             "ui": {"browser_session": True, "path": "/"},
         }
 
@@ -246,6 +259,111 @@ def create_app(service: ApplicationService) -> FastAPI:
     async def get_project(project_id: UUID) -> dict[str, object]:
         current = require_project(project_id).get_project()
         return {"project": current.model_dump(mode="json")}
+
+    @app.get("/api/v1/plugins/config")
+    async def plugin_config() -> dict[str, object]:
+        return {"config": service.plugin_config()}
+
+    @app.post("/api/v1/plugins/search-paths")
+    async def add_plugin_search_path(request: PluginPathRequest) -> dict[str, object]:
+        return {"ok": True, "search_paths": service.add_plugin_search_path(request.path)}
+
+    @app.delete("/api/v1/plugins/search-paths")
+    async def remove_plugin_search_path(request: PluginPathRequest) -> dict[str, object]:
+        return {"ok": True, "search_paths": service.remove_plugin_search_path(request.path)}
+
+    @app.post("/api/v1/plugins/trust")
+    async def trust_plugin(request: PluginPathRequest) -> dict[str, object]:
+        record = service.trust_plugin(request.path)
+        return {"ok": True, "trust": record.model_dump(mode="json")}
+
+    @app.delete("/api/v1/plugins/trust")
+    async def revoke_plugin(request: PluginPathRequest) -> dict[str, object]:
+        service.revoke_plugin(request.path)
+        return {"ok": True, "path": request.path, "trusted": False}
+
+    @app.post("/api/v1/plugins/scan")
+    async def scan_plugins() -> dict[str, object]:
+        document = service.scan_plugins()
+        return document.model_dump(mode="json")
+
+    @app.get("/api/v1/plugins")
+    async def list_plugins() -> dict[str, object]:
+        return service.list_plugins().model_dump(mode="json")
+
+    @app.get("/api/v1/plugins/worker")
+    async def plugin_worker_status() -> dict[str, object]:
+        return service.plugin_worker_status().model_dump(mode="json")
+
+    @app.post("/api/v1/plugins/worker/restart")
+    async def restart_plugin_worker() -> dict[str, object]:
+        return service.restart_plugin_worker().model_dump(mode="json")
+
+    @app.get("/api/v1/projects/{project_id}/plugins/compatibility")
+    async def plugin_compatibility(project_id: UUID) -> dict[str, object]:
+        return {"plugins": require_project(project_id).plugin_compatibility()}
+
+    @app.post("/api/v1/projects/{project_id}/tracks/{track_id}/plugins/{registry_id}")
+    async def attach_plugin(
+        project_id: UUID,
+        track_id: UUID,
+        registry_id: UUID,
+        request: PluginAttachRequest,
+        preview: bool = False,
+    ) -> JSONResponse:
+        result = require_project(project_id).attach_plugin(
+            track_id,
+            registry_id,
+            request,
+            preview=preview,
+        )
+        return _transaction_response(result)
+
+    @app.get("/api/v1/projects/{project_id}/plugins/{instance_id}/parameters")
+    async def plugin_parameters(project_id: UUID, instance_id: UUID) -> dict[str, object]:
+        parameters = require_project(project_id).plugin_parameters(instance_id)
+        return {"parameters": [item.model_dump(mode="json") for item in parameters]}
+
+    @app.post(
+        "/api/v1/projects/{project_id}/plugins/{instance_id}/parameters/{parameter_id}"
+    )
+    async def update_plugin_parameter(
+        project_id: UUID,
+        instance_id: UUID,
+        parameter_id: str,
+        request: PluginParameterRequest,
+        preview: bool = False,
+    ) -> JSONResponse:
+        result = require_project(project_id).update_plugin_parameter(
+            instance_id,
+            parameter_id,
+            request,
+            preview=preview,
+        )
+        return _transaction_response(result)
+
+    @app.post("/api/v1/projects/{project_id}/plugins/{instance_id}/bypass")
+    async def update_plugin_bypass(
+        project_id: UUID,
+        instance_id: UUID,
+        request: PluginBypassRequest,
+        preview: bool = False,
+    ) -> JSONResponse:
+        result = require_project(project_id).update_plugin_bypass(
+            instance_id,
+            request,
+            preview=preview,
+        )
+        return _transaction_response(result)
+
+    @app.post("/api/v1/projects/{project_id}/plugins/{instance_id}/state")
+    async def capture_plugin_state(
+        project_id: UUID,
+        instance_id: UUID,
+        request: PluginStateCaptureRequest,
+    ) -> JSONResponse:
+        result = require_project(project_id).capture_plugin_state(instance_id, request)
+        return _transaction_response(result)
 
     @app.get("/api/v1/projects/{project_id}/state")
     async def get_state(project_id: UUID) -> dict[str, object]:
@@ -304,7 +422,7 @@ def create_app(service: ApplicationService) -> FastAPI:
     @app.get("/api/v1/projects/{project_id}/resolve")
     async def resolve_name(
         project_id: UUID,
-        entity_type: Literal["track", "scene", "clip", "asset"],
+        entity_type: Literal["track", "scene", "clip", "asset", "plugin"],
         name: str,
     ) -> dict[str, object]:
         entity_id = require_project(project_id).resolve_name(entity_type, name)
