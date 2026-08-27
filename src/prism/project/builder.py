@@ -6,7 +6,7 @@ import inspect
 import math
 import random
 from dataclasses import asdict, dataclass, replace
-from pathlib import Path, PurePath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING, Literal, Self, Sequence
 
 from prism.errors import ProjectError
@@ -1021,7 +1021,7 @@ class Project:
 
     def _source_name(self, value: str | Path) -> str:
         path = Path(value)
-        if path.is_absolute() or ".." in PurePath(path).parts:
+        if _unsafe_project_path(value):
             raise ProjectError(
                 f"Sample paths must be relative to the project folder, not {str(value)!r}."
             )
@@ -1034,7 +1034,7 @@ class Project:
 
     def _output_path(self, value: str | Path, *, suffix: str) -> Path:
         path = Path(value)
-        if path.is_absolute() or ".." in PurePath(path).parts:
+        if _unsafe_project_path(value):
             raise ProjectError("Output paths must be relative to the project folder.")
         if path.suffix.casefold() != suffix:
             raise ProjectError(f"Output must use the {suffix} extension: {path}")
@@ -1328,6 +1328,21 @@ def _resolve_instrument(
         sustain=sound.sustain if sustain is None else sustain,
         release_ms=sound.release_ms if release_ms is None else release_ms,
         cutoff_hz=sound.cutoff_hz if cutoff_hz is None else cutoff_hz,
+    )
+
+
+def _unsafe_project_path(value: str | Path) -> bool:
+    """Recognize absolute paths and traversal using either platform's syntax."""
+
+    raw = str(value)
+    posix = PurePosixPath(raw)
+    windows = PureWindowsPath(raw)
+    return (
+        posix.is_absolute()
+        or bool(windows.drive)
+        or bool(windows.root)
+        or ".." in posix.parts
+        or ".." in windows.parts
     )
 
 

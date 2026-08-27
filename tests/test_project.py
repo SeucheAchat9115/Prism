@@ -126,11 +126,36 @@ def test_built_in_parts_reject_an_unsafe_duration_while_authoring(
         song.track("Very Long Pad").midi("C3", instrument="pad", bars=11)
 
 
-@pytest.mark.parametrize("path", ("../kick.wav", "C:/samples/kick.wav"))
+@pytest.mark.parametrize(
+    "path",
+    (
+        "../kick.wav",
+        "..\\kick.wav",
+        "/samples/kick.wav",
+        "C:/samples/kick.wav",
+        "C:\\samples\\kick.wav",
+        "\\\\server\\sounds\\kick.wav",
+    ),
+)
 def test_source_paths_must_stay_in_the_project(project_script: Path, path: str) -> None:
     song = Project("Safe Paths", prism_version="test", _script=project_script)
     with pytest.raises(ProjectError, match="relative"):
         song.track("Kick").sample(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    ("../song.wav", "..\\song.wav", "/renders/song.wav", "C:/renders/song.wav"),
+)
+def test_output_paths_use_cross_platform_relative_syntax(
+    project_script: Path, path: str
+) -> None:
+    song = Project("Safe Output", prism_version="test", _script=project_script)
+    kick = song.track("Kick").drum("kick", "x---")
+    song.section("Loop", bars=1, tracks=[kick])
+
+    with pytest.raises(ProjectError, match="relative"):
+        song.render(path)
 
 
 def test_missing_sample_is_named_in_validation(project_script: Path) -> None:
