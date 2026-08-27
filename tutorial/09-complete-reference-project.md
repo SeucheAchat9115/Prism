@@ -30,6 +30,9 @@ sample_kick = song.track("Sample Kick", gain_db=-2).sample(
 built_in_kick = song.track("Built-In Kick", gain_db=-5).drum(
     "kick", "x--- x--- x-x- x---"
 )
+built_in_kick.drum(
+    "kick", "x--- x-x- x--- xxxx", section="Chorus", start_bar=0
+)
 loop = song.track("Percussion Loop", gain_db=-8, pan=-0.1).audio(
     "sounds/percussion-loop.wav", bars=2, loop=True, gain_db=-2
 )
@@ -69,6 +72,15 @@ lead_echo = lead.effect(
 )
 lead_tone = lead.effect("filter", name="Lead Tone", cutoff_hz=5000, mix=1)
 sample_kick.effect("gain", name="Kick Trim", gain_db=-1)
+drums = song.bus("Drum Bus", tracks=[built_in_kick, snare, hat], gain_db=-1)
+drum_glue = drums.effect(
+    "compressor", name="Drum Glue", threshold_db=-18, ratio=3, makeup_db=2
+)
+room = song.bus("Room Return", gain_db=-7)
+room_reverb = room.effect("reverb", name="Shared Room", room_size=0.6, mix=1)
+lead.send(room, gain_db=-14)
+vocal.send(room, gain_db=-10)
+song.master_effect("compressor", name="Master Control", threshold_db=-8, ratio=2)
 muted_idea = song.track("Muted Sine Idea", muted=True).midi(
     "C5 - G4 -", instrument="lead", waveform="sine"
 )
@@ -90,6 +102,14 @@ song.automation(
     "Lead Tone Outro", target=lead_tone, parameter="cutoff_hz",
     points=[(0, 5000), (10, 5000), (12, 400)], curve="linear",
 )
+song.automation(
+    "Drum Bus Blend", target=drum_glue, parameter="mix",
+    points=[(0, 0.5), (6, 0.8), (12, 1.0)],
+)
+song.automation(
+    "Room Size", target=room_reverb, parameter="room_size",
+    points=[(0, 0.35), (6, 0.6), (12, 0.8)],
+)
 
 print(song.validate())
 pprint(song.configuration())
@@ -108,7 +128,9 @@ three drums, all three melodic instruments, all four waveforms, chords, rests, e
 track and clip gain, panning, muting, explicit sections, an all-track section,
 validation, configuration inspection, MIDI export, WAV rendering, and result
 hashes. It also demonstrates an explicit stock instrument, an ordered
-multi-effect chain, effects on a sample track, and three automation tracks.
+multi-effect chain, effects on a sample track, and several automation tracks.
+It also includes a section-specific clip, drum group bus, shared reverb send,
+bus automation, and final master processing.
 
 All input and output paths are relative to `main.py`. Prism rejects absolute
 paths, `..` traversal, missing sources, duplicate names, empty tracks, unknown

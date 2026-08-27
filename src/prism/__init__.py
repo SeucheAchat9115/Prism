@@ -3,13 +3,14 @@
 from prism.errors import PrismError, ProjectError, RenderError
 from prism.midi import MidiResult
 from prism.plugins import AutomationLane, AutomationPoint, Plugin
-from prism.project import Project, ProjectSummary, Section, Track
+from prism.project import Bus, Project, ProjectSummary, Section, Send, Track
 from prism.render import RenderResult
 from prism.version import __version__
 
 __all__ = [
     "AutomationLane",
     "AutomationPoint",
+    "Bus",
     "MidiResult",
     "Plugin",
     "PrismError",
@@ -19,6 +20,7 @@ __all__ = [
     "RenderError",
     "RenderResult",
     "Section",
+    "Send",
     "Track",
     "__version__",
 ]

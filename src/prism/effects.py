@@ -21,7 +21,16 @@ def process_track_plugins(project: Project, track: Track, samples: np.ndarray) -
     instrument = track.instrument_plugin
     if instrument is not None:
         output = _instrument_automation(project, instrument, output)
-    for effect in track.effects:
+    return process_effect_chain(project, track.effects, output)
+
+
+def process_effect_chain(
+    project: Project, effects: list[Plugin], samples: np.ndarray
+) -> np.ndarray:
+    """Apply an ordered effect chain to a track, bus, or master buffer."""
+
+    output = np.asarray(samples, dtype=np.float64).copy()
+    for effect in effects:
         parameters = {
             name: _parameter_values(project, effect, name, output.shape[0])
             for name in effect.settings
@@ -91,4 +100,4 @@ def _setting(plugin: Plugin, name: str) -> float:
     return float(value)
 
 
-__all__ = ["has_automation", "process_track_plugins"]
+__all__ = ["has_automation", "process_effect_chain", "process_track_plugins"]

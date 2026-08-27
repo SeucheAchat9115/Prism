@@ -15,7 +15,7 @@ stock instrument
         ↓
 effect 1 → effect 2 → effect 3
         ↓
-track gain and pan
+track gain and pan → group/send buses → master effects
         ↓
 song mix
 ```

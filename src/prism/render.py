@@ -13,7 +13,7 @@ import numpy as np
 import soundfile as sf
 import soxr
 
-from prism.effects import has_automation, process_track_plugins
+from prism.effects import has_automation, process_effect_chain, process_track_plugins
 from prism.errors import ProjectError, RenderError
 from prism.music import db_gain
 from prism.project.builder import (
@@ -53,8 +53,10 @@ def render_project(project: Project, output: str | Path) -> RenderResult:
         output_path = project._output_path(output, suffix=".wav")
         total_frames = summary.bars * project.frames_per_bar
         mix = np.zeros((total_frames, 2), dtype=np.float64)
+        track_outputs: dict[str, np.ndarray] = {}
         for track in project.tracks:
             if track.muted:
+                track_outputs[track.name] = np.zeros_like(mix)
                 continue
             clip_buffers = {
                 id(placement): _clip_buffer(project, track, placement.clip)
@@ -85,7 +87,27 @@ def render_project(project: Project, output: str | Path) -> RenderResult:
                         arranged[start : start + available] += placed
                 cursor += frames
             processed = process_track_plugins(project, track, arranged)
-            mix += _mix_track(processed, track)
+            track_outputs[track.name] = _mix_channel(
+                processed, gain_db=track.gain_db, pan=track.pan
+            )
+
+        bus_inputs = {bus.name: np.zeros_like(mix) for bus in project.buses}
+        for track in project.tracks:
+            track_output = track_outputs[track.name]
+            if track.output_bus is None:
+                mix += track_output
+            else:
+                bus_inputs[track.output_bus.name] += track_output
+            for send in track.sends:
+                bus_inputs[send.bus] += track_output * db_gain(send.gain_db)
+
+        for bus in project.buses:
+            if bus.muted:
+                continue
+            processed = process_effect_chain(project, bus.effects, bus_inputs[bus.name])
+            mix += _mix_channel(processed, gain_db=bus.gain_db, pan=bus.pan)
+
+        mix = process_effect_chain(project, project.master_effects, mix)
         mix *= db_gain(project.master_gain_db)
         peak = float(np.max(np.abs(mix))) if mix.size else 0.0
         target = 10.0 ** (-1.0 / 20.0)
@@ -192,14 +214,14 @@ def _read_audio(path: Path, sample_rate: int) -> np.ndarray:
     return np.asarray(samples, dtype=np.float64)
 
 
-def _mix_track(samples: np.ndarray, track: Track) -> np.ndarray:
-    output = samples * db_gain(track.gain_db)
-    if track.pan < 0.0:
+def _mix_channel(samples: np.ndarray, *, gain_db: float, pan: float) -> np.ndarray:
+    output = samples * db_gain(gain_db)
+    if pan < 0.0:
         output = output.copy()
-        output[:, 1] *= 1.0 + track.pan
-    elif track.pan > 0.0:
+        output[:, 1] *= 1.0 + pan
+    elif pan > 0.0:
         output = output.copy()
-        output[:, 0] *= 1.0 - track.pan
+        output[:, 0] *= 1.0 - pan
     return output
 
 

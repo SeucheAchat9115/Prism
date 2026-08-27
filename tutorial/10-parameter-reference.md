@@ -233,6 +233,49 @@ Every stock-effect setting is automatable. Stock instruments expose
 `gain_db`; melodic instruments also expose `cutoff_hz`. The target must be a
 plugin object belonging to the same project.
 
+## `bus(...)`
+
+```python
+drums = song.bus(
+    "Drum Bus", tracks=[kick, snare, hat], gain_db=-1, pan=0, muted=False
+)
+drums.effect("compressor", threshold_db=-18, ratio=3, makeup_db=2)
+```
+
+A bus groups several tracks behind one gain, pan, mute control, and ordered
+effect chain. Grouped tracks stop routing directly to the master. A track can
+belong to only one group bus. Add more tracks later with `drums.add(clap)`.
+
+Bus names are unique. Gain accepts -60 through +12 dB and pan accepts -1
+through +1. Bus effects use the same presets, parameters, ordering, and
+automation behavior as track effects.
+
+## `send(...)`
+
+```python
+room = song.bus("Room Return", gain_db=-7)
+room.effect("reverb", room_size=0.6, damping=0.4, width=1, mix=1)
+snare.send(room, gain_db=-10)
+lead.send(room, gain_db=-14)
+```
+
+A send adds a post-fader copy of the track to a bus while leaving its main
+route intact. Send gain defaults to -12 dB and accepts -60 through +12 dB.
+Each track can send to a bus once. A track cannot send to its own group bus.
+Use `mix=1` on a return effect when you want a fully wet parallel effect.
+
+## `master_effect(...)`
+
+```python
+master = song.master_effect(
+    "compressor", name="Master Control", threshold_db=-8, ratio=2
+)
+```
+
+Master effects run in the order they are added, after direct tracks and buses
+have been combined and before `master_gain_db` and normalization. The returned
+plugin can be used as an automation target like a track or bus effect.
+
 ## `section(...)`
 
 ```python
@@ -257,7 +300,8 @@ render = song.render("renders/song.wav")
 - `validate()` checks the complete song and returns name, track count, section
   count, bar count, and duration.
 - `configuration()` returns a resolved dictionary containing the complete song
-  description, instruments, ordered effects, and automation lanes.
+  description, clips, instruments, track routing, sends, bus and master effect
+  chains, and automation lanes.
 - `export_midi()` returns `path`, music-track count, ticks per beat, and SHA-256.
   It exports built-in drums and MIDI tracks, not guessed notes from audio.
 - `render()` returns `path`, sample rate, channels, frames, duration, SHA-256,

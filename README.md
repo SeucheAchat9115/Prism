@@ -152,6 +152,9 @@ rejects absolute paths and paths that leave the project folder.
 - `automation(...)` moves a plugin setting at exact song positions in bars.
 - `section(...)` puts parts into the song in playback order.
 - Repeating a part method adds clips, section variations, and precisely placed fills.
+- `bus(...)` groups tracks or creates a shared effect return.
+- `send(...)` routes a parallel post-fader copy of a track to a bus.
+- `master_effect(...)` processes the complete mix before final output.
 - `validate()` checks the project and explains authoring mistakes.
 - `export_midi()` writes a standard MIDI file.
 - `render()` writes a stereo WAV.
@@ -164,7 +167,7 @@ rest and `C3+Eb3+G3` is a chord.
 Prism follows a familiar music-production signal flow:
 
 ```text
-Song → Section → Track → MIDI/trigger events → Instrument → Effects → Mix
+Song → Section → Track → Instrument → Track effects → Buses → Master effects → Mix
 ```
 
 MIDI notes and drum/sample trigger patterns decide what plays and when. A stock
@@ -216,6 +219,20 @@ section name replaces that default in the named section:
 kick = song.track("Kick").drum("kick", "x---")
 kick.drum("kick", "x-x-", section="Chorus")
 kick.drum("kick", "xxxx", section="Chorus", start_bar=3, repeat=False)
+```
+
+Shared processing uses a group bus, while a send keeps the dry track and adds
+a parallel copy to a return bus:
+
+```python
+drums = song.bus("Drum Bus", tracks=[kick, snare, hat])
+drums.effect("compressor", threshold_db=-18, ratio=3)
+
+room = song.bus("Room Return", gain_db=-7)
+room.effect("reverb", room_size=0.6, mix=1)
+snare.send(room, gain_db=-10)
+
+song.master_effect("compressor", name="Master Control", threshold_db=-8, ratio=2)
 ```
 
 ## Continue with the tutorial

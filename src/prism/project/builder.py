@@ -6,7 +6,7 @@ import inspect
 import math
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path, PurePath
-from typing import TYPE_CHECKING, Literal, Self
+from typing import TYPE_CHECKING, Literal, Self, Sequence
 
 from prism.errors import ProjectError
 from prism.music import note_steps, rhythm_steps, validate_gain, validate_pan
@@ -113,6 +113,15 @@ class ProjectSummary:
         )
 
 
+@dataclass(frozen=True, slots=True)
+class Send:
+    """A post-fader copy of one track routed to a return bus."""
+
+    track: str
+    bus: str
+    gain_db: float
+
+
 class Track:
     """A named mixer channel containing compatible, reusable musical clips."""
 
@@ -133,6 +142,8 @@ class Track:
         self._clips: list[ClipPlacement] = []
         self._instrument: Plugin | None = None
         self.effects: list[Plugin] = []
+        self.output_bus: Bus | None = None
+        self.sends: list[Send] = []
 
     @property
     def clip(self) -> TrackClip | None:
@@ -393,20 +404,38 @@ class Track:
 
         if not self._clips:
             raise ProjectError("Add MIDI, a drum, a sample, or audio before adding effects.")
-        base_name = preset.replace("_", " ").title() if name is None else _name(name, "Plugin")
-        plugin_name = base_name
-        suffix = 2
-        used = {effect.name.casefold() for effect in self.effects}
-        if self._instrument is not None:
-            used.add(self._instrument.name.casefold())
-        while plugin_name.casefold() in used:
-            plugin_name = f"{base_name} {suffix}"
-            suffix += 1
-        plugin = effect_plugin(
-            preset, name=plugin_name, track=self.name, settings=settings
+        plugin = _chain_effect(
+            self.effects,
+            preset,
+            name=name,
+            channel=self.name,
+            settings=settings,
+            reserved=() if self._instrument is None else (self._instrument.name,),
         )
         self.effects.append(plugin)
         return plugin
+
+    def send(self, bus: Bus, *, gain_db: float = -12.0) -> Send:
+        """Send a post-fader copy of this track to a return bus."""
+
+        if bus._project is not self._project or bus not in self._project.buses:
+            raise ProjectError("A send bus must belong to the same project as its track.")
+        if self.output_bus is bus:
+            raise ProjectError(
+                f"Track {self.name!r} already routes through bus {bus.name!r}; "
+                "a send to the same bus would duplicate it."
+            )
+        if any(send.bus == bus.name for send in self.sends):
+            raise ProjectError(
+                f"Track {self.name!r} already has a send to bus {bus.name!r}."
+            )
+        send = Send(
+            track=self.name,
+            bus=bus.name,
+            gain_db=validate_gain(gain_db, label=f"Send from {self.name!r} to {bus.name!r}"),
+        )
+        self.sends.append(send)
+        return send
 
     def _set_melodic_instrument(
         self,
@@ -492,6 +521,73 @@ class Track:
         )
 
 
+class Bus:
+    """A shared mixer channel for grouped tracks or parallel sends."""
+
+    def __init__(
+        self,
+        project: Project,
+        name: str,
+        *,
+        gain_db: float = 0.0,
+        pan: float = 0.0,
+        muted: bool = False,
+    ) -> None:
+        self._project = project
+        self.name = _name(name, "Bus")
+        self.gain_db = validate_gain(gain_db, label=f"Bus {self.name!r} gain")
+        self.pan = validate_pan(pan)
+        self.muted = bool(muted)
+        self.tracks: list[Track] = []
+        self.effects: list[Plugin] = []
+
+    def add(self, *tracks: Track) -> Self:
+        """Route tracks through this bus before they reach the master."""
+
+        if len({id(track) for track in tracks}) != len(tracks):
+            raise ProjectError("A track can be listed only once when adding it to a bus.")
+        for track in tracks:
+            if track._project is not self._project:
+                raise ProjectError("Bus tracks must belong to the same project as the bus.")
+            if track.output_bus is not None and track.output_bus is not self:
+                raise ProjectError(
+                    f"Track {track.name!r} already routes through bus "
+                    f"{track.output_bus.name!r}."
+                )
+            if track in self.tracks:
+                raise ProjectError(
+                    f"Track {track.name!r} is already in bus {self.name!r}."
+                )
+            if any(send.bus == self.name for send in track.sends):
+                raise ProjectError(
+                    f"Track {track.name!r} already sends to bus {self.name!r}; "
+                    "remove that send before using the bus as its main output."
+                )
+        for track in tracks:
+            track.output_bus = self
+            self.tracks.append(track)
+        return self
+
+    def effect(
+        self,
+        preset: EffectPreset,
+        *,
+        name: str | None = None,
+        **settings: float,
+    ) -> Plugin:
+        """Append a stock effect to this bus in processing order."""
+
+        plugin = _chain_effect(
+            self.effects,
+            preset,
+            name=name,
+            channel=f"Bus {self.name}",
+            settings=settings,
+        )
+        self.effects.append(plugin)
+        return plugin
+
+
 class Project:
     """A complete song described by the producer's ``main.py`` file.
 
@@ -531,6 +627,8 @@ class Project:
         self.master_gain_db = validate_gain(master_gain_db, label="Master gain")
         self.normalize = bool(normalize)
         self.tracks: list[Track] = []
+        self.buses: list[Bus] = []
+        self.master_effects: list[Plugin] = []
         self.sections: list[Section] = []
         self.automation_lanes: list[AutomationLane] = []
 
@@ -554,6 +652,46 @@ class Project:
         track = Track(self, clean, gain_db=gain_db, pan=pan, muted=muted)
         self.tracks.append(track)
         return track
+
+    def bus(
+        self,
+        name: str,
+        *,
+        tracks: Sequence[Track] = (),
+        gain_db: float = 0.0,
+        pan: float = 0.0,
+        muted: bool = False,
+    ) -> Bus:
+        """Create a group or return bus and optionally route tracks through it."""
+
+        clean = _name(name, "Bus")
+        if clean.casefold() == "master" or any(
+            bus.name.casefold() == clean.casefold() for bus in self.buses
+        ):
+            raise ProjectError(f"Bus names must be unique; {clean!r} is already used.")
+        bus = Bus(self, clean, gain_db=gain_db, pan=pan, muted=muted)
+        bus.add(*tracks)
+        self.buses.append(bus)
+        return bus
+
+    def master_effect(
+        self,
+        preset: EffectPreset,
+        *,
+        name: str | None = None,
+        **settings: float,
+    ) -> Plugin:
+        """Append a stock effect to the final master channel."""
+
+        plugin = _chain_effect(
+            self.master_effects,
+            preset,
+            name=name,
+            channel="Master",
+            settings=settings,
+        )
+        self.master_effects.append(plugin)
+        return plugin
 
     def section(
         self,
@@ -726,6 +864,10 @@ class Project:
                     "gain_db": track.gain_db,
                     "pan": track.pan,
                     "muted": track.muted,
+                    "output_bus": (
+                        None if track.output_bus is None else track.output_bus.name
+                    ),
+                    "sends": [asdict(send) for send in track.sends],
                     "part": {"kind": _clip_kind(track.clip), **asdict(track.clip)},
                     "clips": [
                         {
@@ -742,7 +884,7 @@ class Project:
                 }
             )
         return {
-            "schema_version": 3,
+            "schema_version": 4,
             "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,
@@ -752,6 +894,22 @@ class Project:
             "master_gain_db": self.master_gain_db,
             "normalize": self.normalize,
             "tracks": tracks,
+            "buses": [
+                {
+                    "name": bus.name,
+                    "gain_db": bus.gain_db,
+                    "pan": bus.pan,
+                    "muted": bus.muted,
+                    "tracks": [track.name for track in bus.tracks],
+                    "effects": [
+                        _plugin_configuration(effect) for effect in bus.effects
+                    ],
+                }
+                for bus in self.buses
+            ],
+            "master_effects": [
+                _plugin_configuration(effect) for effect in self.master_effects
+            ],
             "sections": [asdict(section) for section in self.sections],
             "automation": [
                 {
@@ -767,9 +925,13 @@ class Project:
         }
 
     def _owns_plugin(self, plugin: Plugin) -> bool:
-        return any(
+        track_plugin = any(
             track.instrument_plugin is plugin or any(effect is plugin for effect in track.effects)
             for track in self.tracks
+        )
+        bus_plugin = any(any(effect is plugin for effect in bus.effects) for bus in self.buses)
+        return track_plugin or bus_plugin or any(
+            effect is plugin for effect in self.master_effects
         )
 
     def _source_name(self, value: str | Path) -> str:
@@ -831,6 +993,31 @@ def _plugin_configuration(plugin: Plugin | None) -> dict[str, object] | None:
         "preset": plugin.preset,
         "settings": dict(plugin.settings),
     }
+
+
+def _chain_effect(
+    chain: Sequence[Plugin],
+    preset: EffectPreset,
+    *,
+    name: str | None,
+    channel: str,
+    settings: dict[str, float],
+    reserved: Sequence[str] = (),
+) -> Plugin:
+    base_name = preset.replace("_", " ").title() if name is None else _name(name, "Plugin")
+    plugin_name = base_name
+    suffix = 2
+    used = {item.name.casefold() for item in chain}
+    used.update(item.casefold() for item in reserved)
+    while plugin_name.casefold() in used:
+        plugin_name = f"{base_name} {suffix}"
+        suffix += 1
+    return effect_plugin(
+        preset,
+        name=plugin_name,
+        track=channel,
+        settings=settings,
+    )
 
 
 def _name(value: str, label: str) -> str:

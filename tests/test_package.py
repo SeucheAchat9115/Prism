@@ -13,6 +13,7 @@ def test_public_package_is_small_and_script_first() -> None:
     assert set(prism.__all__) == {
         "AutomationLane",
         "AutomationPoint",
+        "Bus",
         "MidiResult",
         "Plugin",
         "PrismError",
@@ -22,6 +23,7 @@ def test_public_package_is_small_and_script_first() -> None:
         "RenderError",
         "RenderResult",
         "Section",
+        "Send",
         "Track",
         "__version__",
     }
@@ -56,6 +58,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "10-parameter-reference.md",
         "11-plugins-and-automation.md",
         "12-clips-variations-and-fills.md",
+        "13-buses-sends-and-master-effects.md",
     )
     for name in expected:
         assert (root / "tutorial" / name).is_file()
@@ -73,6 +76,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "08-inspect-and-reproduce.md",
         "11-plugins-and-automation.md",
         "12-clips-variations-and-fills.md",
+        "13-buses-sends-and-master-effects.md",
     ),
 )
 def test_complete_tutorial_projects_are_readable_and_runnable(
@@ -129,6 +133,11 @@ def test_complete_reference_mentions_every_authoring_feature() -> None:
         ".configuration()",
         ".effect(",
         ".automation(",
+        ".bus(",
+        ".send(",
+        ".master_effect(",
+        'section="Chorus"',
+        "start_bar=",
         ".export_midi(",
         ".render(",
     )
