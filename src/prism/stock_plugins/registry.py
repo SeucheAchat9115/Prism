@@ -1,7 +1,19 @@
 """Central registry for Prism's built-in instruments and effects."""
 
 from prism.plugins import Parameter, PluginDefinition, PluginRegistry
-from prism.stock_plugins import bass, delay, distortion, filter, gain, lead, pad
+from prism.stock_plugins import (
+    bass,
+    chorus,
+    compressor,
+    delay,
+    distortion,
+    filter,
+    gain,
+    lead,
+    pad,
+    reverb,
+    tremolo,
+)
 
 stock_registry = PluginRegistry()
 
@@ -10,6 +22,10 @@ _EFFECTS: tuple[PluginDefinition, ...] = (
     filter.definition,
     distortion.definition,
     delay.definition,
+    chorus.definition,
+    reverb.definition,
+    compressor.definition,
+    tremolo.definition,
 )
 for effect in _EFFECTS:
     stock_registry.register(effect)

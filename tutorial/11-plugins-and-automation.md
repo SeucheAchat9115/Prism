@@ -126,3 +126,43 @@ point, producing an immediate change there.
 
 Checkpoint: you can identify the MIDI part, instrument plugin, ordered effect
 chain, and three independent automation tracks in one readable project file.
+
+## 5. Explore the larger effect library
+
+Insert any of these before `Final Tone`, render again, and listen to one change
+at a time:
+
+```python
+lead.effect("chorus", name="Wide Chorus", rate_hz=0.8, depth_ms=6, mix=0.3)
+lead.effect(
+    "compressor",
+    name="Lead Control",
+    threshold_db=-18,
+    ratio=4,
+    attack_ms=10,
+    release_ms=100,
+    makeup_db=2,
+    mix=1,
+)
+lead.effect(
+    "reverb",
+    name="Small Room",
+    room_size=0.55,
+    damping=0.35,
+    width=0.8,
+    mix=0.25,
+)
+lead.effect(
+    "tremolo",
+    name="Pulse",
+    rate_hz=5,
+    depth=0.6,
+    stereo_phase_deg=90,
+    mix=1,
+)
+```
+
+Chorus adds movement and width. Compressor controls loud peaks. Reverb places
+the sound in a room. Tremolo rhythmically changes its level. Every number in
+these calls can be automated by saving the returned effect in a variable and
+using it as the target of `song.automation(...)`.

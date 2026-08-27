@@ -150,7 +150,16 @@ def test_plugin_authoring_errors_are_specific(project_script: Path) -> None:
 
 
 def test_stock_registry_is_the_single_plugin_catalog() -> None:
-    assert {"gain", "filter", "distortion", "delay"} <= STOCK_PLUGINS.presets("effect")
+    assert {
+        "gain",
+        "filter",
+        "distortion",
+        "delay",
+        "chorus",
+        "reverb",
+        "compressor",
+        "tremolo",
+    } <= STOCK_PLUGINS.presets("effect")
     assert {"bass", "lead", "pad"} <= STOCK_PLUGINS.presets("instrument")
     assert STOCK_PLUGINS.get("effect", "filter").processor is not None
     assert STOCK_PLUGINS.get("instrument", "lead").synth_patch is not None
@@ -167,3 +176,44 @@ def test_stock_registry_is_the_single_plugin_catalog() -> None:
     assert local.get("effect", "test_effect") is custom
     with pytest.raises(ProjectError, match="already registered"):
         local.register(custom)
+
+
+@pytest.mark.parametrize("preset", ["chorus", "reverb", "compressor", "tremolo"])
+def test_new_effect_processors_are_deterministic_and_audible(preset: str) -> None:
+    definition = STOCK_PLUGINS.get("effect", preset)
+    assert definition.processor is not None
+    frames = 4_096
+    positions = np.arange(frames, dtype=np.float64) / 8_000.0
+    source = 0.8 * np.sin(2.0 * np.pi * 220.0 * positions)
+    samples = np.column_stack((source, source))
+    parameters = {
+        name: np.full(frames, parameter.default, dtype=np.float64)
+        for name, parameter in definition.parameters.items()
+    }
+
+    first = definition.processor(samples, parameters, 8_000, 120.0)
+    second = definition.processor(samples, parameters, 8_000, 120.0)
+
+    assert first.shape == samples.shape
+    assert np.all(np.isfinite(first))
+    assert np.array_equal(first, second)
+    assert not np.allclose(first, samples)
+
+
+@pytest.mark.parametrize(
+    ("preset", "setting", "invalid"),
+    [
+        ("chorus", "rate_hz", 0.0),
+        ("reverb", "room_size", 1.1),
+        ("compressor", "ratio", 0.5),
+        ("tremolo", "depth", -0.1),
+    ],
+)
+def test_new_effect_parameters_are_validated(
+    project_script: Path, preset: str, setting: str, invalid: float
+) -> None:
+    song = Project("Effect validation", prism_version="test", _script=project_script)
+    track = song.track("Lead").midi("C4")
+
+    with pytest.raises(ProjectError, match=setting):
+        track.effect(preset, **{setting: invalid})

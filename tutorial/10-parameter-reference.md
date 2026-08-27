@@ -168,6 +168,10 @@ Effects process the instrument output in the order they are added. Calling
 | `filter` | `cutoff_hz=1200`, `mix=1` | 20–20000 Hz; mix 0–1 |
 | `distortion` | `drive_db=12`, `mix=0.5` | drive 0–36 dB; mix 0–1 |
 | `delay` | `time_beats=0.5`, `feedback=0.25`, `mix=0.2` | time 0.03125–4 beats; feedback 0–0.95; mix 0–1 |
+| `chorus` | `rate_hz=0.8`, `depth_ms=6`, `mix=0.3` | rate 0.05–10 Hz; depth 0–20 ms; mix 0–1 |
+| `reverb` | `room_size=0.55`, `damping=0.35`, `width=0.8`, `mix=0.25` | room 0–1; damping 0–0.95; width and mix 0–1 |
+| `compressor` | `threshold_db=-18`, `ratio=4`, `attack_ms=10`, `release_ms=100`, `makeup_db=0`, `mix=1` | threshold -60–0 dB; ratio 1–20; attack 0.1–200 ms; release 5–2000 ms; makeup 0–24 dB; mix 0–1 |
+| `tremolo` | `rate_hz=5`, `depth=0.6`, `stereo_phase_deg=0`, `mix=1` | rate 0.05–20 Hz; depth and mix 0–1; stereo phase 0–180° |
 
 The returned `Plugin` object identifies the exact effect and can be saved in a
 readable variable for automation.

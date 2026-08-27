@@ -148,7 +148,7 @@ rejects absolute paths and paths that leave the project folder.
 - `audio(...)` plays a complete loop or one-shot.
 - `midi(...)` writes notes and renders a built-in `bass`, `lead`, or `pad`.
 - `instrument(...)` separates a MIDI part from its stock synthesizer settings.
-- `effect(...)` adds an ordered stock gain, filter, distortion, or delay plugin.
+- `effect(...)` adds ordered stock dynamics, tone, modulation, delay, and reverb plugins.
 - `automation(...)` moves a plugin setting at exact song positions in bars.
 - `section(...)` puts parts into the song in playback order.
 - `validate()` checks the project and explains authoring mistakes.
@@ -191,6 +191,8 @@ echo = lead.effect(
     mix=0.15,
 )
 
+lead.effect("chorus", name="Width", rate_hz=0.8, depth_ms=6, mix=0.25)
+lead.effect("reverb", name="Room", room_size=0.55, damping=0.35, mix=0.2)
 lead.effect("filter", name="Final Tone", cutoff_hz=4000)
 
 song.automation(
