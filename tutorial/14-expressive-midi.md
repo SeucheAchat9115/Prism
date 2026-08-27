@@ -16,7 +16,7 @@ beat. Unlike compact note strings, notes do not need to sit on equal steps.
 ## 2. Replace `main.py`
 
 ```python
-from prism import Note, Project
+from prism import Note, Project, Uniwave
 
 
 song = Project(
@@ -42,7 +42,7 @@ bass = song.track("Human Bass", gain_db=-7, pan=-0.1).midi(
         Note("Bb1", start=5.5, duration=0.4, velocity=88),
         Note("C2", start=6.5, duration=1.2, velocity=116),
     ],
-    instrument="bass",
+    instrument=Uniwave.bass(),
     bars=2,
     swing=0.64,
     humanize_timing_ms=7,
@@ -58,6 +58,7 @@ lead = song.track("Bending Lead", gain_db=-10, pan=0.2).midi(
         Note("C5", start=3.5, duration=2.0, velocity=118),
         Note("G4", start=6.0, duration=1.5, velocity=86),
     ],
+    instrument=Uniwave.lead(),
     bars=2,
     pitch_bend=[(0, 0), (1, 2), (2, 0), (4, -2), (5, 0)],
     modulation=[(0, 0), (3, 0.25), (5, 1), (8, 0)],

@@ -100,17 +100,13 @@ The deterministic `seed` accepts 0–4294967295. A built-in drum part accepts
 ## `midi(...)`
 
 ```python
+from prism import Uniwave
+
 part.midi(
     "C4 Eb4 G4 C4+Eb4+G4 | - Bb3 G3 -",
-    instrument="lead",
+    instrument=Uniwave.lead(),
     bars=2,
     velocity=100,
-    waveform="square",
-    attack_ms=8,
-    decay_ms=90,
-    sustain=0.62,
-    release_ms=140,
-    cutoff_hz=3600,
     gate=0.82,
     gain_db=-6,
     section=None,
@@ -122,15 +118,9 @@ part.midi(
 | Parameter | Default | Accepted values |
 | --- | --- | --- |
 | `notes` | required | Compact equal-step notation or a non-empty list of `Note` objects |
-| `instrument` | `lead` | `bass`, `lead`, or `pad` |
+| `instrument` | `Uniwave()` | A `Uniwave` sound; `Uniwave.bass()`, `.lead()`, and `.pad()` are ready-made starting points |
 | `bars` | `1` | 1–256 and at most 120 seconds |
 | `velocity` | `100` | 1–127 |
-| `waveform` | instrument preset | `sine`, `triangle`, `saw`, or `square` |
-| `attack_ms` | instrument preset | 0–5000 ms |
-| `decay_ms` | instrument preset | 0–5000 ms |
-| `sustain` | instrument preset | 0.0–1.0 |
-| `release_ms` | instrument preset | 0–5000 ms |
-| `cutoff_hz` | instrument preset | 20–20000 Hz |
 | `gate` | `0.8` | 0.05–1.0 of each step |
 | `gain_db` | `-6` | -60 through +12 dB |
 | `section` | `None` | A section name, or `None` for the default clip |
@@ -180,6 +170,63 @@ identical on every render; `configuration()` shows those resolved note values.
 The compact string form still uses the clip-wide `velocity` and `gate` values.
 Explicit `Note` objects use their own velocities and durations instead.
 
+## `SynthWave(...)` and `Uniwave(...)`
+
+Uniwave is Prism's native polyphonic synthesizer. Give a MIDI clip a ready-made
+sound with `Uniwave.bass()`, `Uniwave.lead()`, or `Uniwave.pad()`, or combine one
+to four independently configured waves:
+
+```python
+from prism import SynthWave, Uniwave
+
+sound = Uniwave(
+    waves=(
+        SynthWave("saw", level=0.7, detune_cents=-7),
+        SynthWave("saw", level=0.7, detune_cents=7, phase=0.25),
+        SynthWave("square", level=0.2, octave=1),
+    ),
+    attack_ms=8,
+    decay_ms=140,
+    sustain=0.65,
+    release_ms=180,
+    cutoff_hz=5000,
+    resonance=0.15,
+    drive=0.05,
+    vibrato_rate_hz=5,
+    vibrato_depth_cents=8,
+    noise_level=0.02,
+    noise_seed=0,
+)
+```
+
+| `SynthWave` parameter | Default | Accepted values |
+| --- | --- | --- |
+| `waveform` | `"saw"` | `"sine"`, `"triangle"`, `"saw"`, or `"square"` |
+| `level` | `1.0` | 0–1 |
+| `octave` | `0` | Integer from -3 through +3 |
+| `semitones` | `0` | Integer from -12 through +12 |
+| `detune_cents` | `0` | -100 through +100 cents |
+| `phase` | `0` | 0–1 of one wave cycle |
+
+| `Uniwave` parameter | Default | Accepted values |
+| --- | --- | --- |
+| `waves` | One saw wave | Tuple containing 1–4 `SynthWave` objects |
+| `attack_ms` | `8` | 0–5000 ms |
+| `decay_ms` | `140` | 0–5000 ms |
+| `sustain` | `0.65` | 0–1 |
+| `release_ms` | `180` | 0–5000 ms |
+| `cutoff_hz` | `5000` | 20–20000 Hz |
+| `resonance` | `0.15` | 0–0.95 |
+| `drive` | `0.05` | 0–1 |
+| `vibrato_rate_hz` | `5` | 0.1–20 Hz |
+| `vibrato_depth_cents` | `0` | 0–100 cents |
+| `noise_level` | `0` | 0–1 |
+| `noise_seed` | `0` | 0–4294967295 |
+
+Each MIDI note creates its own voice, so chords are polyphonic. Pitch bend and
+modulation from `midi(...)` affect every active voice; modulation adds up to 50
+cents of vibrato depth. Noise is local and seeded, so rerenders remain exact.
+
 ## Clip placement and section variations
 
 The `sample(...)`, `audio(...)`, `drum(...)`, and `midi(...)` methods can be
@@ -207,23 +254,19 @@ separate form when you want the signal flow to be especially visible or need a
 plugin object for automation:
 
 ```python
+from prism import Uniwave
+
 part = song.track("Lead").midi("C4 E4 G4 -", bars=2, velocity=100)
 synth = part.instrument(
-    "lead",
-    name="Stock Lead",
-    waveform="saw",
-    attack_ms=8,
-    decay_ms=90,
-    sustain=0.62,
-    release_ms=140,
-    cutoff_hz=3600,
+    Uniwave.lead(),
+    name="Uniwave Lead",
     gain_db=-6,
 )
 ```
 
-The presets and parameter ranges match `midi(...)`. MIDI owns the notes,
-`bars`, `velocity`, and `gate`; the instrument owns waveform, envelope, cutoff,
-and instrument gain. `instrument()` follows `midi()` on the same track.
+The sound and parameter ranges match `midi(...)`. MIDI owns the notes, `bars`,
+`velocity`, and `gate`; the Uniwave object owns its waves, envelope, tone, and
+movement. `instrument()` follows `midi()` on the same track.
 
 ## `effect(...)`
 

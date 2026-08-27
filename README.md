@@ -74,7 +74,7 @@ when you run it.
 ## What `main.py` looks like
 
 ```python
-from prism import Project
+from prism import Project, Uniwave
 
 song = Project(
     "My Song",
@@ -89,7 +89,7 @@ kick = song.track("Kick", gain_db=-3).drum(
 
 bass = song.track("Bass", gain_db=-6).midi(
     "C2 - C2 Eb2 | G1 - Bb1 -",
-    instrument="bass",
+    instrument=Uniwave.bass(),
     bars=2,
 )
 
@@ -146,7 +146,7 @@ rejects absolute paths and paths that leave the project folder.
 - `drum(...)` creates a built-in `kick`, `snare`, or `hihat`.
 - `sample(...)` triggers your sound with a rhythm such as `x--- x---`.
 - `audio(...)` plays a complete loop or one-shot.
-- `midi(...)` writes notes and renders a built-in `bass`, `lead`, or `pad`.
+- `midi(...)` writes notes and renders Prism's built-in Uniwave synthesizer.
 - `Note(...)` gives individual MIDI notes their own position, length, and velocity.
 - `instrument(...)` separates a MIDI part from its stock synthesizer settings.
 - `effect(...)` adds ordered stock dynamics, tone, modulation, delay, and reverb plugins.
@@ -176,16 +176,18 @@ instrument turns those events into sound. Effects process that sound from top
 to bottom in the order you add them. A track can contain several effects.
 
 ```python
+from prism import Uniwave
+
 lead = song.track("Lead", gain_db=-8).midi(
     "C4 E4 G4 Bb4 | G4 E4 D4 -",
     bars=2,
     velocity=96,
+    instrument=Uniwave.lead(),
 )
 
 synth = lead.instrument(
-    "lead",
-    waveform="saw",
-    cutoff_hz=1200,
+    Uniwave.lead(),
+    name="Uniwave Lead",
 )
 
 echo = lead.effect(
@@ -253,6 +255,7 @@ lead = song.track("Lead").midi(
     humanize_timing_ms=6,
     humanize_velocity=4,
     humanize_seed=42,
+    instrument=Uniwave.lead(),
 )
 ```
 

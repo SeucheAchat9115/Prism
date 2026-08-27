@@ -168,6 +168,7 @@ def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
         note_events=clip.events,
         pitch_bend=clip.pitch_bend,
         modulation=clip.modulation,
+        uniwave=clip.uniwave,
         bars=clip.bars,
         waveform=clip.waveform,
         attack_ms=clip.attack_ms,

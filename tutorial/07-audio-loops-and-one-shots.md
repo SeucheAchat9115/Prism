@@ -9,7 +9,7 @@ Using your file manager, copy two audio files that you own into the project’s
 Replace the project’s `main.py` with:
 
 ```python
-from prism import Project
+from prism import Project, Uniwave
 
 
 song = Project("Audio Files", prism_version="0.2.0.dev0", tempo=120)
@@ -29,7 +29,7 @@ vocal = song.track("Vocal Shot", gain_db=-5, pan=0.25).audio(
 
 bass = song.track("Bass", gain_db=-7, pan=-0.15).midi(
     "C2 - C2 - | G1 - Bb1 -",
-    instrument="bass",
+    instrument=Uniwave.bass(),
     bars=2,
 )
 

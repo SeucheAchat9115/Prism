@@ -6,7 +6,7 @@ self-contained and uses no external samples.
 ## 1. Write the complete `main.py`
 
 ```python
-from prism import Project
+from prism import Project, Uniwave
 
 
 song = Project(
@@ -36,20 +36,20 @@ hat = song.track("Hi-Hat", gain_db=-12, pan=0.25).drum(
 
 bass = song.track("Bass", gain_db=-6, pan=-0.12).midi(
     "C2 - C2 Eb2 | G1 - Bb1 -",
-    instrument="bass",
+    instrument=Uniwave.bass(),
     bars=2,
 )
 
 pad = song.track("Pad", gain_db=-11, pan=-0.3).midi(
     "C3+Eb3+G3 - | Ab2+C3+Eb3 -",
-    instrument="pad",
+    instrument=Uniwave.pad(),
     bars=2,
     velocity=80,
 )
 
 lead = song.track("Lead", gain_db=-9, pan=0.3).midi(
     "G4 Bb4 C5 - | G4 F4 Eb4 -",
-    instrument="lead",
+    instrument=Uniwave.lead(),
     bars=2,
     velocity=95,
 )

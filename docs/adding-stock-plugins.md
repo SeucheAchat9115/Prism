@@ -152,14 +152,22 @@ Add tests to `tests/test_plugins.py` that prove:
 
 ## Add a stock melodic instrument
 
-The following example describes a hypothetical `pluck` instrument.
+The following example describes a hypothetical `pluck` instrument. Use
+`src/prism/stock_plugins/uniwave.py` as the reference for a complete custom
+synthesizer whose schema, serialization, and DSP live in one file.
 
 ### 1. Create the plugin module
 
-Create `src/prism/stock_plugins/pluck.py` with its defaults, `SynthPatch`,
-parameters, and MIDI program:
+Create `src/prism/stock_plugins/pluck.py` with its render callback, parameters,
+defaults, and MIDI program:
 
 ```python
+def render(spec, sample_rate, tempo_bpm, beats_per_bar):
+    # Build and return one float64 mono array with the clip's exact frame count.
+    # Read note events and controller points from spec.
+    ...
+
+
 definition = PluginDefinition(
     preset="pluck",
     kind="instrument",
@@ -167,30 +175,31 @@ definition = PluginDefinition(
         "gain_db": Parameter(-6.0, -60.0, 12.0),
         "cutoff_hz": Parameter(4200.0, 20.0, 20_000.0),
     },
-    defaults={"waveform": "triangle", "attack_ms": 2.0, "decay_ms": 180.0,
-              "sustain": 0.2, "release_ms": 120.0, "cutoff_hz": 4200.0,
-              "gain_db": -6.0},
+    defaults={"decay_ms": 180.0, "cutoff_hz": 4200.0, "gain_db": -6.0},
     midi_program=45,
     melodic=True,
-    synth_patch=SynthPatch("triangle", 2.0, 180.0, 0.2, 120.0, 4200.0, 0.55, 0.32),
+    synth_processor=render,
 )
 ```
 
-Import `Parameter`, `PluginDefinition`, and `SynthPatch` in the module.
+Import `Parameter` and `PluginDefinition` in the module. The callback receives
+the resolved MIDI clip and project timing, and returns its deterministic mono
+audio. Keep any plugin-specific configuration dataclass and serializer in this
+same file unless it is part of Prism's public authoring API.
 
 ### 2. Register the module
 
 Import `pluck` in `src/prism/stock_plugins/registry.py` and append
 `pluck.definition` to the instrument registrations. A melodic definition with
-`synth_patch` is automatically accepted by `midi()` and uses its `midi_program`
-for MIDI export.
+`synth_processor` is accepted by the synthesis engine and uses its
+`midi_program` for MIDI export.
 
 ### 3. Define or extend synthesis behavior
 
-If the new instrument uses the existing oscillator/envelope engine, its
-`SynthPatch` is enough. A genuinely new synthesis algorithm should add a
-processor callback to the definition and a small dispatch extension in the
-engine; keep that callback in the plugin module.
+The callback on `PluginDefinition` is the generic engine hook. No named
+renderer dispatch or plugin-specific branch is needed elsewhere. Keep the
+complete synthesis algorithm in the plugin module; only add shared engine
+infrastructure when several plugins genuinely need the same primitive.
 
 ### 4. Decide which settings can be automated
 

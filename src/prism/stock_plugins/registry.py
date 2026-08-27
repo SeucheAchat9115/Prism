@@ -13,6 +13,7 @@ from prism.stock_plugins import (
     pad,
     reverb,
     tremolo,
+    uniwave,
 )
 
 stock_registry = PluginRegistry()
@@ -30,7 +31,7 @@ _EFFECTS: tuple[PluginDefinition, ...] = (
 for effect in _EFFECTS:
     stock_registry.register(effect)
 
-for instrument in (bass.definition, lead.definition, pad.definition):
+for instrument in (uniwave.definition, bass.definition, lead.definition, pad.definition):
     stock_registry.register(instrument)
 
 for preset in ("sampler", "audio_player", "kick", "snare", "hihat"):

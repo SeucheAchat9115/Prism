@@ -10,7 +10,7 @@ Replace the project’s `main.py` with this complete reference:
 ```python
 from pprint import pprint
 
-from prism import Note, Project
+from prism import Note, Project, SynthWave, Uniwave
 
 
 song = Project(
@@ -47,15 +47,11 @@ hat = song.track("Hi-Hat", gain_db=-13, pan=0.3).drum(
 )
 bass = song.track("Bass", gain_db=-6, pan=-0.15).midi(
     "C2 - C2 Eb2 | G1 - Bb1 -",
-    instrument="bass", bars=2, velocity=105, waveform="saw",
-    attack_ms=5, decay_ms=100, sustain=0.58, release_ms=110,
-    cutoff_hz=900, gate=0.78, gain_db=-4,
+    instrument=Uniwave.bass(), bars=2, velocity=105, gate=0.78, gain_db=-4,
 )
 pad = song.track("Pad", gain_db=-12, pan=-0.3).midi(
     "C3+Eb3+G3 - | Ab2+C3+Eb3 -",
-    instrument="pad", bars=2, velocity=85, waveform="triangle",
-    attack_ms=180, decay_ms=380, sustain=0.76, release_ms=420,
-    cutoff_hz=2400, gate=0.92, gain_db=-6,
+    instrument=Uniwave.pad(), bars=2, velocity=85, gate=0.92, gain_db=-6,
 )
 lead = song.track("Lead", gain_db=-10, pan=0.35).midi(
     "C4 D4 Eb4 G4 | Bb4 G4 Eb4 -",
@@ -72,9 +68,19 @@ lead.midi(
     humanize_timing_ms=6, humanize_velocity=4, humanize_seed=42,
 )
 lead_synth = lead.instrument(
-    "lead", name="Stock Lead", waveform="square",
-    attack_ms=8, decay_ms=90, sustain=0.62, release_ms=140,
-    cutoff_hz=3600, gain_db=-6,
+    Uniwave(
+        waves=(
+            SynthWave("sine", level=0.15, octave=-1),
+            SynthWave("triangle", level=0.25, phase=0.25),
+            SynthWave("saw", level=0.7, detune_cents=-7),
+            SynthWave("square", level=0.35, detune_cents=7),
+        ),
+        attack_ms=8, decay_ms=90, sustain=0.62, release_ms=140,
+        cutoff_hz=3600, resonance=0.22, drive=0.14,
+        vibrato_rate_hz=5.2, vibrato_depth_cents=8,
+        noise_level=0.02, noise_seed=19,
+    ),
+    name="Uniwave Lead", gain_db=-6,
 )
 lead.effect("distortion", name="Lead Drive", drive_db=8, mix=0.2)
 lead_echo = lead.effect(
@@ -92,7 +98,7 @@ lead.send(room, gain_db=-14)
 vocal.send(room, gain_db=-10)
 song.master_effect("compressor", name="Master Control", threshold_db=-8, ratio=2)
 muted_idea = song.track("Muted Sine Idea", muted=True).midi(
-    "C5 - G4 -", instrument="lead", waveform="sine"
+    "C5 - G4 -", instrument=Uniwave(waves=(SynthWave("sine"),))
 )
 
 song.section("Intro", bars=2, tracks=[built_in_kick, loop, pad])
@@ -134,7 +140,8 @@ Run the command Prism printed for your timestamped tutorial project.
 Listen to `renders/complete-song.wav` inside the project folder.
 
 This project demonstrates triggered samples, looping audio, one-shots, all
-three drums, all three melodic instruments, all four waveforms, chords, rests, every synth control,
+three drums, three Uniwave sound designs, all four waveforms, chords, rests,
+every Uniwave synth control,
 track and clip gain, panning, muting, explicit sections, an all-track section,
 validation, configuration inspection, MIDI export, WAV rendering, and result
 hashes. It also demonstrates an explicit stock instrument, an ordered

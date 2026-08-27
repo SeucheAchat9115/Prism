@@ -39,6 +39,7 @@ in your normal music player. Keep the terminal in the repository root.
 | 12 | [Clips, variations, and fills](12-clips-variations-and-fills.md) | Multiple clips per track and section-specific arrangements |
 | 13 | [Buses, sends, and master effects](13-buses-sends-and-master-effects.md) | Group processing, shared returns, and final mix processing |
 | 14 | [Expressive MIDI](14-expressive-midi.md) | Free note timing, duration, velocity, controllers, swing, and humanization |
+| 15 | [Design sounds with Uniwave](15-uniwave-synthesizer.md) | Layered oscillators, tuning, envelopes, filtering, drive, noise, and vibrato |
 
 Levels are independent: every page shows the whole `main.py`, not only a diff.
 You can replace the file at each level or put each level in a separate folder.
@@ -81,8 +82,9 @@ the Prism version used when that project was created.
 | Built-in kick, snare, and hi-hat | Levels 1, 4, and 9 |
 | Triggered project-local samples | Levels 2 and 9 |
 | Full audio loops and one-shots | Levels 7 and 9 |
-| Bass, lead, pad, rests, accidentals, and chords | Levels 3 and 9 |
-| Waveform, ADSR, cutoff, gate, velocity, and clip gain | Levels 5 and 9 |
+| Uniwave bass, lead, pad, rests, accidentals, and chords | Levels 3, 9, and 15 |
+| Independent waves, tuning, ADSR, filter, drive, noise, and vibrato | Level 15 |
+| Gate, velocity, and clip gain | Levels 5, 9, and 15 |
 | Track gain, pan, and mute | Levels 5 and 9 |
 | Explicit and all-track sections | Levels 4 and 9 |
 | Validation and resolved configuration | Level 8 |

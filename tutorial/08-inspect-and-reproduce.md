@@ -8,7 +8,7 @@ Replace the project’s `main.py` with:
 ```python
 from pprint import pprint
 
-from prism import Project
+from prism import Project, Uniwave
 
 
 song = Project(
@@ -25,7 +25,7 @@ song = Project(
 kick = song.track("Kick", gain_db=-3).drum("kick", "x--- x--- x--- x---")
 lead = song.track("Lead", gain_db=-9, pan=0.2).midi(
     "C4 E4 G4 Bb4 | G4 E4 D4 -",
-    instrument="lead",
+    instrument=Uniwave.lead(),
 )
 
 song.section("Loop", bars=2, tracks=[kick, lead])

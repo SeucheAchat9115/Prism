@@ -15,7 +15,7 @@ the default there. `start_bar` is counted from the start of that section, and
 ## 2. Replace `main.py`
 
 ```python
-from prism import Project
+from prism import Project, Uniwave
 
 
 song = Project(
@@ -43,12 +43,12 @@ snare.drum("snare", "---- x--- --x- x-x-", section="Chorus")
 
 bass = song.track("Bass", gain_db=-7).midi(
     "C2 - C2 Eb2 | G1 - Bb1 -",
-    instrument="bass",
+    instrument=Uniwave.bass(),
     bars=2,
 )
 bass.midi(
     "Ab1 - Bb1 C2 | Eb2 - G2 -",
-    instrument="bass",
+    instrument=Uniwave.bass(),
     bars=2,
     section="Chorus",
 )
@@ -56,6 +56,7 @@ bass.effect("compressor", threshold_db=-20, ratio=4, makeup_db=2)
 
 lead = song.track("Lead", gain_db=-10, pan=0.2).midi(
     "C4 Eb4 G4 - | Bb4 G4 Eb4 -",
+    instrument=Uniwave.lead(),
     bars=2,
     section="Chorus",
 )

@@ -42,18 +42,29 @@ def render_native_synth(
     if seconds > MAX_SYNTH_SECONDS:
         raise ValueError(f"native synth output cannot exceed {MAX_SYNTH_SECONDS:g} seconds")
     frames = max(1, int(round(seconds * sample_rate)))
-    boundaries = np.rint(np.linspace(0, frames, len(spec.sequence) + 1)).astype(np.int64)
-    samples = np.zeros(frames, dtype=np.float64)
-    if spec.preset in {"kick", "snare", "hihat"}:
-        _render_percussion(samples, boundaries, spec, sample_rate)
+    definition = STOCK_PLUGINS.get("instrument", spec.preset)
+    if definition.synth_processor is not None:
+        rendered = definition.synth_processor(spec, sample_rate, tempo_bpm, beats_per_bar)
+        samples = np.asarray(rendered, dtype=np.float64)
+        if samples.shape != (frames,):
+            raise ValueError(
+                f"Instrument {spec.preset!r} returned {samples.shape}, expected {(frames,)}"
+            )
     else:
-        _render_melodic(
-            samples,
-            boundaries,
-            spec,
-            sample_rate,
-            frames_per_beat=sample_rate * 60.0 / tempo_bpm,
+        boundaries = np.rint(np.linspace(0, frames, len(spec.sequence) + 1)).astype(
+            np.int64
         )
+        samples = np.zeros(frames, dtype=np.float64)
+        if spec.preset in {"kick", "snare", "hihat"}:
+            _render_percussion(samples, boundaries, spec, sample_rate)
+        else:
+            _render_melodic(
+                samples,
+                boundaries,
+                spec,
+                sample_rate,
+                frames_per_beat=sample_rate * 60.0 / tempo_bpm,
+            )
     gain = 10.0 ** (spec.gain_db / 20.0)
     samples *= gain
     samples = np.tanh(samples * 1.15) / math.tanh(1.15)

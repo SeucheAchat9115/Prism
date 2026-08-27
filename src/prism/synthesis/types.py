@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal
 
+from prism.errors import ProjectError
 from prism.music import ControlPoint, Note, note_steps, rhythm_steps
 
 SynthPreset = str
@@ -29,6 +30,122 @@ class SynthPatch:
     gate: float
     amplitude: float
 
+
+@dataclass(frozen=True, slots=True)
+class SynthWave:
+    """One independently tuned oscillator inside a Uniwave instrument."""
+
+    waveform: SynthWaveform = "saw"
+    level: float = 1.0
+    octave: int = 0
+    semitones: int = 0
+    detune_cents: float = 0.0
+    phase: float = 0.0
+
+    def __post_init__(self) -> None:
+        if self.waveform not in {"sine", "triangle", "saw", "square"}:
+            raise ProjectError("SynthWave waveform must be sine, triangle, saw, or square.")
+        _uniwave_range(self.level, 0.0, 1.0, "SynthWave level")
+        if not isinstance(self.octave, int) or not -3 <= self.octave <= 3:
+            raise ProjectError("SynthWave octave must be an integer between -3 and 3.")
+        if not isinstance(self.semitones, int) or not -12 <= self.semitones <= 12:
+            raise ProjectError("SynthWave semitones must be an integer between -12 and 12.")
+        _uniwave_range(self.detune_cents, -100.0, 100.0, "SynthWave detune_cents")
+        _uniwave_range(self.phase, 0.0, 1.0, "SynthWave phase")
+
+
+@dataclass(frozen=True, slots=True)
+class Uniwave:
+    """Prism's configurable multi-wave native synthesizer."""
+
+    waves: tuple[SynthWave, ...] = field(default_factory=lambda: (SynthWave(),))
+    attack_ms: float = 8.0
+    decay_ms: float = 140.0
+    sustain: float = 0.65
+    release_ms: float = 180.0
+    cutoff_hz: float = 5_000.0
+    resonance: float = 0.15
+    drive: float = 0.05
+    vibrato_rate_hz: float = 5.0
+    vibrato_depth_cents: float = 0.0
+    noise_level: float = 0.0
+    noise_seed: int = 0
+
+    def __post_init__(self) -> None:
+        waves = tuple(self.waves)
+        object.__setattr__(self, "waves", waves)
+        if not 1 <= len(waves) <= 4 or not all(isinstance(wave, SynthWave) for wave in waves):
+            raise ProjectError("Uniwave needs between 1 and 4 SynthWave oscillators.")
+        _uniwave_range(self.attack_ms, 0.0, 5_000.0, "Uniwave attack_ms")
+        _uniwave_range(self.decay_ms, 0.0, 5_000.0, "Uniwave decay_ms")
+        _uniwave_range(self.sustain, 0.0, 1.0, "Uniwave sustain")
+        _uniwave_range(self.release_ms, 0.0, 5_000.0, "Uniwave release_ms")
+        _uniwave_range(self.cutoff_hz, 20.0, 20_000.0, "Uniwave cutoff_hz")
+        _uniwave_range(self.resonance, 0.0, 0.95, "Uniwave resonance")
+        _uniwave_range(self.drive, 0.0, 1.0, "Uniwave drive")
+        _uniwave_range(self.vibrato_rate_hz, 0.1, 20.0, "Uniwave vibrato_rate_hz")
+        _uniwave_range(
+            self.vibrato_depth_cents, 0.0, 100.0, "Uniwave vibrato_depth_cents"
+        )
+        _uniwave_range(self.noise_level, 0.0, 1.0, "Uniwave noise_level")
+        if not isinstance(self.noise_seed, int) or not 0 <= self.noise_seed <= 4_294_967_295:
+            raise ProjectError("Uniwave noise_seed must be between 0 and 4294967295.")
+
+    @classmethod
+    def bass(cls) -> Uniwave:
+        """Return a solid two-wave bass starting point."""
+
+        return cls(
+            waves=(
+                SynthWave("saw", level=0.8),
+                SynthWave("square", level=0.3, octave=-1, detune_cents=4),
+            ),
+            attack_ms=4,
+            decay_ms=110,
+            sustain=0.58,
+            release_ms=120,
+            cutoff_hz=1_100,
+            resonance=0.22,
+            drive=0.18,
+        )
+
+    @classmethod
+    def lead(cls) -> Uniwave:
+        """Return a wide detuned lead starting point."""
+
+        return cls(
+            waves=(
+                SynthWave("saw", level=0.7, detune_cents=-7),
+                SynthWave("saw", level=0.7, detune_cents=7),
+                SynthWave("square", level=0.2, octave=1),
+            ),
+            cutoff_hz=4_800,
+            resonance=0.18,
+            drive=0.12,
+            vibrato_depth_cents=8,
+        )
+
+    @classmethod
+    def pad(cls) -> Uniwave:
+        """Return a soft layered pad starting point."""
+
+        return cls(
+            waves=(
+                SynthWave("triangle", level=0.75, detune_cents=-5),
+                SynthWave("triangle", level=0.75, detune_cents=5),
+                SynthWave("sine", level=0.25, octave=1),
+            ),
+            attack_ms=220,
+            decay_ms=420,
+            sustain=0.78,
+            release_ms=520,
+            cutoff_hz=3_200,
+            resonance=0.1,
+            drive=0.03,
+            vibrato_rate_hz=4.2,
+            vibrato_depth_cents=5,
+        )
+
 @dataclass(frozen=True, slots=True)
 class NativeSynthSpec:
     preset: SynthPreset
@@ -36,6 +153,7 @@ class NativeSynthSpec:
     note_events: tuple[Note, ...] = ()
     pitch_bend: tuple[ControlPoint, ...] = ()
     modulation: tuple[ControlPoint, ...] = ()
+    uniwave: Uniwave | None = None
     bars: int = 1
     waveform: SynthWaveform | None = None
     attack_ms: float | None = None
@@ -93,3 +211,8 @@ def _optional_range(value: float | None, low: float, high: float, label: str) ->
 def _range(value: float, low: float, high: float, label: str) -> None:
     if not math.isfinite(value) or not low <= value <= high:
         raise ValueError(f"{label} must be between {low:g} and {high:g}")
+
+
+def _uniwave_range(value: float, low: float, high: float, label: str) -> None:
+    if not math.isfinite(value) or not low <= value <= high:
+        raise ProjectError(f"{label} must be between {low:g} and {high:g}.")

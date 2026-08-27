@@ -17,11 +17,15 @@ EffectPreset = str
 if TYPE_CHECKING:
     import numpy as np
 
+    from prism.synthesis.types import NativeSynthSpec
+
     Processor = Callable[
         [np.ndarray, Mapping[str, "np.ndarray"], int, float], np.ndarray
     ]
+    SynthProcessor = Callable[["NativeSynthSpec", int, float, int], np.ndarray]
 else:
     Processor = Callable[..., object]
+    SynthProcessor = Callable[..., object]
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +50,7 @@ class PluginDefinition:
     synth_patch: SynthPatch | None = None
     melodic: bool = False
     drum_note: int | None = None
+    synth_processor: SynthProcessor | None = None
 
 
 class PluginRegistry:

@@ -32,6 +32,7 @@ from prism.synthesis.engine import native_instrument_settings
 from prism.synthesis.types import (
     MAX_SYNTH_SECONDS,
     SynthWaveform,
+    Uniwave,
 )
 
 if TYPE_CHECKING:
@@ -67,6 +68,7 @@ class DrumClip:
 @dataclass(frozen=True, slots=True)
 class MidiClip:
     instrument: str
+    uniwave: Uniwave | None
     notes: tuple[str, ...]
     events: tuple[Note, ...]
     pitch_bend: tuple[ControlPoint, ...]
@@ -305,7 +307,7 @@ class Track:
         self,
         notes: str | Sequence[str] | Sequence[Note],
         *,
-        instrument: str = "lead",
+        instrument: str | Uniwave = "uniwave",
         bars: int = 1,
         velocity: int = 100,
         waveform: SynthWaveform | None = None,
@@ -328,7 +330,16 @@ class Track:
     ) -> Self:
         """Add a placed MIDI-note clip rendered by this track's instrument."""
 
-        definition = STOCK_PLUGINS.get("instrument", instrument)
+        preset, uniwave = _resolve_instrument(
+            instrument,
+            waveform=waveform,
+            attack_ms=attack_ms,
+            decay_ms=decay_ms,
+            sustain=sustain,
+            release_ms=release_ms,
+            cutoff_hz=cutoff_hz,
+        )
+        definition = STOCK_PLUGINS.get("instrument", preset)
         if not definition.melodic:
             raise ProjectError("MIDI instruments must be melodic stock instruments.")
         _waveform(waveform)
@@ -371,19 +382,20 @@ class Track:
         )
         self._add_clip(
             MidiClip(
-                instrument=instrument,
+                instrument=preset,
+                uniwave=uniwave,
                 notes=notation,
                 events=events,
                 pitch_bend=bends,
                 modulation=modulation_points,
                 bars=resolved_bars,
                 velocity=velocity,
-                waveform=waveform,
-                attack_ms=attack_ms,
-                decay_ms=decay_ms,
-                sustain=sustain,
-                release_ms=release_ms,
-                cutoff_hz=cutoff_hz,
+                waveform=None if uniwave is not None else waveform,
+                attack_ms=None if uniwave is not None else attack_ms,
+                decay_ms=None if uniwave is not None else decay_ms,
+                sustain=None if uniwave is not None else sustain,
+                release_ms=None if uniwave is not None else release_ms,
+                cutoff_hz=None if uniwave is not None else cutoff_hz,
                 gate=float(gate),
                 gain_db=validate_gain(gain_db, label=f"MIDI track {self.name!r} clip gain"),
                 swing=float(swing),
@@ -396,12 +408,12 @@ class Track:
             repeat=repeat,
         )
         if self._instrument is None:
-            self._set_melodic_instrument(instrument, name=None)
+            self._set_melodic_instrument(preset, name=None)
         return self
 
     def instrument(
         self,
-        preset: str,
+        preset: str | Uniwave,
         *,
         name: str | None = None,
         waveform: SynthWaveform | None = None,
@@ -417,7 +429,16 @@ class Track:
         clip = self.clip
         if not isinstance(clip, MidiClip):
             raise ProjectError("instrument() follows midi() on the same track.")
-        definition = STOCK_PLUGINS.get("instrument", preset)
+        preset_name, uniwave = _resolve_instrument(
+            preset,
+            waveform=waveform,
+            attack_ms=attack_ms,
+            decay_ms=decay_ms,
+            sustain=sustain,
+            release_ms=release_ms,
+            cutoff_hz=cutoff_hz,
+        )
+        definition = STOCK_PLUGINS.get("instrument", preset_name)
         if not definition.melodic:
             raise ProjectError("MIDI instruments must be melodic stock instruments.")
         _waveform(waveform)
@@ -434,20 +455,21 @@ class Track:
                 placement,
                 clip=replace(
                     placement.clip,
-                    instrument=preset,
-                    waveform=waveform,
-                    attack_ms=attack_ms,
-                    decay_ms=decay_ms,
-                    sustain=sustain,
-                    release_ms=release_ms,
-                    cutoff_hz=cutoff_hz,
+                    instrument=preset_name,
+                    uniwave=uniwave,
+                    waveform=None if uniwave is not None else waveform,
+                    attack_ms=None if uniwave is not None else attack_ms,
+                    decay_ms=None if uniwave is not None else decay_ms,
+                    sustain=None if uniwave is not None else sustain,
+                    release_ms=None if uniwave is not None else release_ms,
+                    cutoff_hz=None if uniwave is not None else cutoff_hz,
                     gain_db=resolved_gain,
                 ),
             )
             for placement in self._clips
             if isinstance(placement.clip, MidiClip)
         ]
-        return self._set_melodic_instrument(preset, name=name)
+        return self._set_melodic_instrument(preset_name, name=name)
 
     def effect(
         self,
@@ -502,7 +524,12 @@ class Track:
         clip = self.clip
         assert isinstance(clip, MidiClip)
         settings: dict[str, object] = {}
-        settings.update(native_instrument_settings(preset))
+        if clip.uniwave is not None:
+            from prism.stock_plugins.uniwave import settings as uniwave_settings
+
+            settings.update(uniwave_settings(clip.uniwave))
+        else:
+            settings.update(native_instrument_settings(preset))
         overrides = {
             "waveform": clip.waveform,
             "attack_ms": clip.attack_ms,
@@ -546,6 +573,7 @@ class Track:
                         "All MIDI clips on one track must use the same instrument."
                     )
                 first_sound = (
+                    first.uniwave,
                     first.waveform,
                     first.attack_ms,
                     first.decay_ms,
@@ -554,6 +582,7 @@ class Track:
                     first.cutoff_hz,
                 )
                 clip_sound = (
+                    clip.uniwave,
                     clip.waveform,
                     clip.attack_ms,
                     clip.decay_ms,
@@ -1268,6 +1297,38 @@ def _optional_range(value: float | None, low: float, high: float, label: str) ->
 def _waveform(value: SynthWaveform | None) -> None:
     if value not in {None, "sine", "triangle", "saw", "square"}:
         raise ProjectError("Waveform must be sine, triangle, saw, or square.")
+
+
+def _resolve_instrument(
+    value: str | Uniwave,
+    *,
+    waveform: SynthWaveform | None,
+    attack_ms: float | None,
+    decay_ms: float | None,
+    sustain: float | None,
+    release_ms: float | None,
+    cutoff_hz: float | None,
+) -> tuple[str, Uniwave | None]:
+    overrides = (waveform, attack_ms, decay_ms, sustain, release_ms, cutoff_hz)
+    if isinstance(value, Uniwave):
+        if any(item is not None for item in overrides):
+            raise ProjectError(
+                "Configure waveform, envelope, and cutoff inside the Uniwave object."
+            )
+        return "uniwave", value
+    if value != "uniwave":
+        return value, None
+    sound = Uniwave()
+    if waveform is not None:
+        sound = replace(sound, waves=(replace(sound.waves[0], waveform=waveform),))
+    return "uniwave", replace(
+        sound,
+        attack_ms=sound.attack_ms if attack_ms is None else attack_ms,
+        decay_ms=sound.decay_ms if decay_ms is None else decay_ms,
+        sustain=sound.sustain if sustain is None else sustain,
+        release_ms=sound.release_ms if release_ms is None else release_ms,
+        cutoff_hz=sound.cutoff_hz if cutoff_hz is None else cutoff_hz,
+    )
 
 
 __all__ = [

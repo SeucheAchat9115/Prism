@@ -18,7 +18,7 @@ so the dry track remains audible. Master effects process the complete mix.
 ## 2. Replace `main.py`
 
 ```python
-from prism import Project
+from prism import Project, Uniwave
 
 
 song = Project(
@@ -36,10 +36,10 @@ hat = song.track("Hi-Hat", gain_db=-13, pan=0.25).drum(
     "hihat", "x-x- x-x- x-x- x-x-", seed=17
 )
 bass = song.track("Bass", gain_db=-7, pan=-0.1).midi(
-    "C2 - C2 Eb2 | G1 - Bb1 -", instrument="bass", bars=2
+    "C2 - C2 Eb2 | G1 - Bb1 -", instrument=Uniwave.bass(), bars=2
 )
 lead = song.track("Lead", gain_db=-10, pan=0.15).midi(
-    "C4 Eb4 G4 Bb4 | G4 F4 Eb4 -", bars=2
+    "C4 Eb4 G4 Bb4 | G4 F4 Eb4 -", instrument=Uniwave.lead(), bars=2
 )
 
 drums = song.bus("Drum Bus", tracks=[kick, snare, hat], gain_db=-1)

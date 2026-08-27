@@ -123,7 +123,7 @@ def _project_name(value: str | None, folder_name: str) -> str:
 
 
 def _starter_script(name: str, tempo: float) -> str:
-    return f'''from prism import Project
+    return f'''from prism import Project, Uniwave
 
 song = Project(
     {json.dumps(name, ensure_ascii=False)},
@@ -138,7 +138,7 @@ kick = song.track("Kick", gain_db=-3).drum(
 
 bass = song.track("Bass", gain_db=-6).midi(
     "C2 - C2 Eb2 | G1 - Bb1 -",
-    instrument="bass",
+    instrument=Uniwave.bass(),
     bars=2,
 )
 

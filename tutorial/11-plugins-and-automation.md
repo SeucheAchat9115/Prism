@@ -8,7 +8,7 @@ instrument, and move plugin settings over the arranged song.
 Prism reads each track from left to right:
 
 ```text
-MIDI notes → Stock Lead → Drive → Echo → Final Filter → Track gain and pan
+MIDI notes → Uniwave → Drive → Echo → Final Filter → Track gain and pan
 ```
 
 Calling `effect(...)` again adds the next effect. Changing the order changes
@@ -17,7 +17,7 @@ the sound.
 ## 2. Replace `main.py`
 
 ```python
-from prism import Project
+from prism import Project, Uniwave
 
 
 song = Project(
@@ -40,14 +40,8 @@ lead = song.track("Lead", gain_db=-8, pan=0.15).midi(
 )
 
 synth = lead.instrument(
-    "lead",
-    name="Stock Lead",
-    waveform="saw",
-    attack_ms=8,
-    decay_ms=100,
-    sustain=0.65,
-    release_ms=160,
-    cutoff_hz=900,
+    Uniwave.lead(),
+    name="Uniwave Lead",
     gain_db=-6,
 )
 

@@ -14,7 +14,7 @@ hard to scan.
 ## Write the complete `main.py`
 
 ```python
-from prism import Project
+from prism import Project, Uniwave
 
 
 song = Project(
@@ -32,42 +32,24 @@ kick = song.track("Kick", gain_db=-2).drum(
 
 bass = song.track("Bass", gain_db=-5, pan=-0.15).midi(
     "C2 - C2 - | Eb2 - G1 Bb1",
-    instrument="bass",
+    instrument=Uniwave.bass(),
     bars=2,
-    waveform="saw",
-    attack_ms=4,
-    decay_ms=90,
-    sustain=0.58,
-    release_ms=100,
-    cutoff_hz=760,
     gate=0.72,
     velocity=108,
 )
 
 pad = song.track("Pad", gain_db=-12, pan=-0.35).midi(
     "C3+Eb3+G3 - | Ab2+C3+Eb3 -",
-    instrument="pad",
+    instrument=Uniwave.pad(),
     bars=2,
-    waveform="triangle",
-    attack_ms=280,
-    decay_ms=400,
-    sustain=0.72,
-    release_ms=600,
-    cutoff_hz=2200,
     gate=0.95,
     velocity=76,
 )
 
 lead = song.track("Lead", gain_db=-10, pan=0.35).midi(
     "G4 Bb4 C5 - | G4 F4 Eb4 -",
-    instrument="lead",
+    instrument=Uniwave.lead(),
     bars=2,
-    waveform="square",
-    attack_ms=3,
-    decay_ms=70,
-    sustain=0.55,
-    release_ms=90,
-    cutoff_hz=5000,
     gate=0.68,
     velocity=92,
 )
@@ -92,8 +74,8 @@ Open `renders/song.wav` inside the project folder.
 
 Try one control at a time:
 
-1. Change the Lead waveform from `square` to `triangle`.
-2. Lower Bass `cutoff_hz` from `760` to `420`.
+1. Change `Uniwave.lead()` to `Uniwave.pad()` and hear the slower envelope.
+2. Change `Uniwave.bass()` to `Uniwave()` and hear the brighter default sound.
 3. Move Pad pan from `-0.35` to `0.35`.
 4. Set `muted=True` in `song.track("Lead", ...)`.
 
