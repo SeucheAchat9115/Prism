@@ -12,7 +12,7 @@ from pathlib import Path
 from prism.errors import ProjectError, RenderError
 from prism.music import note_to_midi
 from prism.plugins import STOCK_PLUGINS
-from prism.project.builder import DrumClip, MidiClip, Project, Track
+from prism.project.builder import ClipPlacement, DrumClip, MidiClip, Project, Track
 
 TICKS_PER_BEAT = 480
 @dataclass(frozen=True, slots=True)
@@ -111,14 +111,15 @@ def _music_track(project: Project, track: Track, channel: int, total_ticks: int)
             else set(section.tracks)
         )
         if not track.muted and track.name in active:
-            _section_events(
-                events,
-                clip,
-                channel,
-                section_start,
-                section_ticks,
-                project.beats_per_bar,
-            )
+            for placement in track.clips_for(section):
+                _section_events(
+                    events,
+                    placement,
+                    channel,
+                    section_start,
+                    section_ticks,
+                    project.beats_per_bar,
+                )
         section_start += section_ticks
     events.append((total_ticks, 9, b"\xff\x2f\x00"))
     return _chunk(events)
@@ -126,16 +127,20 @@ def _music_track(project: Project, track: Track, channel: int, total_ticks: int)
 
 def _section_events(
     events: list[tuple[int, int, bytes]],
-    clip: DrumClip | MidiClip,
+    placement: ClipPlacement,
     channel: int,
     section_start: int,
     section_ticks: int,
     beats_per_bar: int,
 ) -> None:
+    clip = placement.clip
+    if not isinstance(clip, DrumClip | MidiClip):
+        return
     clip_ticks = clip.bars * TICKS_PER_BEAT * beats_per_bar
     steps = clip.pattern if isinstance(clip, DrumClip) else clip.notes
     boundaries = [round(index * clip_ticks / len(steps)) for index in range(len(steps) + 1)]
-    cycle = 0
+    placement_start = round(placement.start_bar * beats_per_bar * TICKS_PER_BEAT)
+    cycle = placement_start
     section_end = section_start + section_ticks
     while cycle < section_ticks:
         for index, token in enumerate(steps):
@@ -161,6 +166,8 @@ def _section_events(
                 events.append((start, 1, bytes([0x90 | channel, note, velocity])))
                 events.append((end, 0, bytes([0x80 | channel, note, 0])))
         cycle += clip_ticks
+        if not placement.repeat:
+            break
 
 
 def _chunk(events: list[tuple[int, int, bytes]]) -> bytes:

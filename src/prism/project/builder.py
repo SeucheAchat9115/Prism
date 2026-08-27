@@ -76,6 +76,16 @@ TrackClip = SampleClip | AudioClip | DrumClip | MidiClip
 
 
 @dataclass(frozen=True, slots=True)
+class ClipPlacement:
+    """One track clip placed relative to a section's beginning."""
+
+    clip: TrackClip
+    section: str | None
+    start_bar: float
+    repeat: bool
+
+
+@dataclass(frozen=True, slots=True)
 class Section:
     """One consecutive song section in the rendered arrangement."""
 
@@ -104,7 +114,7 @@ class ProjectSummary:
 
 
 class Track:
-    """A named mixer channel with one loopable musical part."""
+    """A named mixer channel containing compatible, reusable musical clips."""
 
     def __init__(
         self,
@@ -120,13 +130,29 @@ class Track:
         self.gain_db = validate_gain(gain_db, label=f"Track {self.name!r} gain")
         self.pan = validate_pan(pan)
         self.muted = bool(muted)
-        self._clip: TrackClip | None = None
+        self._clips: list[ClipPlacement] = []
         self._instrument: Plugin | None = None
         self.effects: list[Plugin] = []
 
     @property
     def clip(self) -> TrackClip | None:
-        return self._clip
+        """Return the first clip for compatibility with one-clip projects."""
+
+        return None if not self._clips else self._clips[0].clip
+
+    @property
+    def clips(self) -> tuple[ClipPlacement, ...]:
+        """Return every clip placement on this track in authoring order."""
+
+        return tuple(self._clips)
+
+    def clips_for(self, section: Section) -> tuple[ClipPlacement, ...]:
+        """Resolve this section's explicit variation or the track defaults."""
+
+        scoped = tuple(item for item in self._clips if item.section == section.name)
+        if scoped:
+            return scoped
+        return tuple(item for item in self._clips if item.section is None)
 
     @property
     def instrument_plugin(self) -> Plugin | None:
@@ -141,25 +167,33 @@ class Track:
         *,
         bars: int = 1,
         gain_db: float = 0.0,
+        section: str | None = None,
+        start_bar: float = 0.0,
+        repeat: bool = True,
     ) -> Self:
-        """Trigger a project-local WAV/AIFF sample from an ``x---`` pattern."""
+        """Add a placed project-local sample pattern to this track."""
 
-        self._set_clip(
+        self._add_clip(
             SampleClip(
                 path=self._project._source_name(path),
                 pattern=rhythm_steps(pattern),
                 bars=_bars(bars, f"Sample track {self.name!r}"),
                 gain_db=validate_gain(gain_db, label=f"Sample track {self.name!r} clip gain"),
+            ),
+            section=section,
+            start_bar=start_bar,
+            repeat=repeat,
+        )
+        if self._instrument is None:
+            clip = self.clips[0].clip
+            assert isinstance(clip, SampleClip)
+            self._instrument = instrument_plugin(
+                "sampler",
+                name=f"{self.name} Sampler",
+                track=self.name,
+                settings={"gain_db": clip.gain_db},
+                melodic=False,
             )
-        )
-        assert self._clip is not None
-        self._instrument = instrument_plugin(
-            "sampler",
-            name=f"{self.name} Sampler",
-            track=self.name,
-            settings={"gain_db": self._clip.gain_db},
-            melodic=False,
-        )
         return self
 
     def audio(
@@ -169,25 +203,33 @@ class Track:
         bars: int = 1,
         loop: bool = True,
         gain_db: float = 0.0,
+        section: str | None = None,
+        start_bar: float = 0.0,
+        repeat: bool = True,
     ) -> Self:
-        """Use a project-local audio loop or one-shot as the track content."""
+        """Add a placed project-local audio loop or one-shot to this track."""
 
-        self._set_clip(
+        self._add_clip(
             AudioClip(
                 path=self._project._source_name(path),
                 bars=_bars(bars, f"Audio track {self.name!r}"),
                 loop=bool(loop),
                 gain_db=validate_gain(gain_db, label=f"Audio track {self.name!r} clip gain"),
+            ),
+            section=section,
+            start_bar=start_bar,
+            repeat=repeat,
+        )
+        if self._instrument is None:
+            clip = self.clips[0].clip
+            assert isinstance(clip, AudioClip)
+            self._instrument = instrument_plugin(
+                "audio_player",
+                name=f"{self.name} Audio Player",
+                track=self.name,
+                settings={"gain_db": clip.gain_db},
+                melodic=False,
             )
-        )
-        assert self._clip is not None
-        self._instrument = instrument_plugin(
-            "audio_player",
-            name=f"{self.name} Audio Player",
-            track=self.name,
-            settings={"gain_db": self._clip.gain_db},
-            melodic=False,
-        )
         return self
 
     def drum(
@@ -198,31 +240,39 @@ class Track:
         bars: int = 1,
         gain_db: float = -3.0,
         seed: int = 0,
+        section: str | None = None,
+        start_bar: float = 0.0,
+        repeat: bool = True,
     ) -> Self:
-        """Program a built-in drum without needing an external sample."""
+        """Add a placed built-in drum clip without needing an external sample."""
 
         drum_definition = STOCK_PLUGINS.get("instrument", preset)
         if drum_definition.drum_note is None:
             raise ProjectError("This stock instrument is not a percussion preset.")
         if not 0 <= seed <= 4_294_967_295:
             raise ProjectError("Drum seed must be between 0 and 4294967295.")
-        self._set_clip(
+        self._add_clip(
             DrumClip(
                 preset=preset,
                 pattern=rhythm_steps(pattern),
                 bars=_synth_bars(bars, f"Drum track {self.name!r}", self._project),
                 gain_db=validate_gain(gain_db, label=f"Drum track {self.name!r} clip gain"),
                 seed=seed,
+            ),
+            section=section,
+            start_bar=start_bar,
+            repeat=repeat,
+        )
+        if self._instrument is None:
+            clip = self.clips[0].clip
+            assert isinstance(clip, DrumClip)
+            self._instrument = instrument_plugin(
+                preset,
+                name=f"{self.name} Instrument",
+                track=self.name,
+                settings={"gain_db": clip.gain_db, "seed": float(seed)},
+                melodic=False,
             )
-        )
-        assert self._clip is not None
-        self._instrument = instrument_plugin(
-            preset,
-            name=f"{self.name} Instrument",
-            track=self.name,
-            settings={"gain_db": self._clip.gain_db, "seed": float(seed)},
-            melodic=False,
-        )
         return self
 
     def midi(
@@ -240,8 +290,11 @@ class Track:
         cutoff_hz: float | None = None,
         gate: float = 0.8,
         gain_db: float = -6.0,
+        section: str | None = None,
+        start_bar: float = 0.0,
+        repeat: bool = True,
     ) -> Self:
-        """Build a MIDI-note clip and render it with a built-in instrument."""
+        """Add a placed MIDI-note clip rendered by this track's instrument."""
 
         definition = STOCK_PLUGINS.get("instrument", instrument)
         if not definition.melodic:
@@ -256,7 +309,7 @@ class Track:
         _optional_range(cutoff_hz, 20.0, 20_000.0, "Cutoff")
         if not 0.05 <= gate <= 1.0:
             raise ProjectError("MIDI gate must be between 0.05 and 1.0.")
-        self._set_clip(
+        self._add_clip(
             MidiClip(
                 instrument=instrument,
                 notes=note_steps(notes),
@@ -270,9 +323,13 @@ class Track:
                 cutoff_hz=cutoff_hz,
                 gate=float(gate),
                 gain_db=validate_gain(gain_db, label=f"MIDI track {self.name!r} clip gain"),
-            )
+            ),
+            section=section,
+            start_bar=start_bar,
+            repeat=repeat,
         )
-        self._set_melodic_instrument(instrument, name=None)
+        if self._instrument is None:
+            self._set_melodic_instrument(instrument, name=None)
         return self
 
     def instrument(
@@ -290,7 +347,7 @@ class Track:
     ) -> Plugin:
         """Choose the stock instrument that consumes this track's MIDI notes."""
 
-        clip = self._clip
+        clip = self.clip
         if not isinstance(clip, MidiClip):
             raise ProjectError("instrument() follows midi() on the same track.")
         definition = STOCK_PLUGINS.get("instrument", preset)
@@ -305,17 +362,24 @@ class Track:
         resolved_gain = clip.gain_db if gain_db is None else validate_gain(
             gain_db, label=f"Instrument {self.name!r} gain"
         )
-        self._clip = replace(
-            clip,
-            instrument=preset,
-            waveform=waveform,
-            attack_ms=attack_ms,
-            decay_ms=decay_ms,
-            sustain=sustain,
-            release_ms=release_ms,
-            cutoff_hz=cutoff_hz,
-            gain_db=resolved_gain,
-        )
+        self._clips = [
+            replace(
+                placement,
+                clip=replace(
+                    placement.clip,
+                    instrument=preset,
+                    waveform=waveform,
+                    attack_ms=attack_ms,
+                    decay_ms=decay_ms,
+                    sustain=sustain,
+                    release_ms=release_ms,
+                    cutoff_hz=cutoff_hz,
+                    gain_db=resolved_gain,
+                ),
+            )
+            for placement in self._clips
+            if isinstance(placement.clip, MidiClip)
+        ]
         return self._set_melodic_instrument(preset, name=name)
 
     def effect(
@@ -327,7 +391,7 @@ class Track:
     ) -> Plugin:
         """Append one stock effect after the instrument on this track."""
 
-        if self._clip is None:
+        if not self._clips:
             raise ProjectError("Add MIDI, a drum, a sample, or audio before adding effects.")
         base_name = preset.replace("_", " ").title() if name is None else _name(name, "Plugin")
         plugin_name = base_name
@@ -350,7 +414,7 @@ class Track:
         *,
         name: str | None,
     ) -> Plugin:
-        clip = self._clip
+        clip = self.clip
         assert isinstance(clip, MidiClip)
         settings: dict[str, object] = {}
         settings.update(native_instrument_settings(preset))
@@ -373,12 +437,59 @@ class Track:
         )
         return self._instrument
 
-    def _set_clip(self, clip: TrackClip) -> None:
-        if self._clip is not None:
-            raise ProjectError(
-                f"Track {self.name!r} already has content. Create another track for another part."
+    def _add_clip(
+        self,
+        clip: TrackClip,
+        *,
+        section: str | None,
+        start_bar: float,
+        repeat: bool,
+    ) -> None:
+        if self._clips:
+            first = self._clips[0].clip
+            if type(first) is not type(clip):
+                raise ProjectError(
+                    f"Track {self.name!r} already has content of another type. "
+                    "Use another track for a different instrument or player."
+                )
+            if isinstance(first, DrumClip) and isinstance(clip, DrumClip):
+                if first.preset != clip.preset:
+                    raise ProjectError("All drum clips on one track must use the same preset.")
+            if isinstance(first, MidiClip) and isinstance(clip, MidiClip):
+                if first.instrument != clip.instrument:
+                    raise ProjectError(
+                        "All MIDI clips on one track must use the same instrument."
+                    )
+                first_sound = (
+                    first.waveform,
+                    first.attack_ms,
+                    first.decay_ms,
+                    first.sustain,
+                    first.release_ms,
+                    first.cutoff_hz,
+                )
+                clip_sound = (
+                    clip.waveform,
+                    clip.attack_ms,
+                    clip.decay_ms,
+                    clip.sustain,
+                    clip.release_ms,
+                    clip.cutoff_hz,
+                )
+                if first_sound != clip_sound:
+                    raise ProjectError(
+                        "All MIDI clips on one track must use the same synth settings. "
+                        "Call instrument() once after adding the clips to change them together."
+                    )
+        clean_section = None if section is None else _name(section, "Clip section")
+        self._clips.append(
+            ClipPlacement(
+                clip=clip,
+                section=clean_section,
+                start_bar=_start_bar(start_bar),
+                repeat=bool(repeat),
             )
-        self._clip = clip
+        )
 
 
 class Project:
@@ -517,6 +628,7 @@ class Project:
         if not self.sections:
             raise ProjectError("Add at least one section before rendering.")
         known = {track.name for track in self.tracks}
+        section_by_name = {section.name: section for section in self.sections}
         for section in self.sections:
             if section.tracks is None:
                 continue
@@ -527,6 +639,41 @@ class Project:
                 )
             if len(set(section.tracks)) != len(section.tracks):
                 raise ProjectError(f"Section {section.name!r} lists the same track more than once.")
+        for track in self.tracks:
+            active_sections = [
+                section
+                for section in self.sections
+                if section.tracks is None or track.name in section.tracks
+            ]
+            for placement in track.clips:
+                if placement.section is not None:
+                    target_section = section_by_name.get(placement.section)
+                    if target_section is None:
+                        raise ProjectError(
+                            f"Track {track.name!r} has a clip for unknown section "
+                            f"{placement.section!r}."
+                        )
+                    if (
+                        target_section.tracks is not None
+                        and track.name not in target_section.tracks
+                    ):
+                        raise ProjectError(
+                            f"Track {track.name!r} has a clip for section "
+                            f"{target_section.name!r}, "
+                            "but that track is not active there."
+                        )
+                    if placement.start_bar >= target_section.bars:
+                        raise ProjectError(
+                            f"Track {track.name!r} clip starts at bar "
+                            f"{placement.start_bar:g}, outside section "
+                            f"{target_section.name!r}."
+                        )
+                elif active_sections and all(
+                    placement.start_bar >= section.bars for section in active_sections
+                ):
+                    raise ProjectError(
+                        f"Track {track.name!r} default clip starts after every active section."
+                    )
         files = tuple(sorted(self._sample_files(), key=lambda path: path.as_posix().casefold()))
         for path in files:
             if not path.is_file():
@@ -580,12 +727,22 @@ class Project:
                     "pan": track.pan,
                     "muted": track.muted,
                     "part": {"kind": _clip_kind(track.clip), **asdict(track.clip)},
+                    "clips": [
+                        {
+                            "kind": _clip_kind(placement.clip),
+                            "section": placement.section,
+                            "start_bar": placement.start_bar,
+                            "repeat": placement.repeat,
+                            **asdict(placement.clip),
+                        }
+                        for placement in track.clips
+                    ],
                     "instrument": _plugin_configuration(track.instrument_plugin),
                     "effects": [_plugin_configuration(effect) for effect in track.effects],
                 }
             )
         return {
-            "schema_version": 2,
+            "schema_version": 3,
             "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,
@@ -648,9 +805,9 @@ class Project:
     def _sample_files(self) -> set[Path]:
         paths: set[Path] = set()
         for track in self.tracks:
-            clip = track.clip
-            if isinstance(clip, SampleClip | AudioClip):
-                paths.add((self.root / clip.path).resolve(strict=False))
+            for placement in track.clips:
+                if isinstance(placement.clip, SampleClip | AudioClip):
+                    paths.add((self.root / placement.clip.path).resolve(strict=False))
         return paths
 
 
@@ -683,6 +840,13 @@ def _name(value: str, label: str) -> str:
     if len(clean) > 120:
         raise ProjectError(f"{label} name cannot exceed 120 characters.")
     return clean
+
+
+def _start_bar(value: float) -> float:
+    resolved = float(value)
+    if not math.isfinite(resolved) or resolved < 0.0:
+        raise ProjectError("Clip start_bar must be finite and zero or greater.")
+    return resolved
 
 
 def _version(value: str) -> str:

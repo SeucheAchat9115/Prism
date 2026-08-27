@@ -41,3 +41,23 @@ def test_one_midi_track_uses_readable_singular_word(project_script: Path) -> Non
     song.section("Only", bars=1)
 
     assert "1 MIDI track to" in str(song.export_midi())
+
+
+def test_midi_export_uses_section_clip_variations_and_positions(
+    project_script: Path,
+) -> None:
+    song = Project("MIDI Clips", prism_version="test", _script=project_script)
+    kick = song.track("Kick").drum("kick", "x---")
+    kick.drum(
+        "kick",
+        "x---",
+        section="Chorus",
+        start_bar=1,
+        repeat=False,
+    )
+    song.section("Verse", bars=1, tracks=[kick])
+    song.section("Chorus", bars=2, tracks=[kick])
+
+    payload = song.export_midi("renders/clips.mid").path.read_bytes()
+
+    assert payload.count(bytes([0x99, 36, 100])) == 2

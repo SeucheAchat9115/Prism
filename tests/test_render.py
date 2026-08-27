@@ -89,6 +89,37 @@ def test_audio_one_shot_pads_without_looping(project_script: Path, sample_file: 
     assert np.max(np.abs(samples[1_000:])) == 0.0
 
 
+def test_section_clip_replaces_default_and_starts_at_requested_bar(
+    project_script: Path,
+) -> None:
+    song = Project(
+        "Placed Clips",
+        prism_version="test",
+        tempo=120,
+        sample_rate=8_000,
+        normalize=False,
+        _script=project_script,
+    )
+    kick = song.track("Kick").drum("kick", "x---")
+    kick.drum(
+        "kick",
+        "x---",
+        section="Chorus",
+        start_bar=1,
+        repeat=False,
+    )
+    song.section("Verse", bars=1, tracks=[kick])
+    song.section("Chorus", bars=2, tracks=[kick])
+
+    result = song.render("renders/placed.wav")
+    samples, _ = sf.read(result.path, dtype="float64", always_2d=True)
+    bar = song.frames_per_bar
+
+    assert np.max(np.abs(samples[:bar])) > 0.1
+    assert np.max(np.abs(samples[bar : 2 * bar])) == 0.0
+    assert np.max(np.abs(samples[2 * bar :])) > 0.1
+
+
 def test_render_rejects_unsafe_or_wrong_output(project_script: Path) -> None:
     song = _mini_song(project_script)
     with pytest.raises(ProjectError, match="relative"):

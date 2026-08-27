@@ -55,6 +55,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "09-complete-reference-project.md",
         "10-parameter-reference.md",
         "11-plugins-and-automation.md",
+        "12-clips-variations-and-fills.md",
     )
     for name in expected:
         assert (root / "tutorial" / name).is_file()
@@ -71,6 +72,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "06-work-with-an-agent.md",
         "08-inspect-and-reproduce.md",
         "11-plugins-and-automation.md",
+        "12-clips-variations-and-fills.md",
     ),
 )
 def test_complete_tutorial_projects_are_readable_and_runnable(

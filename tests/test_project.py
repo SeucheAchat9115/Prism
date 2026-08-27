@@ -70,6 +70,53 @@ def test_tracks_accept_only_one_clear_part(project_script: Path) -> None:
         track.drum("kick", "x---")
 
 
+def test_track_accepts_default_and_section_specific_clip_placements(
+    project_script: Path,
+) -> None:
+    song = Project("Variations", prism_version="test", _script=project_script)
+    kick = song.track("Kick").drum("kick", "x---")
+    kick.drum("kick", "x-x-", section="Chorus")
+    kick.drum(
+        "kick",
+        "xxxx",
+        section="Chorus",
+        start_bar=3,
+        repeat=False,
+    )
+    song.section("Verse", bars=2, tracks=[kick])
+    song.section("Chorus", bars=4, tracks=[kick])
+
+    configuration = song.configuration()
+    clips = configuration["tracks"][0]["clips"]  # type: ignore[index]
+
+    assert song.validate().bars == 6
+    assert len(kick.clips) == 3
+    assert len(clips) == 3
+    assert clips[1]["section"] == "Chorus"
+    assert clips[2]["start_bar"] == 3.0
+    assert clips[2]["repeat"] is False
+
+
+def test_clip_placement_reports_unknown_sections_and_outside_starts(
+    project_script: Path,
+) -> None:
+    unknown = Project("Unknown", prism_version="test", _script=project_script)
+    unknown.track("Kick").drum("kick", "x---", section="Missing")
+    unknown.section("Verse", bars=1)
+    with pytest.raises(ProjectError, match="unknown section"):
+        unknown.validate()
+
+    outside = Project("Outside", prism_version="test", _script=project_script)
+    outside.track("Kick").drum("kick", "x---", section="Verse", start_bar=1)
+    outside.section("Verse", bars=1)
+    with pytest.raises(ProjectError, match="outside section"):
+        outside.validate()
+
+    invalid = Project("Invalid", prism_version="test", _script=project_script)
+    with pytest.raises(ProjectError, match="start_bar"):
+        invalid.track("Kick").drum("kick", "x---", start_bar=-0.25)
+
+
 def test_built_in_parts_reject_an_unsafe_duration_while_authoring(
     project_script: Path,
 ) -> None:

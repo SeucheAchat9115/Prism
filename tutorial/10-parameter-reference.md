@@ -50,12 +50,16 @@ part = song.track("Readable Name", gain_db=0, pan=0, muted=False)
 Track names are unique and at most 120 characters. Gain accepts -60 through
 +12 dB. Pan runs from `-1.0` (left) through `0.0` (center) to `1.0` (right).
 A muted track remains in the configuration and MIDI file structure but emits
-no arranged notes or audio. Each track receives exactly one part.
+no arranged notes or audio. A track can hold several clips of the same kind so
+they share one instrument, effect chain, gain, and pan.
 
 ## `sample(...)`
 
 ```python
-part.sample("sounds/kick.wav", "x--- x---", bars=1, gain_db=0)
+part.sample(
+    "sounds/kick.wav", "x--- x---", bars=1, gain_db=0,
+    section=None, start_bar=0, repeat=True,
+)
 ```
 
 This triggers a complete source file on each hit. `x` or `*` means hit; `-` or
@@ -66,7 +70,10 @@ This triggers a complete source file on each hit. `x` or `*` means hit; `-` or
 ## `audio(...)`
 
 ```python
-part.audio("sounds/loop.wav", bars=2, loop=True, gain_db=0)
+part.audio(
+    "sounds/loop.wav", bars=2, loop=True, gain_db=0,
+    section=None, start_bar=0, repeat=True,
+)
 ```
 
 This uses the complete source as one part. `loop=True` repeats or trims it to
@@ -80,7 +87,10 @@ paths must be relative, cannot contain `..`, and must stay inside the project.
 ## `drum(...)`
 
 ```python
-part.drum("snare", "---- x---", bars=1, gain_db=-3, seed=0)
+part.drum(
+    "snare", "---- x---", bars=1, gain_db=-3, seed=0,
+    section=None, start_bar=0, repeat=True,
+)
 ```
 
 Presets are `kick`, `snare`, and `hihat`. Pattern notation matches `sample`.
@@ -103,6 +113,9 @@ part.midi(
     cutoff_hz=3600,
     gate=0.82,
     gain_db=-6,
+    section=None,
+    start_bar=0,
+    repeat=True,
 )
 ```
 
@@ -120,9 +133,32 @@ part.midi(
 | `cutoff_hz` | instrument preset | 20–20000 Hz |
 | `gate` | `0.8` | 0.05–1.0 of each step |
 | `gain_db` | `-6` | -60 through +12 dB |
+| `section` | `None` | A section name, or `None` for the default clip |
+| `start_bar` | `0` | Zero or greater; relative to the section start |
+| `repeat` | `True` | Repeat to the section end, or play once |
 
 Notes use scientific pitch notation from `C-1` through `G9`, including sharps
 and flats such as `F#3` and `Bb2`.
+
+## Clip placement and section variations
+
+The `sample(...)`, `audio(...)`, `drum(...)`, and `midi(...)` methods can be
+called several times on one track. Every call adds another clip.
+
+```python
+kick = song.track("Kick").drum("kick", "x---")
+kick.drum("kick", "x-x-", section="Chorus")
+kick.drum("kick", "xxxx", section="Chorus", start_bar=3, repeat=False)
+```
+
+The first clip is the default for every active section. Because the track has
+clips specifically for `Chorus`, those clips replace its default during that
+section. Several clips for the same section are mixed together. `start_bar`
+can be fractional, and must fall before the end of its named section.
+
+Clips on one track must use the same content type and instrument. MIDI clips
+also share the same synth settings; call `instrument(...)` once after adding
+them when you want to change the sound of every MIDI clip together.
 
 ## `instrument(...)`
 

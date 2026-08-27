@@ -151,6 +151,7 @@ rejects absolute paths and paths that leave the project folder.
 - `effect(...)` adds ordered stock dynamics, tone, modulation, delay, and reverb plugins.
 - `automation(...)` moves a plugin setting at exact song positions in bars.
 - `section(...)` puts parts into the song in playback order.
+- Repeating a part method adds clips, section variations, and precisely placed fills.
 - `validate()` checks the project and explains authoring mistakes.
 - `export_midi()` writes a standard MIDI file.
 - `render()` writes a stereo WAV.
@@ -206,6 +207,16 @@ song.automation(
 Automation positions are absolute bars from the beginning of the song. Values
 move smoothly by default; use `curve="hold"` for an immediate change. Stock
 instrument gain and cutoff can also be automated.
+
+Tracks can also contain several clips while sharing the same instrument and
+effects. A default clip plays wherever the track is active. A clip with a
+section name replaces that default in the named section:
+
+```python
+kick = song.track("Kick").drum("kick", "x---")
+kick.drum("kick", "x-x-", section="Chorus")
+kick.drum("kick", "xxxx", section="Chorus", start_bar=3, repeat=False)
+```
 
 ## Continue with the tutorial
 

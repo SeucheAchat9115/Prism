@@ -16,7 +16,15 @@ import soxr
 from prism.effects import has_automation, process_track_plugins
 from prism.errors import ProjectError, RenderError
 from prism.music import db_gain
-from prism.project.builder import AudioClip, DrumClip, MidiClip, Project, SampleClip, Track
+from prism.project.builder import (
+    AudioClip,
+    DrumClip,
+    MidiClip,
+    Project,
+    SampleClip,
+    Track,
+    TrackClip,
+)
 from prism.synthesis.engine import render_native_synth
 from prism.synthesis.types import NativeSynthSpec
 
@@ -43,12 +51,15 @@ def render_project(project: Project, output: str | Path) -> RenderResult:
     try:
         summary = project.validate()
         output_path = project._output_path(output, suffix=".wav")
-        buffers = {track.name: _track_buffer(project, track) for track in project.tracks}
         total_frames = summary.bars * project.frames_per_bar
         mix = np.zeros((total_frames, 2), dtype=np.float64)
         for track in project.tracks:
             if track.muted:
                 continue
+            clip_buffers = {
+                id(placement): _clip_buffer(project, track, placement.clip)
+                for placement in track.clips
+            }
             arranged = np.zeros((total_frames, 2), dtype=np.float64)
             cursor = 0
             for section in project.sections:
@@ -59,9 +70,19 @@ def render_project(project: Project, output: str | Path) -> RenderResult:
                     else set(section.tracks)
                 )
                 if track.name in active:
-                    arranged[cursor : cursor + frames] = _loop_to(
-                        buffers[track.name], frames
-                    )
+                    for placement in track.clips_for(section):
+                        offset = int(round(placement.start_bar * project.frames_per_bar))
+                        available = frames - offset
+                        if available <= 0:
+                            continue
+                        source = clip_buffers[id(placement)]
+                        placed = (
+                            _loop_to(source, available)
+                            if placement.repeat
+                            else _fit_to(source, available)
+                        )
+                        start = cursor + offset
+                        arranged[start : start + available] += placed
                 cursor += frames
             processed = process_track_plugins(project, track, arranged)
             mix += _mix_track(processed, track)
@@ -90,9 +111,7 @@ def render_project(project: Project, output: str | Path) -> RenderResult:
         raise RenderError(f"Could not render {project.name!r}: {error}") from error
 
 
-def _track_buffer(project: Project, track: Track) -> np.ndarray:
-    clip = track.clip
-    assert clip is not None
+def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
     if isinstance(clip, SampleClip):
         source = _read_audio(project.root / clip.path, project.sample_rate)
         frames = clip.bars * project.frames_per_bar
