@@ -1,4 +1,0 @@
-interface:
-  display_name: "Prism Project Authoring"
-  short_description: "Create and safely edit Prism projects"
-  default_prompt: "Use $prism-project-authoring to create or safely edit a Prism project."

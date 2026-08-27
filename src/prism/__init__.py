@@ -1,5 +1,21 @@
-"""Prism: a Python-first DAW for musicians and coding agents."""
+"""Prism: write a song as Python and render it reproducibly."""
 
-__all__ = ["__version__"]
+from prism.errors import PrismError, ProjectError, RenderError
+from prism.midi import MidiResult
+from prism.project import Project, ProjectSummary, Section, Track
+from prism.render import RenderResult
 
-__version__ = "0.1.0.dev0"
+__all__ = [
+    "MidiResult",
+    "PrismError",
+    "Project",
+    "ProjectError",
+    "ProjectSummary",
+    "RenderError",
+    "RenderResult",
+    "Section",
+    "Track",
+    "__version__",
+]
+
+__version__ = "0.2.0.dev0"

@@ -1,316 +1,134 @@
 # Prism
 
-Prism is a Python-first digital audio workstation designed for two kinds of
-users: musicians working in a browser-based session view and coding agents that
-need to inspect, change, render, and validate music projects programmatically.
+Prism is a Python package for writing reproducible songs. A music project is a
+normal folder whose `main.py` describes its tracks, samples, MIDI notes,
+arrangement, mix, and render.
 
-The long-term goal is an Ableton-like workflow with a local web application, a
-command-line interface, a stable machine-readable API, and controllable VST3
-plugins. The application code, project model, CLI, API, and orchestration layer
-will be Python. Native audio and plugin libraries are allowed behind Python
-interfaces where low-latency audio requires them.
+There is no Prism server, command-line interface, browser interface, hidden
+database, or proprietary project file. Run the project script again to rebuild
+the same WAV and MIDI files.
 
-## Why Prism?
-
-Music production is full of structured decisions: which clips are active, how
-tracks are mixed, when a scene launches, which effects are enabled, and which
-render should be kept. Prism makes those decisions explicit and versionable
-so that a coding agent can help with production without having to drive pixels
-or guess at undocumented application state.
-
-The intended control flow is:
+## The complete idea
 
 ```text
-Browser UI ─┐
-            ├─ Local Prism service ─ Project model ─ Audio engine ─ Audio device
-CLI ────────┘                         └─ Isolated plugin worker
-Coding agent ─ Versioned local API
+my-song/
+├── main.py                 authored song and configuration
+├── sounds/
+│   └── kick.wav            project-local source audio
+├── renders/
+│   ├── my-song.wav         generated stereo mix
+│   └── my-song.mid         generated MIDI arrangement
+└── .prism/
+    └── project.json        generated plan and source/render hashes
 ```
 
-The browser and CLI are clients. The Python application service owns project
-validation, state changes, transport, rendering, and event publication.
+A small `main.py` can be this direct:
 
-## Current status
+```python
+from prism import Project
 
-This repository contains the completed Phase 9 proof of concept plus Phase 10.1
-native synthesis and guided learning path. Prism supports working-project
-authoring, live session playback, rendering, API/CLI/browser control,
-crash-isolated offline VST3 effects, and built-in drum/melodic WAV generation
-that needs no third-party plugin or MIDI setup.
+song = Project(__file__, "My First Song", tempo=120)
 
-The project documentation is organized as follows:
+kick = song.track("Kick", gain_db=-3).drum(
+    "kick",
+    "x--- x--- x--- x---",
+)
 
-- [Implementation plan](docs/IMPLEMENTATION_PLAN.md) — the component-by-component
-  roadmap and acceptance criteria.
-- [Deployment guide](docs/DEPLOYMENT.md) — local builds, command-line
-  installation, releases, CD automation, and future standalone packages.
-- [Phase 5.5 contracts](docs/PHASE_5_5.md) — working storage, typed operations,
-  jobs, runtime behavior, security limits, and acceptance commands.
-- [Phase 6 CLI](docs/PHASE_6.md) — commands, service lifecycle, JSON envelopes,
-  dry runs, selectors, job waiting, and stable exit codes.
-- [Phase 7 browser session](docs/PHASE_7.md) — launch workflow, controls,
-  synchronization, conflict handling, local security, and browser tests.
-- [Phase 8 reproducible POC](docs/PHASE_8.md) — canonical fixture, full
-  browser/CLI acceptance flow, artifacts, and clean-wheel Windows gate.
-- [Phase 9 VST3 worker](docs/PHASE_9.md) — opt-in host installation, exact
-  binary trust, registry, project schema, worker recovery, and offline effects.
-- [Phase 10.1 native synthesis](docs/PHASE_10.md) — deterministic presets,
-  sequence language, CLI/API contracts, and tutorial acceptance.
-- [Step-by-step tutorials](examples/tutorials/README.md) — a Level 0–8 path
-  from first playback through a multi-track mini-song, Python control, browser
-  performance, and optional VST3 effects.
-- [Automated examples](examples/README.md) — runnable regression companions for
-  persistence, synthesis, engine, rendering, CLI, API, browser, and audio.
+bass = song.track("Bass", gain_db=-6).midi(
+    "C2 - C2 Eb2 | G1 - Bb1 -",
+    instrument="bass",
+    bars=2,
+)
 
-## Agent guidance
+song.section("Intro", bars=2, tracks=[bass])
+song.section("Beat", bars=4, tracks=[kick, bass])
 
-Prism includes a repository-wide [agent guide](AGENTS.md) and discoverable
-skills under [`.agents/skills/`](.agents/skills/). Together they teach a coding
-agent the repository architecture, product invariants, validation workflow, and
-which Prism interface to use for a task:
-
-- `$prism-repository-development` for source, tests, documentation, and release
-  work inside this repository.
-- `$prism-project-authoring` for safe project inspection and transactional edits.
-- `$prism-session-control` for transport, live sessions, audio, events, and the
-  browser UI.
-- `$prism-render-export` for audio import, render jobs, portable export, and
-  artifact verification.
-- `$prism-api-integration` for typed Python clients, raw HTTP/WebSocket clients,
-  errors, retries, and agent-tool wrappers.
-- `$prism-plugin-control` for VST3 discovery/trust, project effects,
-  parameters, state, compatibility, offline renders, and worker recovery.
-
-Native synthesis is covered by `$prism-project-authoring` for generated assets
-and clip placement, then `$prism-session-control` or `$prism-render-export` for
-listening and renders. `$prism-api-integration` maps synth discovery and
-generation for agents.
-
-Compatible agents discover these skills from the repository automatically.
-They can also be invoked explicitly, for example: “Use
-`$prism-project-authoring` to add a track and scene, preview the transaction,
-and commit it.” The root guide routes cross-cutting tasks to the smallest useful
-combination of skills.
-
-The Phase 3 renderer is available through `prism.rendering.render()` for
-loaded projects with injected sources and `prism.rendering.render_project()`
-for self-contained `.prism` archives. Both produce deterministic stereo
-float32 WAV files without requiring an audio device.
-
-The `prism.audio` package provides fake, offline, and PortAudio-backed
-backends. Device-free tests run by default; the real-device smoke test is
-opt-in with `uv run pytest -m audio_device -s` on Windows.
-
-The [`examples/`](examples/README.md) folder mirrors this current feature
-boundary with fourteen numbered scripts and a progressive Markdown curriculum.
-Ten scripts run without hardware; PortAudio diagnostics, browser acceptance,
-and the user-supplied VST3 workflow are explicitly opt-in.
-
-The API is available through `prism.api.create_app()` for embedding,
-`prism.api.run_server(PROJECT)` for a loopback-only server, and
-`prism.api.PrismClient` for typed callers. The CLI starts a foreground
-service explicitly; it never creates an invisible daemon:
-
-```text
-prism serve demo.prism-work
+print(song.validate())
+print(song.export_midi("renders/my-first-song.mid"))
+print(song.render("renders/my-first-song.wav"))
 ```
 
-Add `--open` to request the Phase 7 session in the system browser after the
-service has bound, or open the printed URL manually:
-
-```text
-prism demo demo.prism-work --open
-prism serve demo.prism-work --open
-```
-
-Service-backed commands default to `http://127.0.0.1:8765`. Override it with
-`--url` or `PRISM_URL`; only loopback targets are accepted. The named local
-project must match the project ID reported by readiness before a command runs.
-
-## Completed POC
-
-The first POC proves the project and control loop before taking on plugin-hosting
-complexity. It supports:
-
-- Audio clip import from WAV/AIFF assets.
-- Built-in deterministic kick, snare, hi-hat, bass, lead, and pad generation
-  from bar-aligned patterns, notes, rests, and chords.
-- Tracks and scenes in a session-style view.
-- Tempo, transport, and quantized clip launching.
-- Track volume, pan, mute, and solo.
-- Local Windows playback.
-- Headless WAV export.
-- Self-contained `.prism` ZIP projects with a structured JSON manifest and
-  embedded audio assets.
-- A CLI for inspection and mutation.
-- A versioned local HTTP/WebSocket API for coding agents.
-- A lightweight browser UI served by the Python process.
-- One explicitly trusted VST3 effect per track for isolated offline rendering,
-  with normalized parameters, bypass, opaque state, and fail-safe dry fallback.
-
-The POC does not include live VST3 processing, external plugin instruments,
-MIDI clips, recording, a linear arrangement timeline, automation lanes,
-collaboration, or remote access. Native synth output is an ordinary generated
-audio asset rather than a VST instrument or MIDI clip.
-
-## Agent CLI workflow
-
-The CLI and API expose the same application service. Start it in one terminal:
-
-```text
-prism project init demo.prism-work
-prism serve demo.prism-work
-```
-
-Then use another terminal or agent process:
-
-```text
-prism synth presets --json
-prism synth generate demo.prism-work --preset bass --sequence "C2,-,G1,Bb1" --bars 1 --name bass.wav --json
-prism audio import demo.prism-work drums.wav --json
-prism transaction preview demo.prism-work operations.json --json
-prism transaction commit demo.prism-work operations.json --json
-prism session launch demo.prism-work --track Drums --scene Verse --json
-prism render demo.prism-work --bars 8 --output demo.wav --json
-prism project export demo.prism-work --output demo.prism --json
-```
-
-Transactions accept either a complete request object or a bare operations array.
-Every mutation is revision-checked and has a server-backed preview or `--dry-run`
-path. JSON commands use a versioned envelope; invalid or stale requests leave the
-project unchanged and return stable, documented process exit codes.
-
-## Opt-in VST3 effects
-
-Install the optional host, then establish machine-local discovery and exact
-binary trust explicitly:
+Run it like any Python program:
 
 ```powershell
-uv sync --extra dev --extra plugins
-uv run prism plugin path-add "C:\Program Files\Common Files\VST3"
-uv run prism plugin trust "C:\Program Files\Common Files\VST3\Example.vst3" --json
-uv run prism plugin scan --json
+uv run python .\my-song\main.py
+Start-Process .\my-song\renders\my-first-song.wav
 ```
 
-With a foreground project service running, preview and attach a ready registry
-entry, inspect its normalized controls, and render:
+## Install for development
+
+Prism currently targets Python 3.12.
 
 ```powershell
-uv run prism plugin attach song.prism-work --track Drums --registry-id REGISTRY_UUID --dry-run --json
-uv run prism plugin attach song.prism-work --track Drums --registry-id REGISTRY_UUID --json
-uv run prism plugin parameters song.prism-work INSTANCE_UUID --json
-uv run prism plugin state-save song.prism-work INSTANCE_UUID --json
-uv run prism render song.prism-work --bars 8 --output effected.wav --json
+git clone https://github.com/SeucheAchat9115/Prism.git
+cd Prism
+uv sync --locked --extra dev
 ```
 
-Search paths do not grant trust. Approval is invalidated when binary bytes
-change. Effects run only in offline renders; Phase 9 live transport remains dry.
-The worker retries once after a timeout/crash, then bypasses the failed instance
-for that render and publishes failure events. See [Phase 9](docs/PHASE_9.md) for
-the complete CLI, API, storage, and recovery contracts.
+Applications that consume the package need only Prism's normal dependencies:
+NumPy, SoundFile, and SoXR. PortAudio, FastAPI, browser tooling, VST hosting,
+and a separate executable are not part of the package.
 
-## Project format
+## Public workflow
 
-Portable projects are self-contained ZIP archives with a custom `.prism`
-extension. Routine service edits occur in an adjacent `.prism-work/`
-directory and portable ZIP creation is explicit:
+1. Construct `Project(__file__, ...)` so all relative paths use the folder that
+   contains the producer's script.
+2. Add named tracks with `song.track(...)`.
+3. Give each track exactly one readable part:
+   `drum(...)`, `sample(...)`, `audio(...)`, or `midi(...)`.
+4. Append named sections in playback order with `song.section(...)`.
+5. Call `validate()`, optionally `export_midi()`, then `render()`.
 
-```text
-demo.prism
-├── project.json
-└── assets/
-    ├── audio/
-    │   └── <asset-uuid>.wav
-    └── plugin-state/
-        └── <instance-uuid>.bin
-```
+Important behavior:
 
-The schema 2 archive contains versioned project metadata, stable UUIDs, tracks,
-scenes, clip slots, clips, transport/mixer state, asset metadata, and optional
-plugin instances in `project.json`. Imported audio is copied into
-`assets/audio/`; bounded opaque plugin state is integrity-checked by the
-manifest under `assets/plugin-state/`. Plugin binaries and machine trust are
-never embedded.
+- `drum("kick" | "snare" | "hihat", pattern)` uses deterministic built-in
+  sounds.
+- `sample("sounds/kick.wav", pattern)` triggers a mono or stereo project-local
+  sample with an `x---` pattern.
+- `audio("sounds/loop.wav")` plays or loops a complete audio file.
+- `midi("C4 - E4 G4", instrument="lead")` creates real note data and renders
+  it through the built-in `bass`, `lead`, or `pad` instrument.
+- `+` makes a chord, `-` makes a rest, spaces and `|` can visually group a bar.
+- Sections choose which tracks play and determine the final linear arrangement.
+- Source and output paths must stay inside the project folder. This prevents a
+  project from depending silently on a producer's machine-specific absolute
+  path.
 
-Archive writes are deterministic and atomic. Prism validates member paths,
-rejects traversal and symlink entries, preserves imported audio bytes, and only
-rewrites an existing project through an explicit save or migration operation.
-The manifest remains inspectable with standard ZIP tools while the custom
-extension makes project files recognizable to Prism.
+## Reproducibility
 
-The working representation keeps ordinary `project.json`, immutable assets,
-revision history, project-local exports, and internal lock/staging/cache/job
-state. Removing it does not damage the last portable archive.
+Prism's source of truth is `main.py` plus files beneath the project folder.
+Rendering writes `.prism/project.json`, which records:
 
-## Architecture principles
+- the fully resolved tempo, meter, tracks, parts, mix, and sections;
+- the SHA-256 of `main.py` and every external sample;
+- output format, duration, frame count, peak, and SHA-256.
 
-- Keep the domain model independent of the browser and audio device.
-- Make the CLI and HTTP API call the same application service.
-- Keep real-time audio callbacks small and non-blocking.
-- Render offline through the same scheduling and mixing rules used by playback.
-- Validate and atomically commit project mutations.
-- Bind the initial API to `127.0.0.1` only.
-- Keep schema versions and migration code from the first project format onward.
-- Run VST3 plugins outside the main application process.
-- Treat third-party plugin binaries as user-installed dependencies rather than
-  something Prism redistributes.
+Given the same script, sample bytes, Prism version, and platform-compatible
+audio libraries, repeated renders are byte-identical PCM-16 WAV files. Prism
+writes outputs atomically, so a failed render does not replace a good file.
 
-## Technology direction
+## Learn Prism
 
-The initial implementation targets Python 3.12 on Windows and uses `uv` for
-environment management. The planned building blocks are:
+The [progressive tutorial](tutorial/README.md) starts with one built-in drum,
+then introduces project-local samples, MIDI, a multi-section mini-song, sound
+design/mixing, and safe collaboration with an agent. Every level contains a
+complete `main.py`, the exact command to run it, and a listening checkpoint.
 
-- Pydantic for validated project and transaction models.
-- NumPy for audio buffers and deterministic rendering.
-- `sounddevice`/PortAudio for the first device backend.
-- FastAPI for the local HTTP and WebSocket API.
-- Typer for the CLI.
-- HTML, CSS, and vanilla JavaScript served as static assets, with no Node build
-  requirement.
-- Pedalboard as the optional VST3 host behind a versioned isolated-worker
-  interface.
+## Scope
 
-Real-time audio and VST hosting rely on native components behind Python APIs;
-“Python-first” describes the product and orchestration boundary, not a promise
-that every low-level audio operation will be implemented in pure Python.
+Prism is intentionally an offline, script-first package. It does not provide a
+CLI, HTTP/WebSocket API, GUI, live playback engine, session server, VST host,
+recording system, or mutable archive format. Python code is the interface and
+the reproducible project format.
 
-## Roadmap
-
-```text
-Repository foundation
-  → Project schema and persistence
-  → Deterministic session engine
-  → Offline renderer
-  → Windows audio playback
-  → CLI and versioned API
-  → Product and application hardening
-  → Complete CLI surface
-  → Browser session UI
-  → Reproducible POC
-  → Isolated VST3 worker
-  → Native synth assets and progressive tutorials
-  → MIDI clips and instruments
-  → Arrangement timeline and editing
-  → Automation, routing, and recording
-  → Packaging and advanced agent workflows
-```
-
-## Development commands
-
-Once the environment is installed:
+## Development
 
 ```powershell
-uv sync --extra dev
-uv run pytest -m "not audio_device and not browser"
-uv run pytest -m browser --browser chromium
-uv run ruff check .
+uv run pytest --cov --cov-report=term-missing
 uv run mypy src/prism
-uv run python -m prism --help
-uv run prism version
+uv run ruff check .
+uv build --no-sources
 ```
 
-The implementation is intentionally incremental. Each phase in the
-[implementation plan](docs/IMPLEMENTATION_PLAN.md) has a small component
-boundary, tests, and an exit criterion before the next layer is added. See the
-[deployment guide](docs/DEPLOYMENT.md) for how those builds become installable
-command-line releases.
+The tests exercise only the public Python workflow and device-free offline
+rendering. No audio hardware is required.

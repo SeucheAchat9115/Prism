@@ -1,4 +1,0 @@
-interface:
-  display_name: "Prism Session Control"
-  short_description: "Control Prism transport and live sessions"
-  default_prompt: "Use $prism-session-control to inspect and control a live Prism session."

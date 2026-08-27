@@ -24,11 +24,12 @@ env/
 .idea/
 .vscode/
 
-# Prism projects and generated media
-*.prism/exports/
-*.prism/.cache/
-*.prism-work/
-exports/
+# Prism generated project state and media
+**/.prism/
+**/renders/
+tutorial-song/
+/examples/
+.test-tmp-*/
 
 # OS files
 .DS_Store

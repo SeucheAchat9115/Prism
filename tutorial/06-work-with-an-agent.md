@@ -1,0 +1,122 @@
+# Level 6 — work safely with a coding agent
+
+Goal: let an agent support production without turning the project into opaque
+software.
+
+## What an agent should edit
+
+The intended authoring surface is the producer's `main.py` and project-local
+files under `sounds/`. Ask the agent to use only public imports from `prism`.
+Good requests are concrete musical edits:
+
+```text
+Read my main.py. Add a two-bar bass part in C minor, but do not change the drum
+pattern. Keep the file readable for a non-programmer, validate it, render to a
+new WAV name, and summarize the musical changes.
+```
+
+```text
+Refactor repeated numeric values into clearly named variables. Do not introduce
+frameworks, helper classes, absolute paths, network calls, or hidden state.
+```
+
+```text
+Create an Intro, Verse, Chorus, and Outro using my existing track variables.
+Show me the arrangement before running the project script.
+```
+
+## A complete agent-friendly `main.py`
+
+Named groups and short comments make intent clear without hiding Prism calls:
+
+```python
+from prism import Project
+
+
+# Song-wide decisions
+TEMPO = 118
+OUTPUT = "renders/song.wav"
+
+song = Project(__file__, "Agent-Assisted Song", tempo=TEMPO)
+
+
+# Rhythm section
+kick = song.track("Kick", gain_db=-3).drum(
+    "kick",
+    "x--- x--- x-x- x---",
+)
+
+snare = song.track("Snare", gain_db=-8).drum(
+    "snare",
+    "---- x--- ---- x---",
+    seed=11,
+)
+
+bass = song.track("Bass", gain_db=-6, pan=-0.1).midi(
+    "C2 - C2 Eb2 | G1 - Bb1 -",
+    instrument="bass",
+    bars=2,
+)
+
+
+# Harmony and melody
+pad = song.track("Pad", gain_db=-12, pan=-0.3).midi(
+    "C3+Eb3+G3 - | Ab2+C3+Eb3 -",
+    instrument="pad",
+    bars=2,
+)
+
+lead = song.track("Lead", gain_db=-10, pan=0.3).midi(
+    "G4 Bb4 C5 - | G4 F4 Eb4 -",
+    instrument="lead",
+    bars=2,
+)
+
+
+# Arrangement: the order here is the playback order
+song.section("Intro", bars=2, tracks=[pad])
+song.section("Verse", bars=4, tracks=[kick, snare, bass, pad])
+song.section("Chorus", bars=4)
+song.section("Outro", bars=2, tracks=[kick, pad])
+
+
+# Deliverables
+print(song.validate())
+print(song.export_midi("renders/song.mid"))
+print(song.render(OUTPUT))
+```
+
+## Review before execution
+
+A Python project file is executable code. Before an agent runs an unfamiliar
+`main.py`, it should review the file and its imports. A normal Prism project
+needs `from prism import Project`; unexpected subprocess, network, credential,
+or broad filesystem operations are not part of music authoring.
+
+The agent should then run the ordinary project command:
+
+```powershell
+uv run python .\tutorial-song\main.py
+```
+
+It should verify:
+
+```powershell
+Get-Item .\tutorial-song\renders\song.wav
+Get-FileHash .\tutorial-song\renders\song.wav -Algorithm SHA256
+Get-Content .\tutorial-song\.prism\project.json
+```
+
+## Readability checklist
+
+- The file reads in the order project → tracks → sections → outputs.
+- Track variables use musical names, not generated IDs.
+- Patterns are visually grouped into beats or bars.
+- Every source path is relative and under `sounds/`.
+- Comments explain musical intent, not obvious Python syntax.
+- No helper abstraction is introduced until it removes real repetition.
+- The agent reports validation errors instead of bypassing them.
+- A changed render uses a new filename when the producer wants an A/B comparison.
+
+Checkpoint: the producer can understand and own the result after the agent
+leaves; rerunning one reviewed file reproduces the deliverables.

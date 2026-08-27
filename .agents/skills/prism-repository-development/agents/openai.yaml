@@ -1,4 +1,0 @@
-interface:
-  display_name: "Prism Repository Development"
-  short_description: "Implement and validate changes in Prism"
-  default_prompt: "Use $prism-repository-development to implement and validate a change in the Prism repository."

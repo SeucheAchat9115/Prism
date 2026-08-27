@@ -1,1 +1,0 @@
-"""Offline renderer tests."""

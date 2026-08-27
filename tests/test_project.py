@@ -1,0 +1,69 @@
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from prism import Project, ProjectError
+
+
+def test_project_script_reads_like_a_song(project_script: Path) -> None:
+    song = Project(project_script, "Small Song", tempo=105)
+    kick = song.track("Kick", gain_db=-2).drum("kick", "x--- x--- x--- x---")
+    bass = song.track("Bass", pan=-0.2).midi(
+        "C2 - C2 Eb2 | G1 - Bb1 -",
+        instrument="bass",
+        bars=2,
+    )
+    song.section("Intro", bars=2, tracks=[bass])
+    song.section("Beat", bars=4, tracks=[kick, bass])
+
+    summary = song.validate()
+    configuration = song.configuration()
+
+    assert str(summary) == "Small Song: 2 tracks, 2 sections, 6 bars, 13.71 seconds"
+    assert configuration["tempo"] == 105.0
+    assert configuration["sections"][1]["tracks"] == ("Kick", "Bass")
+    assert configuration["tracks"][1]["part"]["kind"] == "midi"
+
+
+def test_sections_can_include_every_track_implicitly(project_script: Path) -> None:
+    song = Project(project_script, "Loop")
+    song.track("Kick").drum("kick", "x---")
+    song.track("Lead").midi("C4 E4 G4 -")
+    song.section("All", bars=1)
+
+    assert song.validate().tracks == 2
+    assert song.sections[0].tracks is None
+
+
+def test_project_reports_common_authoring_errors(project_script: Path) -> None:
+    song = Project(project_script, "Broken")
+    song.track("Lead")
+    with pytest.raises(ProjectError, match="already used"):
+        song.track("lead")
+    song.section("Verse", bars=1, tracks=["Missing"])
+    with pytest.raises(ProjectError, match="has no sample"):
+        song.validate()
+
+
+def test_tracks_accept_only_one_clear_part(project_script: Path) -> None:
+    song = Project(project_script, "One Part")
+    track = song.track("Lead").midi("C4 -")
+    with pytest.raises(ProjectError, match="already has content"):
+        track.drum("kick", "x---")
+
+
+@pytest.mark.parametrize("path", ("../kick.wav", "C:/samples/kick.wav"))
+def test_source_paths_must_stay_in_the_project(project_script: Path, path: str) -> None:
+    song = Project(project_script, "Safe Paths")
+    with pytest.raises(ProjectError, match="relative"):
+        song.track("Kick").sample(path)
+
+
+def test_missing_sample_is_named_in_validation(project_script: Path) -> None:
+    song = Project(project_script, "Missing Sample")
+    song.track("Kick").sample("sounds/kick.wav", "x---")
+    song.section("Loop", bars=1)
+    with pytest.raises(ProjectError, match="sounds.*kick.wav"):
+        song.validate()

@@ -2,33 +2,23 @@
 
 from __future__ import annotations
 
-import hashlib
-import io
 import math
 from dataclasses import dataclass
 
 import numpy as np
-import soundfile as sf
 
-from prism.synthesis.types import NativeSynthPresetInfo, NativeSynthSpec, note_frequency
+from prism.music import note_frequency
+from prism.synthesis.types import (
+    NativeSynthSpec,
+    SynthWaveform,
+)
 
-MAX_SYNTH_SECONDS = 120.0
-
-
-@dataclass(frozen=True, slots=True)
-class NativeSynthRender:
-    """A fully encoded deterministic WAV and its verified public metadata."""
-
-    wav_bytes: bytes
-    frames: int
-    sample_rate: int
-    duration_seconds: float
-    sha256: str
+_MAX_SYNTH_SECONDS = 120.0
 
 
 @dataclass(frozen=True, slots=True)
 class _Patch:
-    waveform: str
+    waveform: SynthWaveform
     attack_ms: float
     decay_ms: float
     sustain_level: float
@@ -45,44 +35,14 @@ _PATCHES: dict[str, _Patch] = {
 }
 
 
-def native_synth_presets() -> tuple[NativeSynthPresetInfo, ...]:
-    """Return stable discovery metadata for every built-in sound."""
-
-    from prism.synthesis.types import default_sequence
-
-    descriptions = {
-        "kick": "Pitch-swept electronic kick drum.",
-        "snare": "Seeded noise and tone electronic snare.",
-        "hihat": "Short high-passed seeded-noise hi-hat.",
-        "bass": "Filtered saw bass for note and rest sequences.",
-        "lead": "Bright square lead for melodies and chords.",
-        "pad": "Soft triangle pad for sustained chords.",
-    }
-    values: list[NativeSynthPresetInfo] = []
-    for name in ("kick", "snare", "hihat", "bass", "lead", "pad"):
-        patch = _PATCHES.get(name)
-        values.append(
-            NativeSynthPresetInfo.model_validate(
-                {
-                    "name": name,
-                    "kind": "percussion" if name in {"kick", "snare", "hihat"} else "melodic",
-                    "description": descriptions[name],
-                    "default_sequence": default_sequence(name),
-                    "default_waveform": None if patch is None else patch.waveform,
-                }
-            )
-        )
-    return tuple(values)
-
-
 def render_native_synth(
     spec: NativeSynthSpec,
     *,
     sample_rate: int,
     tempo_bpm: float,
     beats_per_bar: int = 4,
-) -> NativeSynthRender:
-    """Render one loop-aligned spec to a mono 16-bit PCM WAV in memory."""
+) -> np.ndarray:
+    """Render one loop-aligned spec to deterministic mono samples."""
 
     if sample_rate <= 0:
         raise ValueError("sample_rate must be positive")
@@ -91,8 +51,8 @@ def render_native_synth(
     if beats_per_bar <= 0:
         raise ValueError("beats_per_bar must be positive")
     seconds = spec.bars * beats_per_bar * 60.0 / tempo_bpm
-    if seconds > MAX_SYNTH_SECONDS:
-        raise ValueError(f"native synth output cannot exceed {MAX_SYNTH_SECONDS:g} seconds")
+    if seconds > _MAX_SYNTH_SECONDS:
+        raise ValueError(f"native synth output cannot exceed {_MAX_SYNTH_SECONDS:g} seconds")
     frames = max(1, int(round(seconds * sample_rate)))
     boundaries = np.rint(np.linspace(0, frames, len(spec.sequence) + 1)).astype(np.int64)
     samples = np.zeros(frames, dtype=np.float64)
@@ -103,22 +63,7 @@ def render_native_synth(
     gain = 10.0 ** (spec.gain_db / 20.0)
     samples *= gain
     samples = np.tanh(samples * 1.15) / math.tanh(1.15)
-    encoded = io.BytesIO()
-    sf.write(
-        encoded,
-        np.asarray(np.clip(samples, -1.0, 1.0), dtype=np.float32),
-        sample_rate,
-        format="WAV",
-        subtype="PCM_16",
-    )
-    payload = encoded.getvalue()
-    return NativeSynthRender(
-        wav_bytes=payload,
-        frames=frames,
-        sample_rate=sample_rate,
-        duration_seconds=frames / sample_rate,
-        sha256=hashlib.sha256(payload).hexdigest(),
-    )
+    return np.asarray(np.clip(samples, -1.0, 1.0), dtype=np.float64)
 
 
 def _render_percussion(

@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   validate:
-    name: Device-free validation (${{ matrix.os }})
+    name: Python package (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -29,27 +29,15 @@ jobs:
       - name: Install Python 3.12
         run: uv python install 3.12
 
-      - name: Install Linux audio runtime libraries
+      - name: Install libsndfile on Linux
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libportaudio2 libsndfile1
+        run: sudo apt-get update && sudo apt-get install -y libsndfile1
 
-      - name: Install project dependencies
+      - name: Install the locked development environment
         run: uv sync --locked --extra dev
 
-      - name: Install optional VST3 worker host
-        if: runner.os == 'Windows'
-        run: uv sync --locked --extra dev --extra plugins
-
-      - name: Smoke-test isolated VST3 worker
-        if: runner.os == 'Windows'
-        run: >-
-          uv run python -c "import pedalboard;
-          from prism.plugins import PluginWorkerClient;
-          worker = PluginWorkerClient(); worker.start();
-          assert worker.status().state == 'ready'; worker.close()"
-
-      - name: Run device-free tests and coverage gate
-        run: uv run pytest -m "not audio_device and not browser" --cov --cov-report=term-missing
+      - name: Run tests and coverage
+        run: uv run pytest --cov --cov-report=term-missing
 
       - name: Run strict type checks
         run: uv run mypy src/prism
@@ -57,56 +45,10 @@ jobs:
       - name: Run lint checks
         run: uv run ruff check .
 
-      - name: Run command smoke checks
-        run: |
-          uv run python -m prism --help
-          uv run prism version
-          uv run prism version --json
-          uv run prism project init ci-smoke.prism-work --dry-run --json
-
-  browser:
-    name: Chromium browser session
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
-        with:
-          enable-cache: true
-
-      - name: Install Python 3.12
-        run: uv python install 3.12
-
-      - name: Install Linux audio runtime libraries
-        run: sudo apt-get update && sudo apt-get install -y libportaudio2 libsndfile1
-
-      - name: Install project dependencies
-        run: uv sync --locked --extra dev
-
-      - name: Install Chromium and operating-system dependencies
-        run: uv run python -m playwright install --with-deps chromium
-
-      - name: Run browser acceptance tests
-        run: >-
-          uv run pytest -m browser --browser chromium
-          --tracing=retain-on-failure --output=test-results
-
-      - name: Upload browser traces on failure
-        if: failure()
-        uses: actions/upload-artifact@v6
-        with:
-          name: chromium-traces
-          path: test-results
-          if-no-files-found: ignore
-          retention-days: 7
-
   package:
-    name: Build and clean-wheel acceptance
+    name: Build and clean-wheel smoke test
     runs-on: windows-latest
-    needs: [validate, browser]
+    needs: validate
 
     steps:
       - name: Check out repository
@@ -117,44 +59,14 @@ jobs:
 
       - name: Install Python 3.12
         run: uv python install 3.12
-
-      - name: Install acceptance-driver dependencies
-        run: uv sync --locked --extra dev
-
-      - name: Install Chromium for Phase 8 acceptance
-        run: uv run python -m playwright install chromium
 
       - name: Build wheel and source archive
         run: uv build --no-sources
 
-      - name: Install exact wheel into a clean environment
+      - name: Install and exercise the exact wheel
         shell: pwsh
         run: |
           $wheel = (Get-ChildItem -LiteralPath dist -Filter *.whl).FullName
           uv venv .wheel-smoke --python 3.12
           uv pip install --python .wheel-smoke\Scripts\python.exe $wheel
-
-      - name: Run installed acceptance launcher
-        shell: pwsh
-        run: |
-          .wheel-smoke\Scripts\prism.exe version
-          .wheel-smoke\Scripts\prism.exe demo "$env:RUNNER_TEMP\prism-demo.prism-work" --no-serve
-          .wheel-smoke\Scripts\prism.exe serve "$env:RUNNER_TEMP\prism-demo.prism-work" --dry-run --json
-          .wheel-smoke\Scripts\python.exe ci\wheel_ui_smoke.py
-
-      - name: Run Phase 8 clean-wheel POC acceptance
-        shell: pwsh
-        run: |
-          uv run python examples\12_reproducible_poc.py `
-            --output-dir "$env:RUNNER_TEMP\prism-phase8" `
-            --app-python .wheel-smoke\Scripts\python.exe `
-            --timeout 60
-
-      - name: Upload Phase 8 diagnostics on failure
-        if: failure()
-        uses: actions/upload-artifact@v6
-        with:
-          name: phase8-poc-diagnostics
-          path: ${{ runner.temp }}/prism-phase8
-          if-no-files-found: ignore
-          retention-days: 7
+          .wheel-smoke\Scripts\python.exe ci\wheel_smoke.py
