@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import hashlib
+import io
+import json
 from collections.abc import Iterable
 from pathlib import Path
 from threading import RLock
 from typing import BinaryIO
-from uuid import UUID
+from uuid import UUID, uuid4, uuid5
 
 import soundfile as sf
 
@@ -18,6 +21,7 @@ from prism.application.runtime import AudioRuntimeCoordinator, BackendFactory
 from prism.application.types import (
     ApiIssue,
     ApplicationSnapshot,
+    AssetImportOperation,
     AudioDeviceModel,
     AudioSnapshotModel,
     BackgroundJob,
@@ -37,6 +41,8 @@ from prism.application.types import (
     PluginStateUpdateOperation,
     RenderJobRequest,
     RuntimeImpact,
+    SynthAssetRequest,
+    SynthAssetResult,
     TransactionRequest,
     TransactionResult,
     TransportRequest,
@@ -64,6 +70,7 @@ from prism.project.models import PluginInstance, Project
 from prism.project.validation import ValidationStage
 from prism.rendering import RenderError
 from prism.rendering.types import RenderMetadata
+from prism.synthesis import render_native_synth
 
 
 class ApplicationService:
@@ -570,6 +577,109 @@ class ApplicationService:
 
     def discard_upload(self, upload_id: UUID) -> None:
         self._repository.discard_upload(upload_id)
+
+    def generate_synth_asset(
+        self,
+        request: SynthAssetRequest,
+        *,
+        preview: bool = False,
+    ) -> SynthAssetResult:
+        """Render, stage, and revision-check one built-in synth audio asset."""
+
+        with self._lock:
+            self._require_open()
+            project = self._project
+            try:
+                rendered = render_native_synth(
+                    request.spec,
+                    sample_rate=project.transport.sample_rate,
+                    tempo_bpm=project.transport.tempo_bpm,
+                    beats_per_bar=project.transport.time_signature_numerator,
+                )
+            except ValueError as error:
+                raise ApplicationError(
+                    str(error),
+                    code="synth_invalid",
+                    path="/spec",
+                    status_code=422,
+                ) from error
+            synth_digest = hashlib.sha256(
+                json.dumps(
+                    {
+                        "filename": request.filename,
+                        "spec": request.spec.model_dump(mode="json"),
+                    },
+                    ensure_ascii=False,
+                    separators=(",", ":"),
+                    sort_keys=True,
+                ).encode("utf-8")
+            ).hexdigest()
+            asset_id = request.asset_id
+            if asset_id is None:
+                asset_id = (
+                    uuid4()
+                    if request.idempotency_key is None
+                    else uuid5(
+                        project.project_id,
+                        f"prism-native-synth:{request.idempotency_key}:{synth_digest}:asset",
+                    )
+                )
+            upload_id = (
+                None
+                if request.idempotency_key is None
+                else uuid5(
+                    project.project_id,
+                    f"prism-native-synth:{request.idempotency_key}:{synth_digest}:upload",
+                )
+            )
+            upload = self.stage_audio(
+                io.BytesIO(rendered.wav_bytes),
+                request.filename,
+                upload_id=upload_id,
+            )
+            transaction = TransactionRequest(
+                base_revision=request.base_revision,
+                idempotency_key=request.idempotency_key,
+                operations=[
+                    AssetImportOperation(
+                        op="asset.import",
+                        op_id=f"native-synth:{synth_digest}",
+                        upload_id=upload.upload_id,
+                        asset_id=asset_id,
+                    )
+                ],
+            )
+            try:
+                result = (
+                    self.preview_transaction(transaction)
+                    if preview
+                    else self.commit_transaction(transaction)
+                )
+            finally:
+                self.discard_upload(upload.upload_id)
+            synth_result = SynthAssetResult(
+                ok=result.ok,
+                preview=preview,
+                asset_id=asset_id,
+                filename=request.filename,
+                frames=rendered.frames,
+                sample_rate=rendered.sample_rate,
+                duration_seconds=rendered.duration_seconds,
+                sha256=rendered.sha256,
+                spec=request.spec,
+                transaction=result,
+            )
+            if result.committed and not result.idempotent_replay:
+                self._publish(
+                    "synth.asset.generated",
+                    {
+                        "asset_id": str(asset_id),
+                        "filename": request.filename,
+                        "preset": request.spec.preset,
+                        "sha256": rendered.sha256,
+                    },
+                )
+            return synth_result
 
     def resolve_name(self, entity_type: str, name: str) -> UUID:
         return self._commands.resolve_name(entity_type, name)

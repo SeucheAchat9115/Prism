@@ -32,10 +32,11 @@ validation, state changes, transport, rendering, and event publication.
 
 ## Current status
 
-This repository contains the completed Phase 9 proof of concept: the Phase 8
-working-project, authoring, rendering, runtime, API, CLI, and browser loop now
-also supports explicitly trusted user-installed VST3 effects in a crash-isolated
-worker for offline rendering.
+This repository contains the completed Phase 9 proof of concept plus Phase 10.1
+native synthesis and guided learning path. Prism supports working-project
+authoring, live session playback, rendering, API/CLI/browser control,
+crash-isolated offline VST3 effects, and built-in drum/melodic WAV generation
+that needs no third-party plugin or MIDI setup.
 
 The project documentation is organized as follows:
 
@@ -53,8 +54,13 @@ The project documentation is organized as follows:
   browser/CLI acceptance flow, artifacts, and clean-wheel Windows gate.
 - [Phase 9 VST3 worker](docs/PHASE_9.md) — opt-in host installation, exact
   binary trust, registry, project schema, worker recovery, and offline effects.
-- [Manual examples](examples/README.md) — runnable examples for the current
-  persistence, engine, rendering, CLI, and audio-backend features.
+- [Phase 10.1 native synthesis](docs/PHASE_10.md) — deterministic presets,
+  sequence language, CLI/API contracts, and tutorial acceptance.
+- [Step-by-step tutorials](examples/tutorials/README.md) — a Level 0–8 path
+  from first playback through a multi-track mini-song, Python control, browser
+  performance, and optional VST3 effects.
+- [Automated examples](examples/README.md) — runnable regression companions for
+  persistence, synthesis, engine, rendering, CLI, API, browser, and audio.
 
 ## Agent guidance
 
@@ -75,6 +81,11 @@ which Prism interface to use for a task:
 - `$prism-plugin-control` for VST3 discovery/trust, project effects,
   parameters, state, compatibility, offline renders, and worker recovery.
 
+Native synthesis is covered by `$prism-project-authoring` for generated assets
+and clip placement, then `$prism-session-control` or `$prism-render-export` for
+listening and renders. `$prism-api-integration` maps synth discovery and
+generation for agents.
+
 Compatible agents discover these skills from the repository automatically.
 They can also be invoked explicitly, for example: “Use
 `$prism-project-authoring` to add a track and scene, preview the transaction,
@@ -91,9 +102,9 @@ backends. Device-free tests run by default; the real-device smoke test is
 opt-in with `uv run pytest -m audio_device -s` on Windows.
 
 The [`examples/`](examples/README.md) folder mirrors this current feature
-boundary with thirteen numbered scripts. Nine examples run without hardware;
-PortAudio diagnostics, browser acceptance, and the user-supplied VST3 workflow
-are explicitly opt-in.
+boundary with fourteen numbered scripts and a progressive Markdown curriculum.
+Ten scripts run without hardware; PortAudio diagnostics, browser acceptance,
+and the user-supplied VST3 workflow are explicitly opt-in.
 
 The API is available through `prism.api.create_app()` for embedding,
 `prism.api.run_server(PROJECT)` for a loopback-only server, and
@@ -122,6 +133,8 @@ The first POC proves the project and control loop before taking on plugin-hostin
 complexity. It supports:
 
 - Audio clip import from WAV/AIFF assets.
+- Built-in deterministic kick, snare, hi-hat, bass, lead, and pad generation
+  from bar-aligned patterns, notes, rests, and chords.
 - Tracks and scenes in a session-style view.
 - Tempo, transport, and quantized clip launching.
 - Track volume, pan, mute, and solo.
@@ -135,9 +148,10 @@ complexity. It supports:
 - One explicitly trusted VST3 effect per track for isolated offline rendering,
   with normalized parameters, bypass, opaque state, and fail-safe dry fallback.
 
-The POC does not include live VST3 processing, plugin instruments, MIDI,
-recording, a linear arrangement timeline, automation lanes, collaboration, or
-remote access.
+The POC does not include live VST3 processing, external plugin instruments,
+MIDI clips, recording, a linear arrangement timeline, automation lanes,
+collaboration, or remote access. Native synth output is an ordinary generated
+audio asset rather than a VST instrument or MIDI clip.
 
 ## Agent CLI workflow
 
@@ -151,6 +165,8 @@ prism serve demo.prism-work
 Then use another terminal or agent process:
 
 ```text
+prism synth presets --json
+prism synth generate demo.prism-work --preset bass --sequence "C2,-,G1,Bb1" --bars 1 --name bass.wav --json
 prism audio import demo.prism-work drums.wav --json
 prism transaction preview demo.prism-work operations.json --json
 prism transaction commit demo.prism-work operations.json --json
@@ -272,6 +288,7 @@ Repository foundation
   → Browser session UI
   → Reproducible POC
   → Isolated VST3 worker
+  → Native synth assets and progressive tutorials
   → MIDI clips and instruments
   → Arrangement timeline and editing
   → Automation, routing, and recording

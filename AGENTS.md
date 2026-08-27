@@ -3,7 +3,8 @@
 These instructions apply to the entire repository. Prism is a Python 3.12,
 Python-first digital audio workstation whose browser UI, CLI, and typed client
 all call one loopback application service. The current product boundary is the
-completed Phase 9 offline VST3 worker.
+completed Phase 9 offline VST3 worker plus Phase 10.1 native synthesized audio
+assets and progressive tutorials.
 
 ## Skill routing
 
@@ -13,7 +14,8 @@ automatically. Load the smallest set that covers the request:
 - `$prism-repository-development`: implement, debug, review, test, or document
   repository changes.
 - `$prism-project-authoring`: create, inspect, validate, migrate, or safely edit
-  projects, tracks, scenes, clips, slots, transport settings, and mixer values.
+  projects, native synth assets, tracks, scenes, clips, slots, transport
+  settings, and mixer values.
 - `$prism-session-control`: run and control a live service, transport, session
   grid, mixer, audio backend, event stream, or browser session.
 - `$prism-render-export`: import audio, preview or run render/export jobs, wait
@@ -52,6 +54,8 @@ an existing project without changing Prism source, use only the domain skill.
 - `src/prism/audio/`: fake, offline, and PortAudio backend boundary.
 - `src/prism/plugins/`: machine-local trust/registry, versioned worker
   protocol, subprocess control, and fail-safe offline effect processing.
+- `src/prism/synthesis/`: deterministic native drum/melodic specifications,
+  note parsing, preset discovery, DSP, and WAV encoding.
 - `src/prism/application/`: the state owner, typed operations, runtime, events,
   and background jobs.
 - `src/prism/api/`: FastAPI routes, loopback server, and typed synchronous
@@ -77,8 +81,11 @@ in `src/prism/application/types.py` and keep unknown fields rejected.
 - VST3 support is opt-in, effect-only, one instance per track, and offline
   render-only. Exact binary trust is machine-local; opaque state is portable.
   Never claim that live transport is plugin-processed.
-- Do not claim support for plugin instruments, MIDI, recording, arrangement
-  editing, automation, advanced routing, collaboration, or remote access;
+- Native synthesis is built in and generates ordinary immutable WAV assets.
+  It is not a VST instrument or MIDI clip. Generate and preview the asset
+  through the service contract, then create clips and slots explicitly.
+- Do not claim support for external plugin instruments, MIDI, recording,
+  arrangement editing, automation, advanced routing, collaboration, or remote access;
   those phases are not implemented.
 
 ## Repository workflow

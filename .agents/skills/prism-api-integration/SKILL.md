@@ -19,8 +19,9 @@ loopback-only, and unauthenticated; it is not a remote service boundary.
 | Human session or UI acceptance | Packaged browser at `/` |
 
 Prefer the CLI when it already composes a fragile workflow such as staged audio
-import, selector resolution, waiting for a job, or dry-run cleanup. Prefer the
-typed client when state and UUIDs must be retained across several calls.
+import, native synth generation/import, selector resolution, waiting for a job,
+or dry-run cleanup. Prefer the typed client when state and UUIDs must be retained
+across several calls.
 
 Read [the v1 client and protocol contract](references/v1-client-and-protocol.md)
 before implementing raw calls, exposing new agent tools, or handling retries.

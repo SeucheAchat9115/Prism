@@ -47,6 +47,8 @@ before implementing a multi-step session controller or debugging synchronization
   `$prism-project-authoring` for complex edits.
 - Device-free fallback is a valid ready state. Do not restart real audio or play
   sound unless the user requested hardware interaction.
+- Built-in synth material is pre-generated audio and is live-playable through
+  ordinary clips. This does not imply live VST3 or MIDI instrument support.
 - Quantized actions can be scheduled for a future frame. Observe
   `clip.scheduled`, then `clip.launched`, `clip.stopped`, or `clip.completed`.
 - On unknown network outcomes, resync state before retrying. Never repeatedly

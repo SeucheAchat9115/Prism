@@ -12,6 +12,7 @@ must pass. The root `AGENTS.md` contains the non-negotiable product invariants.
 | Project and playback validation | `src/prism/project/validation.py` | project and application tests |
 | Transport and clip scheduling | `src/prism/engine/` | `tests/engine/` |
 | Offline render contracts and mixing | `src/prism/rendering/` | `tests/rendering/` |
+| Native drum/melodic asset generation | `src/prism/synthesis/` | `tests/synthesis/`, synthesis API/CLI/application tests |
 | Audio backend lifecycle | `src/prism/audio/` | `tests/audio/` |
 | Transactions, runtime, events, jobs | `src/prism/application/` | `tests/application/` |
 | HTTP/WebSocket and typed client | `src/prism/api/` | `tests/api/` |

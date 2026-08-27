@@ -31,6 +31,8 @@ from prism.application.types import (
     ReadinessResult,
     RenderJobRequest,
     SessionActionResult,
+    SynthAssetRequest,
+    SynthAssetResult,
     TransactionRequest,
     TransactionResult,
     TransportRequest,
@@ -50,6 +52,7 @@ from prism.project.models import (
     Scene,
     Track,
 )
+from prism.synthesis import NativeSynthPresetInfo
 
 
 class PrismClientError(Exception):
@@ -167,6 +170,10 @@ class PrismClient:
 
     def schemas(self) -> dict[str, Any]:
         return self._json("GET", "/api/v1/schemas")
+
+    def synth_presets(self) -> list[NativeSynthPresetInfo]:
+        payload = self._json("GET", "/api/v1/synth/presets")
+        return [NativeSynthPresetInfo.model_validate(item) for item in payload["presets"]]
 
     def get_project(self, project_id: UUID) -> Project:
         payload = self._json("GET", f"/api/v1/projects/{project_id}")
@@ -390,6 +397,22 @@ class PrismClient:
 
     def discard_upload(self, project_id: UUID, upload_id: UUID) -> None:
         self._json("DELETE", f"/api/v1/projects/{project_id}/uploads/{upload_id}")
+
+    def generate_synth_asset(
+        self,
+        project_id: UUID,
+        request: SynthAssetRequest,
+        *,
+        preview: bool = False,
+    ) -> SynthAssetResult:
+        payload = self._json(
+            "POST",
+            f"/api/v1/projects/{project_id}/synth-assets",
+            params={"preview": str(preview).lower()},
+            json=request.model_dump(mode="json", exclude_unset=True),
+            allow_error_envelope=True,
+        )
+        return SynthAssetResult.model_validate(payload)
 
     def transport(
         self,

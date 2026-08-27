@@ -90,6 +90,31 @@ uv run prism entity list song.prism-work track --json
 uv run prism entity resolve song.prism-work track Drums --json
 ```
 
+## Native synth asset workflow
+
+Discover the built-in presets, preview exact deterministic audio, then commit
+the asset import:
+
+```powershell
+uv run prism synth presets --json
+uv run prism synth generate song.prism-work `
+  --preset bass --sequence "C2,-,G1,Bb1" --bars 1 `
+  --name bass.wav --dry-run --json
+uv run prism synth generate song.prism-work `
+  --preset bass --sequence "C2,-,G1,Bb1" --bars 1 `
+  --name bass.wav --idempotency-key bass-v1 --json
+```
+
+The returned `asset_id` can be used by `clip.create`. Percussion sequences use
+`x` and `-`; melodic sequences use notes, rests, and `+`-joined chords. Melodic
+presets may override waveform, ADSR, cutoff, gate, and gain. Do not describe
+this generated WAV path as MIDI or an external plugin instrument.
+
+Typed callers use `SynthAssetRequest`, `NativeSynthSpec`,
+`PrismClient.synth_presets()`, and
+`PrismClient.generate_synth_asset(..., preview=True|False)`. Re-read readiness
+after a successful generation because the asset transaction advances revision.
+
 ## Typed Python workflow
 
 ```python

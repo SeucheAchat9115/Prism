@@ -1,14 +1,20 @@
-# Manual examples
+# Examples and step-by-step tutorials
 
-The examples are the runnable guide to the Prism features that exist today.
-They use a generated, deterministic five-track beat where possible, so users
-can explore project creation, session control, rendering, the CLI, the API, and
-agent workflows without supplying their own audio files.
+Start with the [progressive Markdown tutorials](tutorials/README.md). They are
+complete PowerShell walkthroughs that begin with listening to one supplied
+scene, then create a native synth sound, program a drum loop, build a six-track
+mini-song, render and export it, automate it through Python, perform in the
+browser, and optionally add a user-installed VST3 effect.
+
+The numbered Python scripts are automated companions and focused feature
+demonstrations. They use generated deterministic audio where possible, so users
+can explore project creation, session control, rendering, the CLI, the API,
+native synthesis, and agent workflows without supplying audio files.
 
 Run them from the repository root after installing the development environment:
 
 ```powershell
-uv sync --extra dev
+uv sync --locked --extra dev
 ```
 
 For the installed-package acceptance flow, create the synthetic demo and start
@@ -38,6 +44,7 @@ Artifact-producing examples create a unique run directory under
 | 11 | [`11_browser_session.py`](11_browser_session.py) | Create the synthetic demo, start its foreground loopback service, and open the Phase 7 studio UI | Browser, opt-in |
 | 12 | [`12_reproducible_poc.py`](12_reproducible_poc.py) | Drive the canonical fixture through browser launches, CLI control, safe transactions, rendering, shutdown, and reopen | Chromium, opt-in |
 | 13 | [`13_vst3_effect.py`](13_vst3_effect.py) | Trust, discover, attach, control, state-round-trip, restart, and offline-render one user-installed VST3 effect | VST3 + `plugins` extra, opt-in |
+| 14 | [`14_native_synth_song.py`](14_native_synth_song.py) | Build kick, snare, hi-hat, bass, pad, and lead assets; author four scenes; and render a complete eight-bar mini-song | No |
 
 ## Run the device-free examples
 
@@ -51,14 +58,17 @@ uv run python examples/06_transaction_safety.py
 uv run python examples/07_api_client.py
 uv run python examples/08_backend_comparison.py
 uv run python examples/10_agent_producer_workflow.py
+uv run python examples/14_native_synth_song.py
 ```
 
 The generated project and WAV files are printed as JSON. Example 05 takes about
 one to two minutes because it launches each installed command in a fresh process
 and shuts its foreground service down cleanly. The most approachable
-starting point is [02 — make a beat](02_make_beat.py); open its generated WAV
-and inspect its `.prism` archive with standard ZIP tools. The best example
-for a coding agent is [10 — agent producer workflow](10_agent_producer_workflow.py).
+starting point for a person is
+[Level 0 — listen to the demo](tutorials/00-listen-to-the-demo.md). The best
+single automated music example is
+[14 — native synth mini-song](14_native_synth_song.py), and the best example for
+a coding agent is [10 — agent producer workflow](10_agent_producer_workflow.py).
 
 ## Run the browser examples
 
@@ -125,21 +135,25 @@ a third-party VST3 fixture.
 
 ## What is not included yet
 
-There are no live VST3, plugin-instrument, MIDI, arrangement-editing,
-automation, routing, or recording examples yet because those product phases are
-not implemented. Each future phase must add the smallest numbered example for
-its new public surface, document its prerequisites here, and keep external-
-device, browser, or plugin examples opt-in.
+Prism now has a built-in deterministic synth asset generator for drum and
+melodic loops. It is not a VST instrument and does not require MIDI. There are
+still no live VST3, external plugin-instrument, MIDI, arrangement-editing,
+automation, routing, or recording examples because those product phases are not
+implemented. Each future phase must add the smallest numbered example and the
+smallest tutorial step for its public surface, document prerequisites here, and
+keep external-device, browser, or plugin examples opt-in.
 
 ## Keeping examples current
 
 For every public feature change:
 
-1. Update the affected numbered example or add the next available number.
-2. Update this index, the command, prerequisites, and expected artifact.
-3. Keep deterministic examples in the ordinary smoke-test suite.
-4. Keep browser, hardware, and plugin examples explicitly opt-in.
-5. Update [`tests/test_examples.py`](../tests/test_examples.py).
+1. Update the affected Markdown tutorial and numbered example, or add the next
+   smallest level and script.
+2. Keep every tutorial command copyable and include a visible checkpoint.
+3. Update this index, prerequisites, listening behavior, and expected artifact.
+4. Keep deterministic examples in the ordinary smoke-test suite.
+5. Keep browser, hardware, and third-party plugin examples explicitly opt-in.
+6. Update [`tests/test_examples.py`](../tests/test_examples.py).
 
 The phase-by-phase maintenance gate is tracked in the
 [`implementation plan`](../docs/IMPLEMENTATION_PLAN.md).

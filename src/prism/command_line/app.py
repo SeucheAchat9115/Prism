@@ -23,6 +23,7 @@ from prism.application import (
     PluginRemoveOperation,
     PluginStateCaptureRequest,
     RenderJobRequest,
+    SynthAssetRequest,
     TransactionRequest,
     TransportRequest,
 )
@@ -59,6 +60,7 @@ from prism.project import (
     validate_project,
     working_path_for_archive,
 )
+from prism.synthesis import NativeSynthSpec, native_synth_presets
 
 app = typer.Typer(
     name="prism",
@@ -86,6 +88,10 @@ plugin_app = typer.Typer(
     help="Discover, trust, attach, and control isolated VST3 effects.",
     no_args_is_help=True,
 )
+synth_app = typer.Typer(
+    help="Generate built-in drum and melodic audio assets.",
+    no_args_is_help=True,
+)
 
 app.add_typer(server_app, name="server")
 app.add_typer(project_app, name="project")
@@ -98,6 +104,7 @@ app.add_typer(transaction_app, name="transaction")
 app.add_typer(job_app, name="job")
 app.add_typer(events_app, name="events")
 app.add_typer(plugin_app, name="plugin")
+app.add_typer(synth_app, name="synth")
 
 
 @app.command()
@@ -134,6 +141,112 @@ def doctor(
             human=("Prism CLI is installed and ready.",),
         ),
     )
+
+
+@synth_app.command("presets")
+def synth_presets(
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """List native instruments, default patterns, and sound categories."""
+
+    def action() -> CommandResult:
+        presets = native_synth_presets()
+        return CommandResult(
+            data={"presets": [item.model_dump(mode="json") for item in presets]},
+            human=tuple(
+                f"{item.name}: {item.description} Default: {','.join(item.default_sequence)}"
+                for item in presets
+            ),
+        )
+
+    run_command("synth presets", as_json=as_json, action=action)
+
+
+@synth_app.command("generate")
+def synth_generate(
+    project: Path = typer.Argument(...),
+    preset: str = typer.Option("lead", "--preset"),
+    sequence: str = typer.Option(
+        "",
+        "--sequence",
+        help="Comma-separated x/rest pattern, notes, or + joined chords; empty uses the preset.",
+    ),
+    bars: int = typer.Option(1, "--bars", min=1, max=32),
+    filename: str = typer.Option("native-synth.wav", "--name"),
+    waveform: str | None = typer.Option(None, "--waveform"),
+    attack_ms: float | None = typer.Option(None, "--attack-ms", min=0.0, max=5000.0),
+    decay_ms: float | None = typer.Option(None, "--decay-ms", min=0.0, max=5000.0),
+    sustain_level: float | None = typer.Option(
+        None,
+        "--sustain",
+        min=0.0,
+        max=1.0,
+    ),
+    release_ms: float | None = typer.Option(None, "--release-ms", min=0.0, max=5000.0),
+    cutoff_hz: float | None = typer.Option(None, "--cutoff-hz", min=20.0, max=20_000.0),
+    gate: float | None = typer.Option(None, "--gate", min=0.05, max=1.0),
+    gain_db: float = typer.Option(-3.0, "--gain-db", min=-36.0, max=0.0),
+    seed: int = typer.Option(0, "--seed", min=0, max=4_294_967_295),
+    asset_id: UUID | None = typer.Option(None, "--asset-id"),
+    idempotency_key: str | None = typer.Option(None, "--idempotency-key"),
+    dry_run: bool = typer.Option(False, "--dry-run"),
+    url: str = typer.Option(DEFAULT_SERVICE_URL, "--url", envvar="PRISM_URL"),
+    as_json: bool = typer.Option(False, "--json"),
+) -> None:
+    """Generate and transactionally import one loop-aligned native synth asset."""
+
+    def action() -> CommandResult:
+        tokens = [] if not sequence.strip() else [item.strip() for item in sequence.split(",")]
+        spec_payload: dict[str, Any] = {
+            "preset": preset,
+            "sequence": tokens,
+            "bars": bars,
+            "gain_db": gain_db,
+            "seed": seed,
+        }
+        optional_values = {
+            "waveform": waveform,
+            "attack_ms": attack_ms,
+            "decay_ms": decay_ms,
+            "sustain_level": sustain_level,
+            "release_ms": release_ms,
+            "cutoff_hz": cutoff_hz,
+            "gate": gate,
+        }
+        spec_payload.update(
+            {name: value for name, value in optional_values.items() if value is not None}
+        )
+        spec = NativeSynthSpec.model_validate(spec_payload)
+        with connected_project(project, url) as service:
+            request = SynthAssetRequest(
+                base_revision=service.context.revision,
+                filename=filename,
+                spec=spec,
+                asset_id=asset_id,
+                idempotency_key=idempotency_key,
+            )
+            result = service.client.generate_synth_asset(
+                service.context.id,
+                request,
+                preview=dry_run,
+            )
+            context = _revision_context(
+                service.context,
+                service.context.revision if dry_run else result.transaction.after_revision,
+            )
+            if not result.ok:
+                raise failed_transaction(result, result.transaction.errors, context)
+            verb = "Would generate" if dry_run else "Generated"
+            return CommandResult(
+                data=result.model_dump(mode="json"),
+                project=context,
+                human=(
+                    f"{verb} {result.filename} with {result.spec.preset} as {result.asset_id}",
+                ),
+                warnings=result.transaction.warnings,
+            )
+
+    run_command("synth generate", as_json=as_json, dry_run=dry_run, action=action)
 
 
 @plugin_app.command("path-add")

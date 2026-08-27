@@ -22,6 +22,7 @@ EXAMPLES = ROOT / "examples"
         ("07_api_client.py", True),
         ("08_backend_comparison.py", True),
         ("10_agent_producer_workflow.py", True),
+        ("14_native_synth_song.py", True),
     ),
 )
 def test_device_free_examples_run(
@@ -78,3 +79,28 @@ def test_vst3_example_help_is_available_without_a_plugin() -> None:
     assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
     assert "--plugin" in result.stdout
     assert "--registry-id" in result.stdout
+
+
+def test_markdown_tutorial_curriculum_has_every_level_and_copyable_commands() -> None:
+    tutorial_root = EXAMPLES / "tutorials"
+    expected = {
+        "00-listen-to-the-demo.md": ("prism demo", "transport play", "Start-Process"),
+        "01-make-one-synth-sound.md": ("synth generate", "clip.create", "session launch"),
+        "02-build-a-drum-loop.md": ("--preset kick", "--preset snare", "--preset hihat"),
+        "03-build-a-mini-song.md": ("--preset bass", "--preset pad", "launch_scene"),
+        "04-shape-mix-and-edit.md": ("clip.update", "--dry-run", "stale_revision"),
+        "05-control-with-python.md": ("PrismClient", "SynthAssetRequest", "wait_for_job"),
+        "06-perform-in-the-browser.md": ("events watch", "Preview & render", "job list"),
+        "07-add-a-vst3-effect.md": ("plugin trust", "plugin attach", "offline renders"),
+        "08-toolbox-map.md": ("prism --help", "audio devices", "14_native_synth_song.py"),
+    }
+    index = (tutorial_root / "README.md").read_text(encoding="utf-8")
+    for name, milestones in expected.items():
+        path = tutorial_root / name
+        assert path.is_file()
+        assert f"]({name})" in index
+        content = path.read_text(encoding="utf-8")
+        assert "```powershell" in content
+        for milestone in milestones:
+            assert milestone in content
+    assert "14_native_synth_song.py" in index

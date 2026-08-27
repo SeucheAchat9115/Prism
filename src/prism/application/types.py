@@ -13,12 +13,14 @@ from pydantic import (
     NonNegativeInt,
     PositiveFloat,
     PositiveInt,
+    field_validator,
     model_validator,
 )
 
 from prism.audio.types import AudioBackendSnapshot
 from prism.engine.types import EngineSnapshot
 from prism.rendering.types import RenderCommand, RenderOperation, RenderRequest
+from prism.synthesis import NativeSynthSpec
 
 
 class APIModel(BaseModel):
@@ -313,6 +315,23 @@ class TransactionRequest(APIModel):
     allow_runtime_reset: bool = False
 
 
+class SynthAssetRequest(APIModel):
+    """Generate and transactionally import one native-synth WAV asset."""
+
+    base_revision: NonNegativeInt
+    filename: str = Field(default="native-synth.wav", min_length=5, max_length=255)
+    spec: NativeSynthSpec
+    asset_id: UUID | None = None
+    idempotency_key: str | None = Field(default=None, min_length=1, max_length=128)
+
+    @field_validator("filename")
+    @classmethod
+    def validate_filename(cls, value: str) -> str:
+        if "/" in value or "\\" in value or not value.casefold().endswith(".wav"):
+            raise ValueError("filename must be a plain .wav filename")
+        return value
+
+
 class ApiIssue(APIModel):
     code: str
     path: str = ""
@@ -360,6 +379,21 @@ class TransactionResult(APIModel):
     idempotent_replay: bool = False
     warnings: list[ApiIssue] = Field(default_factory=list)
     errors: list[ApiIssue] = Field(default_factory=list)
+
+
+class SynthAssetResult(APIModel):
+    """Generated audio metadata plus the governing asset transaction."""
+
+    ok: bool
+    preview: bool
+    asset_id: UUID
+    filename: str
+    frames: PositiveInt
+    sample_rate: PositiveInt
+    duration_seconds: PositiveFloat
+    sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    spec: NativeSynthSpec
+    transaction: TransactionResult
 
 
 class EngineSnapshotModel(APIModel):

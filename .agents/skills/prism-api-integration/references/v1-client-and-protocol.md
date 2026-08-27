@@ -29,6 +29,7 @@ are bounded to 16 MiB; uploads use separately bounded streaming staging.
 | Application/API version | `GET /api/v1/version` | `version()` |
 | Feature flags and limits | `GET /api/v1/capabilities` | `capabilities()` |
 | Current request JSON schemas | `GET /api/v1/schemas` | `schemas()` |
+| Native synth preset catalog | `GET /api/v1/synth/presets` | `synth_presets()` |
 | OpenAPI UI | `GET /docs` | Browser/manual inspection |
 | OpenAPI JSON | `GET /openapi.json` | Protocol tooling |
 
@@ -74,6 +75,8 @@ client and WebSocket close deterministically.
 - `commit_transaction(project_id, request)`
 - `upload_audio(project_id, source, filename=None, upload_id=None)`
 - `discard_upload(project_id, upload_id)`
+- `synth_presets()`
+- `generate_synth_asset(project_id, request, preview=False)`
 - `resolve_external_change(project_id)`
 
 ### Runtime
@@ -116,6 +119,8 @@ Use `$prism-project-authoring`, `$prism-session-control`, and
 | `DELETE` | `/api/v1/projects/{id}/uploads/{upload_id}` | Discard staging |
 | `POST` | `/api/v1/projects/{id}/transactions/preview` | `TransactionRequest` / `TransactionResult` |
 | `POST` | `/api/v1/projects/{id}/transactions` | Commit same contract |
+| `GET` | `/api/v1/synth/presets` | Built-in preset metadata and default sequences |
+| `POST` | `/api/v1/projects/{id}/synth-assets?preview=...` | `SynthAssetRequest` / `SynthAssetResult` |
 | `POST` | `/api/v1/projects/{id}/external-change/resolve` | `{"resolution":"detach_source"}` |
 
 ### Runtime and jobs
@@ -184,6 +189,11 @@ issue code.
 error envelopes. Transaction preview/commit deliberately return a typed
 `TransactionResult` even when the HTTP status is an error, so check `result.ok`,
 `result.committed`, `result.errors`, and current revision.
+
+Native synth generation also returns its typed `SynthAssetResult` on a rejected
+transaction. Check `result.ok` and `result.transaction.errors`. Use the same
+request and idempotency key for an unknown retry; changing the sound under that
+key is an idempotency conflict.
 
 Retry rules:
 

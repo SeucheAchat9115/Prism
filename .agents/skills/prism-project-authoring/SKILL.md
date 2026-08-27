@@ -1,6 +1,6 @@
 ---
 name: prism-project-authoring
-description: Create, inspect, validate, migrate, or safely edit Prism projects and their tracks, scenes, clips, slots, transport settings, and mixer state. Use for project authoring through the CLI or typed transaction API; do not use for live playback control or repository implementation work.
+description: Create, inspect, validate, migrate, or safely edit Prism projects and their native synth assets, tracks, scenes, clips, slots, transport settings, and mixer state. Use for project authoring through the CLI or typed transaction API; do not use for live playback control or repository implementation work.
 ---
 
 # Prism Project Authoring
@@ -11,6 +11,8 @@ user's manifest, history, internal `.prism/` directory, or portable archive.
 ## Select the interface
 
 - Use `uv run prism ... --json` for finite shell tasks and reviewable output.
+- Use `prism synth presets` and `prism synth generate` for deterministic drum
+  or melodic WAV assets that need no external files, VST, or MIDI.
 - Use `PrismClient` plus models from `prism.application` for a composed Python
   agent workflow.
 - Use raw HTTP only for a non-Python integration; load
@@ -34,6 +36,11 @@ foreground service that owns that project.
    required runtime reset. Commit with a unique idempotency key.
 7. Fetch the project again and run layered validation. Export a portable
    `.prism` only when a snapshot or handoff is requested.
+
+Native synthesis creates only an immutable asset. Keep track, clip, scene, and
+slot intent explicit in the following transaction. A generated asset is live-
+playable because it follows the ordinary audio source path; it is not a VST
+instrument or MIDI clip.
 
 Read [transaction operations](references/transaction-operations.md) before
 constructing or changing an operation batch.

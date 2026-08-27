@@ -55,5 +55,7 @@ retry-derived IDs automatically.
   policy with direct filesystem writes.
 - Device-free offline rendering is the normal deterministic path; no physical
   audio device is required.
+- Native synth output is an ordinary hashed audio asset. Once a clip references
+  it, rendering and artifact verification use the same rules as imported WAV.
 - Cancellation is best effort for queued/running work. Re-read the terminal job
   before reporting the outcome.

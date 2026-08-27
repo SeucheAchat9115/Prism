@@ -36,12 +36,14 @@ from prism.application.types import (
     RenderJobRequest,
     ScheduledActionModel,
     SessionActionResult,
+    SynthAssetRequest,
     TransactionRequest,
     TransactionResult,
     TransportRequest,
 )
 from prism.engine.types import ScheduledAction
 from prism.rendering.types import RenderMetadata
+from prism.synthesis import native_synth_presets
 
 _MAX_JSON_BODY_BYTES = 16 * 1024 * 1024
 _API_VERSION = "v1"
@@ -236,6 +238,12 @@ def create_app(service: ApplicationService) -> FastAPI:
                 "soxr_quality": "HQ",
             },
             "jobs": {"render": True, "export": True, "cancellation": True},
+            "native_synth": {
+                "asset_generation": True,
+                "percussion_presets": ["kick", "snare", "hihat"],
+                "melodic_presets": ["bass", "lead", "pad"],
+                "live_playback_via_audio_clips": True,
+            },
             "plugins": {
                 "vst3": True,
                 "optional_host": "pedalboard",
@@ -253,6 +261,13 @@ def create_app(service: ApplicationService) -> FastAPI:
             "transaction_request": TransactionRequest.model_json_schema(),
             "render_job_request": RenderJobRequest.model_json_schema(),
             "export_job_request": ExportJobRequest.model_json_schema(),
+            "synth_asset_request": SynthAssetRequest.model_json_schema(),
+        }
+
+    @app.get("/api/v1/synth/presets")
+    async def synth_presets() -> dict[str, object]:
+        return {
+            "presets": [item.model_dump(mode="json") for item in native_synth_presets()]
         }
 
     @app.get("/api/v1/projects/{project_id}")
@@ -445,6 +460,19 @@ def create_app(service: ApplicationService) -> FastAPI:
     async def discard_upload(project_id: UUID, upload_id: UUID) -> dict[str, object]:
         require_project(project_id).discard_upload(upload_id)
         return {"ok": True, "upload_id": str(upload_id), "discarded": True}
+
+    @app.post("/api/v1/projects/{project_id}/synth-assets")
+    async def generate_synth_asset(
+        project_id: UUID,
+        request: SynthAssetRequest,
+        preview: bool = False,
+    ) -> JSONResponse:
+        result = require_project(project_id).generate_synth_asset(request, preview=preview)
+        transaction_response = _transaction_response(result.transaction)
+        return JSONResponse(
+            status_code=transaction_response.status_code,
+            content=result.model_dump(mode="json"),
+        )
 
     @app.post("/api/v1/projects/{project_id}/transactions/preview")
     async def preview_transaction(

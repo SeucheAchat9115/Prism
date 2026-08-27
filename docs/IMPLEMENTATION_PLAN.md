@@ -958,7 +958,30 @@ plugin binaries or bypass plugin licensing.
 See [Phase 9 VST3 worker](PHASE_9.md) for setup, commands, routes, schema,
 security policy, recovery behavior, and verification.
 
-## Phase 10 — Features after the POC
+## Phase 10 — Features after the POC 🚧 In progress
+
+### Phase 10.1 — native synthesis and progressive tutorials ✅ Complete
+
+**Completed:** 2026-08-26
+
+- [x] Add deterministic native kick, snare, hi-hat, bass, lead, and pad
+  generation without third-party binaries or MIDI.
+- [x] Add note/rest/chord sequences aligned to project bars, tempo, meter, and
+  sample rate.
+- [x] Add melodic waveform, ADSR, cutoff, gate, gain, and deterministic seed
+  controls with bounded output.
+- [x] Stage and import generated WAVs through previewed, revisioned,
+  idempotent asset transactions.
+- [x] Expose preset discovery and generation through CLI, HTTP schemas/routes,
+  capabilities, and the typed Python client.
+- [x] Publish native-synth asset events and test live clip/render compatibility.
+- [x] Add a Level 0–8 Markdown curriculum covering listening, drums, synths,
+  mini-song authoring, safe edits, API control, browser performance, VST3
+  effects, loading, and troubleshooting.
+- [x] Add a device-free automated six-track/four-scene mini-song example.
+
+See [Phase 10.1](PHASE_10.md) and the
+[step-by-step tutorials](../examples/tutorials/README.md).
 
 ### Example maintenance gate
 
@@ -968,22 +991,22 @@ security policy, recovery behavior, and verification.
 
 Implement each item as a separate milestone:
 
-1. MIDI clip data model.
-2. MIDI note scheduling.
-3. Instrument plugin support.
-4. Linear arrangement timeline.
-5. Clip move, trim, split, and duplicate operations.
-6. Undo and redo through transaction history.
-7. Automation lanes.
-8. Send/return routing.
-9. Master bus processing.
-10. Audio input recording.
-11. Latency measurement and compensation.
-12. Plugin preset browsing.
-13. Project snapshots and branching.
-14. Agent multi-step plans and transaction batches.
-15. Windows packaging.
-16. Optional authenticated remote API.
+1. [ ] MIDI clip data model.
+2. [ ] MIDI note scheduling.
+3. [ ] External instrument plugin support.
+4. [ ] Linear arrangement timeline.
+5. [ ] Clip move, trim, split, and duplicate operations.
+6. [ ] Undo and redo through transaction history.
+7. [ ] Automation lanes.
+8. [ ] Send/return routing.
+9. [ ] Master bus processing.
+10. [ ] Audio input recording.
+11. [ ] Latency measurement and compensation.
+12. [ ] Plugin preset browsing.
+13. [ ] Project snapshots and branching.
+14. [ ] Agent multi-step plans and transaction batches.
+15. [ ] Windows packaging.
+16. [ ] Optional authenticated remote API.
 
 ## Public data contracts
 
