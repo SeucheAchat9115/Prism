@@ -9,7 +9,12 @@ from typing import TYPE_CHECKING, Literal, Self
 
 from prism.errors import ProjectError
 from prism.music import note_steps, rhythm_steps, validate_gain, validate_pan
-from prism.synthesis.types import MELODIC_PRESETS, PERCUSSION_PRESETS, SynthWaveform
+from prism.synthesis.types import (
+    MAX_SYNTH_SECONDS,
+    MELODIC_PRESETS,
+    PERCUSSION_PRESETS,
+    SynthWaveform,
+)
 
 if TYPE_CHECKING:
     from prism.midi import MidiResult
@@ -81,8 +86,10 @@ class ProjectSummary:
 
     def __str__(self) -> str:
         return (
-            f"{self.name}: {self.tracks} tracks, {self.sections} sections, "
-            f"{self.bars} bars, {self.duration_seconds:.2f} seconds"
+            f"{self.name}: {self.tracks} {'track' if self.tracks == 1 else 'tracks'}, "
+            f"{self.sections} {'section' if self.sections == 1 else 'sections'}, "
+            f"{self.bars} {'bar' if self.bars == 1 else 'bars'}, "
+            f"{self.duration_seconds:.2f} seconds"
         )
 
 
@@ -168,7 +175,7 @@ class Track:
             DrumClip(
                 preset=preset,
                 pattern=rhythm_steps(pattern),
-                bars=_bars(bars, f"Drum track {self.name!r}"),
+                bars=_synth_bars(bars, f"Drum track {self.name!r}", self._project),
                 gain_db=validate_gain(gain_db, label=f"Drum track {self.name!r} clip gain"),
                 seed=seed,
             )
@@ -208,7 +215,7 @@ class Track:
             MidiClip(
                 instrument=instrument,
                 notes=note_steps(notes),
-                bars=_bars(bars, f"MIDI track {self.name!r}"),
+                bars=_synth_bars(bars, f"MIDI track {self.name!r}", self._project),
                 velocity=velocity,
                 waveform=waveform,
                 attack_ms=attack_ms,
@@ -458,6 +465,16 @@ def _bars(value: int, label: str) -> int:
     if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 256:
         raise ProjectError(f"{label} bars must be an integer between 1 and 256.")
     return value
+
+
+def _synth_bars(value: int, label: str, project: Project) -> int:
+    bars = _bars(value, label)
+    duration = bars * project.beats_per_bar * 60.0 / project.tempo
+    if duration > MAX_SYNTH_SECONDS:
+        raise ProjectError(
+            f"{label} cannot exceed {MAX_SYNTH_SECONDS:g} seconds; use fewer bars."
+        )
+    return bars
 
 
 def _optional_range(value: float | None, low: float, high: float, label: str) -> None:

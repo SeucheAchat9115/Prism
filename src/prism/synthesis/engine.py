@@ -9,11 +9,10 @@ import numpy as np
 
 from prism.music import note_frequency
 from prism.synthesis.types import (
+    MAX_SYNTH_SECONDS,
     NativeSynthSpec,
     SynthWaveform,
 )
-
-_MAX_SYNTH_SECONDS = 120.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,8 +50,8 @@ def render_native_synth(
     if beats_per_bar <= 0:
         raise ValueError("beats_per_bar must be positive")
     seconds = spec.bars * beats_per_bar * 60.0 / tempo_bpm
-    if seconds > _MAX_SYNTH_SECONDS:
-        raise ValueError(f"native synth output cannot exceed {_MAX_SYNTH_SECONDS:g} seconds")
+    if seconds > MAX_SYNTH_SECONDS:
+        raise ValueError(f"native synth output cannot exceed {MAX_SYNTH_SECONDS:g} seconds")
     frames = max(1, int(round(seconds * sample_rate)))
     boundaries = np.rint(np.linspace(0, frames, len(spec.sequence) + 1)).astype(np.int64)
     samples = np.zeros(frames, dtype=np.float64)

@@ -37,6 +37,14 @@ def test_sections_can_include_every_track_implicitly(project_script: Path) -> No
     assert song.sections[0].tracks is None
 
 
+def test_one_track_and_section_use_readable_singular_words(project_script: Path) -> None:
+    song = Project(project_script, "Solo")
+    song.track("Lead").midi("C4")
+    song.section("Only", bars=1)
+
+    assert str(song.validate()) == "Solo: 1 track, 1 section, 1 bar, 2.00 seconds"
+
+
 def test_project_reports_common_authoring_errors(project_script: Path) -> None:
     song = Project(project_script, "Broken")
     song.track("Lead")
@@ -52,6 +60,15 @@ def test_tracks_accept_only_one_clear_part(project_script: Path) -> None:
     track = song.track("Lead").midi("C4 -")
     with pytest.raises(ProjectError, match="already has content"):
         track.drum("kick", "x---")
+
+
+def test_built_in_parts_reject_an_unsafe_duration_while_authoring(
+    project_script: Path,
+) -> None:
+    song = Project(project_script, "Long Part", tempo=20)
+
+    with pytest.raises(ProjectError, match="cannot exceed 120 seconds"):
+        song.track("Very Long Pad").midi("C3", instrument="pad", bars=11)
 
 
 @pytest.mark.parametrize("path", ("../kick.wav", "C:/samples/kick.wav"))

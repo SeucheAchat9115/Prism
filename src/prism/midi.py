@@ -28,7 +28,8 @@ class MidiResult:
     sha256: str
 
     def __str__(self) -> str:
-        return f"Exported {self.tracks} MIDI tracks to {self.path}"
+        noun = "track" if self.tracks == 1 else "tracks"
+        return f"Exported {self.tracks} MIDI {noun} to {self.path}"
 
 
 def export_midi(project: Project, output: str | Path) -> MidiResult:

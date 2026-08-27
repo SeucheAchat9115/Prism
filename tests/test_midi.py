@@ -31,3 +31,11 @@ def test_midi_export_requires_midi_capable_tracks(project_script: Path, sample_f
     song.section("Only", bars=1)
     with pytest.raises(ProjectError, match="no built-in drum or MIDI tracks"):
         song.export_midi()
+
+
+def test_one_midi_track_uses_readable_singular_word(project_script: Path) -> None:
+    song = Project(project_script, "Solo")
+    song.track("Lead").midi("C4")
+    song.section("Only", bars=1)
+
+    assert "1 MIDI track to" in str(song.export_midi())

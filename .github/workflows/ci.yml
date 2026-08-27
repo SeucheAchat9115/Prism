@@ -70,3 +70,11 @@ jobs:
           uv venv .wheel-smoke --python 3.12
           uv pip install --python .wheel-smoke\Scripts\python.exe $wheel
           .wheel-smoke\Scripts\python.exe ci\wheel_smoke.py
+          .wheel-smoke\Scripts\prism.exe create .wheel-project --name "CLI Wheel Smoke" --tempo 104
+          .wheel-smoke\Scripts\python.exe .wheel-project\main.py
+          if (-not (Test-Path -LiteralPath .wheel-project\renders\song.wav)) {
+            throw "The generated project did not render a WAV file."
+          }
+          if (Test-Path -LiteralPath .wheel-project.zip) {
+            throw "The create command produced an archive instead of a folder."
+          }

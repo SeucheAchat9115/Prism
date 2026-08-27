@@ -11,6 +11,7 @@ from prism.music import note_steps, rhythm_steps
 SynthPreset = Literal["kick", "snare", "hihat", "bass", "lead", "pad"]
 SynthWaveform = Literal["sine", "triangle", "saw", "square"]
 
+MAX_SYNTH_SECONDS = 120.0
 PERCUSSION_PRESETS = frozenset({"kick", "snare", "hihat"})
 MELODIC_PRESETS = frozenset({"bass", "lead", "pad"})
 
@@ -32,8 +33,8 @@ class NativeSynthSpec:
     def __post_init__(self) -> None:
         if self.preset not in PERCUSSION_PRESETS | MELODIC_PRESETS:
             raise ValueError(f"Unknown built-in instrument: {self.preset!r}")
-        if not 1 <= self.bars <= 64:
-            raise ValueError("Synth clip bars must be between 1 and 64")
+        if not 1 <= self.bars <= 256:
+            raise ValueError("Synth clip bars must be between 1 and 256")
         normalized = (
             rhythm_steps(self.sequence)
             if self.preset in PERCUSSION_PRESETS

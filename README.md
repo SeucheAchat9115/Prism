@@ -4,9 +4,9 @@ Prism is a Python package for writing reproducible songs. A music project is a
 normal folder whose `main.py` describes its tracks, samples, MIDI notes,
 arrangement, mix, and render.
 
-There is no Prism server, command-line interface, browser interface, hidden
-database, or proprietary project file. Run the project script again to rebuild
-the same WAV and MIDI files.
+There is no Prism server, browser interface, hidden database, archive, or
+proprietary project file. Prism's small CLI only creates a starting folder;
+the editable Python script remains the interface for making and rendering music.
 
 ## The complete idea
 
@@ -20,6 +20,24 @@ my-song/
 │   └── my-song.mid         generated MIDI arrangement
 └── .prism/
     └── project.json        generated plan and source/render hashes
+```
+
+Create a normal project folder:
+
+```powershell
+uv run prism create my-first-song --tempo 120
+cd .\my-first-song
+uv run python .\main.py
+Start-Process .\renders\song.wav
+```
+
+The command creates directories and files directly—never a ZIP file:
+
+```text
+my-first-song/
+├── main.py
+├── sounds/
+└── renders/
 ```
 
 A small `main.py` can be this direct:
@@ -66,8 +84,19 @@ uv sync --locked --extra dev
 ```
 
 Applications that consume the package need only Prism's normal dependencies:
-NumPy, SoundFile, and SoXR. PortAudio, FastAPI, browser tooling, VST hosting,
-and a separate executable are not part of the package.
+NumPy, SoundFile, and SoXR. PortAudio, FastAPI, browser tooling, and VST hosting
+are not part of the package.
+
+## Create command
+
+```text
+prism create FOLDER [--name "Song Name"] [--tempo BPM]
+```
+
+`prism create` refuses to overwrite an existing path. It writes a complete,
+runnable `main.py` plus empty `sounds/` and `renders/` folders. After creation,
+all work happens in that ordinary folder with normal Python and audio files.
+`python -m prism create ...` is equivalent when console scripts are unavailable.
 
 ## Public workflow
 
@@ -109,17 +138,19 @@ writes outputs atomically, so a failed render does not replace a good file.
 
 ## Learn Prism
 
-The [progressive tutorial](tutorial/README.md) starts with one built-in drum,
-then introduces project-local samples, MIDI, a multi-section mini-song, sound
-design/mixing, and safe collaboration with an agent. Every level contains a
-complete `main.py`, the exact command to run it, and a listening checkpoint.
+The [progressive tutorial](tutorial/README.md) covers project creation, every
+track type, all built-in instruments, MIDI export, arrangement, mixing, synth
+controls, configuration inspection, manifests, deterministic rerendering, and
+safe collaboration with an agent. Every practical level contains complete
+commands and a full `main.py`.
 
 ## Scope
 
-Prism is intentionally an offline, script-first package. It does not provide a
-CLI, HTTP/WebSocket API, GUI, live playback engine, session server, VST host,
-recording system, or mutable archive format. Python code is the interface and
-the reproducible project format.
+Prism is intentionally an offline, script-first package. Its CLI only creates
+project folders; it does not edit, play, or render songs. Prism does not provide
+an HTTP/WebSocket API, GUI, live playback engine, session server, VST host,
+recording system, ZIP project archive, or mutable project database. Python code
+is the music interface and the reproducible project format.
 
 ## Development
 
