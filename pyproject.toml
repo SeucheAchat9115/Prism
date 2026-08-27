@@ -45,6 +45,7 @@ packages = ["src/prism"]
 [tool.hatch.build.targets.sdist]
 include = [
     "/.github",
+    "/docs",
     "/tutorial",
     "/src",
     "/tests",

@@ -4,12 +4,22 @@ from __future__ import annotations
 
 import inspect
 import math
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Literal, Self
 
 from prism.errors import ProjectError
 from prism.music import note_steps, rhythm_steps, validate_gain, validate_pan
+from prism.plugins import (
+    AutomationCurve,
+    AutomationLane,
+    EffectPreset,
+    Plugin,
+    automation_points,
+    effect_plugin,
+    instrument_plugin,
+)
+from prism.synthesis.engine import native_instrument_settings
 from prism.synthesis.types import (
     MAX_SYNTH_SECONDS,
     MELODIC_PRESETS,
@@ -112,10 +122,18 @@ class Track:
         self.pan = validate_pan(pan)
         self.muted = bool(muted)
         self._clip: TrackClip | None = None
+        self._instrument: Plugin | None = None
+        self.effects: list[Plugin] = []
 
     @property
     def clip(self) -> TrackClip | None:
         return self._clip
+
+    @property
+    def instrument_plugin(self) -> Plugin | None:
+        """The stock instrument that turns this track's events into sound."""
+
+        return self._instrument
 
     def sample(
         self,
@@ -134,6 +152,14 @@ class Track:
                 bars=_bars(bars, f"Sample track {self.name!r}"),
                 gain_db=validate_gain(gain_db, label=f"Sample track {self.name!r} clip gain"),
             )
+        )
+        assert self._clip is not None
+        self._instrument = instrument_plugin(
+            "sampler",
+            name=f"{self.name} Sampler",
+            track=self.name,
+            settings={"gain_db": self._clip.gain_db},
+            melodic=False,
         )
         return self
 
@@ -154,6 +180,14 @@ class Track:
                 loop=bool(loop),
                 gain_db=validate_gain(gain_db, label=f"Audio track {self.name!r} clip gain"),
             )
+        )
+        assert self._clip is not None
+        self._instrument = instrument_plugin(
+            "audio_player",
+            name=f"{self.name} Audio Player",
+            track=self.name,
+            settings={"gain_db": self._clip.gain_db},
+            melodic=False,
         )
         return self
 
@@ -181,6 +215,14 @@ class Track:
                 seed=seed,
             )
         )
+        assert self._clip is not None
+        self._instrument = instrument_plugin(
+            preset,
+            name=f"{self.name} Instrument",
+            track=self.name,
+            settings={"gain_db": self._clip.gain_db, "seed": float(seed)},
+            melodic=False,
+        )
         return self
 
     def midi(
@@ -203,6 +245,7 @@ class Track:
 
         if instrument not in MELODIC_PRESETS:
             raise ProjectError("Built-in MIDI instruments are bass, lead, or pad.")
+        _waveform(waveform)
         if not 1 <= velocity <= 127:
             raise ProjectError("MIDI velocity must be between 1 and 127.")
         _optional_range(attack_ms, 0.0, 5000.0, "Attack")
@@ -228,7 +271,105 @@ class Track:
                 gain_db=validate_gain(gain_db, label=f"MIDI track {self.name!r} clip gain"),
             )
         )
+        self._set_melodic_instrument(instrument, name=None)
         return self
+
+    def instrument(
+        self,
+        preset: Literal["bass", "lead", "pad"],
+        *,
+        name: str | None = None,
+        waveform: SynthWaveform | None = None,
+        attack_ms: float | None = None,
+        decay_ms: float | None = None,
+        sustain: float | None = None,
+        release_ms: float | None = None,
+        cutoff_hz: float | None = None,
+        gain_db: float | None = None,
+    ) -> Plugin:
+        """Choose the stock instrument that consumes this track's MIDI notes."""
+
+        clip = self._clip
+        if not isinstance(clip, MidiClip):
+            raise ProjectError("instrument() follows midi() on the same track.")
+        if preset not in MELODIC_PRESETS:
+            raise ProjectError("Built-in MIDI instruments are bass, lead, or pad.")
+        _waveform(waveform)
+        _optional_range(attack_ms, 0.0, 5000.0, "Attack")
+        _optional_range(decay_ms, 0.0, 5000.0, "Decay")
+        _optional_range(sustain, 0.0, 1.0, "Sustain")
+        _optional_range(release_ms, 0.0, 5000.0, "Release")
+        _optional_range(cutoff_hz, 20.0, 20_000.0, "Cutoff")
+        resolved_gain = clip.gain_db if gain_db is None else validate_gain(
+            gain_db, label=f"Instrument {self.name!r} gain"
+        )
+        self._clip = replace(
+            clip,
+            instrument=preset,
+            waveform=waveform,
+            attack_ms=attack_ms,
+            decay_ms=decay_ms,
+            sustain=sustain,
+            release_ms=release_ms,
+            cutoff_hz=cutoff_hz,
+            gain_db=resolved_gain,
+        )
+        return self._set_melodic_instrument(preset, name=name)
+
+    def effect(
+        self,
+        preset: EffectPreset,
+        *,
+        name: str | None = None,
+        **settings: float,
+    ) -> Plugin:
+        """Append one stock effect after the instrument on this track."""
+
+        if self._clip is None:
+            raise ProjectError("Add MIDI, a drum, a sample, or audio before adding effects.")
+        base_name = preset.replace("_", " ").title() if name is None else _name(name, "Plugin")
+        plugin_name = base_name
+        suffix = 2
+        used = {effect.name.casefold() for effect in self.effects}
+        if self._instrument is not None:
+            used.add(self._instrument.name.casefold())
+        while plugin_name.casefold() in used:
+            plugin_name = f"{base_name} {suffix}"
+            suffix += 1
+        plugin = effect_plugin(
+            preset, name=plugin_name, track=self.name, settings=settings
+        )
+        self.effects.append(plugin)
+        return plugin
+
+    def _set_melodic_instrument(
+        self,
+        preset: Literal["bass", "lead", "pad"],
+        *,
+        name: str | None,
+    ) -> Plugin:
+        clip = self._clip
+        assert isinstance(clip, MidiClip)
+        settings: dict[str, object] = {}
+        settings.update(native_instrument_settings(preset))
+        overrides = {
+            "waveform": clip.waveform,
+            "attack_ms": clip.attack_ms,
+            "decay_ms": clip.decay_ms,
+            "sustain": clip.sustain,
+            "release_ms": clip.release_ms,
+            "cutoff_hz": clip.cutoff_hz,
+        }
+        settings.update({key: value for key, value in overrides.items() if value is not None})
+        settings["gain_db"] = clip.gain_db
+        self._instrument = instrument_plugin(
+            preset,
+            name=f"{self.name} Instrument" if name is None else _name(name, "Plugin"),
+            track=self.name,
+            settings=settings,
+            melodic=True,
+        )
+        return self._instrument
 
     def _set_clip(self, clip: TrackClip) -> None:
         if self._clip is not None:
@@ -278,6 +419,7 @@ class Project:
         self.normalize = bool(normalize)
         self.tracks: list[Track] = []
         self.sections: list[Section] = []
+        self.automation_lanes: list[AutomationLane] = []
 
     @property
     def frames_per_bar(self) -> int:
@@ -321,6 +463,41 @@ class Project:
         self.sections.append(section)
         return section
 
+    def automation(
+        self,
+        name: str,
+        *,
+        target: Plugin,
+        parameter: str,
+        points: list[tuple[float, float]] | tuple[tuple[float, float], ...],
+        curve: AutomationCurve = "linear",
+    ) -> AutomationLane:
+        """Add an automation track for one stock-plugin setting."""
+
+        clean = _name(name, "Automation")
+        if curve not in {"linear", "hold"}:
+            raise ProjectError("Automation curve must be linear or hold.")
+        if any(lane.name.casefold() == clean.casefold() for lane in self.automation_lanes):
+            raise ProjectError(f"Automation names must be unique; {clean!r} is already used.")
+        if not self._owns_plugin(target):
+            raise ProjectError("Automation target must be a plugin from this project.")
+        if any(
+            lane.target is target and lane.parameter == parameter
+            for lane in self.automation_lanes
+        ):
+            raise ProjectError(
+                f"Plugin {target.name!r} parameter {parameter!r} already has automation."
+            )
+        lane = AutomationLane(
+            name=clean,
+            target=target,
+            parameter=parameter,
+            points=automation_points(points, target=target, parameter_name=parameter),
+            curve=curve,
+        )
+        self.automation_lanes.append(lane)
+        return lane
+
     def validate(self) -> ProjectSummary:
         """Check the complete description and return a readable summary."""
 
@@ -356,6 +533,16 @@ class Project:
                     f"Sample file is missing: {relative}. Put it inside the project folder."
                 )
         bars = sum(section.bars for section in self.sections)
+        for lane in self.automation_lanes:
+            if not self._owns_plugin(lane.target):
+                raise ProjectError(
+                    f"Automation {lane.name!r} targets a plugin that was replaced."
+                )
+            if lane.points[-1].bar > bars:
+                raise ProjectError(
+                    f"Automation {lane.name!r} ends at bar {lane.points[-1].bar:g}, "
+                    f"after the song's {bars} bars."
+                )
         return ProjectSummary(
             name=self.name,
             tracks=len(self.tracks),
@@ -391,10 +578,12 @@ class Project:
                     "pan": track.pan,
                     "muted": track.muted,
                     "part": {"kind": _clip_kind(track.clip), **asdict(track.clip)},
+                    "instrument": _plugin_configuration(track.instrument_plugin),
+                    "effects": [_plugin_configuration(effect) for effect in track.effects],
                 }
             )
         return {
-            "schema_version": 1,
+            "schema_version": 2,
             "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,
@@ -405,7 +594,24 @@ class Project:
             "normalize": self.normalize,
             "tracks": tracks,
             "sections": [asdict(section) for section in self.sections],
+            "automation": [
+                {
+                    "name": lane.name,
+                    "track": lane.target.track,
+                    "target": lane.target.name,
+                    "parameter": lane.parameter,
+                    "curve": lane.curve,
+                    "points": [asdict(point) for point in lane.points],
+                }
+                for lane in self.automation_lanes
+            ],
         }
+
+    def _owns_plugin(self, plugin: Plugin) -> bool:
+        return any(
+            track.instrument_plugin is plugin or any(effect is plugin for effect in track.effects)
+            for track in self.tracks
+        )
 
     def _source_name(self, value: str | Path) -> str:
         path = Path(value)
@@ -454,6 +660,18 @@ def _clip_kind(clip: TrackClip) -> str:
     if isinstance(clip, DrumClip):
         return "drum"
     return "midi"
+
+
+def _plugin_configuration(plugin: Plugin | None) -> dict[str, object] | None:
+    if plugin is None:
+        return None
+    return {
+        "name": plugin.name,
+        "track": plugin.track,
+        "kind": plugin.kind,
+        "preset": plugin.preset,
+        "settings": dict(plugin.settings),
+    }
 
 
 def _name(value: str, label: str) -> str:
@@ -506,6 +724,11 @@ def _synth_bars(value: int, label: str, project: Project) -> int:
 def _optional_range(value: float | None, low: float, high: float, label: str) -> None:
     if value is not None and (not math.isfinite(value) or not low <= value <= high):
         raise ProjectError(f"{label} must be between {low:g} and {high:g}.")
+
+
+def _waveform(value: SynthWaveform | None) -> None:
+    if value not in {None, "sine", "triangle", "saw", "square"}:
+        raise ProjectError("Waveform must be sine, triangle, saw, or square.")
 
 
 __all__ = [

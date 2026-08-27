@@ -35,6 +35,7 @@ in your normal music player. Keep the terminal in the repository root.
 | 8 | [Inspect and reproduce](08-inspect-and-reproduce.md) | Configuration, result metadata, hashes, and rerenders |
 | 9 | [Complete reference project](09-complete-reference-project.md) | Every Prism authoring feature in one song |
 | 10 | [Parameter reference](10-parameter-reference.md) | Every public method, option, range, and result field |
+| 11 | [Plugins and automation](11-plugins-and-automation.md) | Explicit instruments, ordered effects, and moving settings |
 
 Levels are independent: every page shows the whole `main.py`, not only a diff.
 You can replace the file at each level or put each level in a separate folder.
@@ -85,4 +86,5 @@ the Prism version used when that project was created.
 | Standard MIDI export | Levels 3, 8, and 9 |
 | WAV result details and deterministic output hashes | Levels 8 and 9 |
 | Safe relative paths and agent-assisted editing | Levels 6 and 9 |
+| Stock instrument plugins, ordered effect chains, and automation tracks | Level 11 |
 | Exact defaults, ranges, and return values | Level 10 |

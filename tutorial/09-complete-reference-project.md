@@ -56,10 +56,19 @@ pad = song.track("Pad", gain_db=-12, pan=-0.3).midi(
 )
 lead = song.track("Lead", gain_db=-10, pan=0.35).midi(
     "C4 D4 Eb4 G4 | Bb4 G4 Eb4 -",
-    instrument="lead", bars=2, velocity=96, waveform="square",
-    attack_ms=8, decay_ms=90, sustain=0.62, release_ms=140,
-    cutoff_hz=3600, gate=0.82, gain_db=-6,
+    bars=2, velocity=96, gate=0.82,
 )
+lead_synth = lead.instrument(
+    "lead", name="Stock Lead", waveform="square",
+    attack_ms=8, decay_ms=90, sustain=0.62, release_ms=140,
+    cutoff_hz=3600, gain_db=-6,
+)
+lead.effect("distortion", name="Lead Drive", drive_db=8, mix=0.2)
+lead_echo = lead.effect(
+    "delay", name="Lead Echo", time_beats=0.5, feedback=0.3, mix=0.1
+)
+lead_tone = lead.effect("filter", name="Lead Tone", cutoff_hz=5000, mix=1)
+sample_kick.effect("gain", name="Kick Trim", gain_db=-1)
 muted_idea = song.track("Muted Sine Idea", muted=True).midi(
     "C5 - G4 -", instrument="lead", waveform="sine"
 )
@@ -68,6 +77,19 @@ song.section("Intro", bars=2, tracks=[built_in_kick, loop, pad])
 song.section("Verse", bars=4, tracks=[sample_kick, snare, hat, loop, bass, pad])
 song.section("Chorus", bars=4)
 song.section("Outro", bars=2, tracks=[vocal, pad, lead, muted_idea])
+
+song.automation(
+    "Lead Synth Sweep", target=lead_synth, parameter="cutoff_hz",
+    points=[(0, 500), (6, 500), (10, 6000), (12, 800)],
+)
+song.automation(
+    "Lead Echo Build", target=lead_echo, parameter="mix",
+    points=[(0, 0.1), (6, 0.1), (10, 0.55), (12, 0.2)],
+)
+song.automation(
+    "Lead Tone Outro", target=lead_tone, parameter="cutoff_hz",
+    points=[(0, 5000), (10, 5000), (12, 400)], curve="linear",
+)
 
 print(song.validate())
 pprint(song.configuration())
@@ -85,7 +107,8 @@ This project demonstrates triggered samples, looping audio, one-shots, all
 three drums, all three melodic instruments, all four waveforms, chords, rests, every synth control,
 track and clip gain, panning, muting, explicit sections, an all-track section,
 validation, configuration inspection, MIDI export, WAV rendering, and result
-hashes.
+hashes. It also demonstrates an explicit stock instrument, an ordered
+multi-effect chain, effects on a sample track, and three automation tracks.
 
 All input and output paths are relative to `main.py`. Prism rejects absolute
 paths, `..` traversal, missing sources, duplicate names, empty tracks, unknown

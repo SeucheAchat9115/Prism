@@ -13,6 +13,7 @@ import numpy as np
 import soundfile as sf
 import soxr
 
+from prism.effects import has_automation, process_track_plugins
 from prism.errors import ProjectError, RenderError
 from prism.music import db_gain
 from prism.project.builder import AudioClip, DrumClip, MidiClip, Project, SampleClip, Track
@@ -45,20 +46,25 @@ def render_project(project: Project, output: str | Path) -> RenderResult:
         buffers = {track.name: _track_buffer(project, track) for track in project.tracks}
         total_frames = summary.bars * project.frames_per_bar
         mix = np.zeros((total_frames, 2), dtype=np.float64)
-        cursor = 0
-        for section in project.sections:
-            frames = section.bars * project.frames_per_bar
-            active = (
-                {track.name for track in project.tracks}
-                if section.tracks is None
-                else set(section.tracks)
-            )
-            for track in project.tracks:
-                if track.muted or track.name not in active:
-                    continue
-                part = _loop_to(buffers[track.name], frames)
-                mix[cursor : cursor + frames] += _mix_track(part, track)
-            cursor += frames
+        for track in project.tracks:
+            if track.muted:
+                continue
+            arranged = np.zeros((total_frames, 2), dtype=np.float64)
+            cursor = 0
+            for section in project.sections:
+                frames = section.bars * project.frames_per_bar
+                active = (
+                    {item.name for item in project.tracks}
+                    if section.tracks is None
+                    else set(section.tracks)
+                )
+                if track.name in active:
+                    arranged[cursor : cursor + frames] = _loop_to(
+                        buffers[track.name], frames
+                    )
+                cursor += frames
+            processed = process_track_plugins(project, track, arranged)
+            mix += _mix_track(processed, track)
         mix *= db_gain(project.master_gain_db)
         peak = float(np.max(np.abs(mix))) if mix.size else 0.0
         target = 10.0 ** (-1.0 / 20.0)
@@ -124,7 +130,11 @@ def _track_buffer(project: Project, track: Track) -> np.ndarray:
         decay_ms=clip.decay_ms,
         sustain_level=clip.sustain,
         release_ms=clip.release_ms,
-        cutoff_hz=clip.cutoff_hz,
+        cutoff_hz=(
+            20_000.0
+            if has_automation(project, track.instrument_plugin, "cutoff_hz")
+            else clip.cutoff_hz
+        ),
         gate=clip.gate,
         gain_db=clip.gain_db,
     )

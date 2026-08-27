@@ -147,6 +147,9 @@ rejects absolute paths and paths that leave the project folder.
 - `sample(...)` triggers your sound with a rhythm such as `x--- x---`.
 - `audio(...)` plays a complete loop or one-shot.
 - `midi(...)` writes notes and renders a built-in `bass`, `lead`, or `pad`.
+- `instrument(...)` separates a MIDI part from its stock synthesizer settings.
+- `effect(...)` adds an ordered stock gain, filter, distortion, or delay plugin.
+- `automation(...)` moves a plugin setting at exact song positions in bars.
 - `section(...)` puts parts into the song in playback order.
 - `validate()` checks the project and explains authoring mistakes.
 - `export_midi()` writes a standard MIDI file.
@@ -154,6 +157,53 @@ rejects absolute paths and paths that leave the project folder.
 
 In rhythm patterns, `x` is a hit and `-` is a rest. In MIDI parts, `-` is a
 rest and `C3+Eb3+G3` is a chord.
+
+## Instruments, effects, and automation
+
+Prism follows a familiar music-production signal flow:
+
+```text
+Song → Section → Track → MIDI/trigger events → Instrument → Effects → Mix
+```
+
+MIDI notes and drum/sample trigger patterns decide what plays and when. A stock
+instrument turns those events into sound. Effects process that sound from top
+to bottom in the order you add them. A track can contain several effects.
+
+```python
+lead = song.track("Lead", gain_db=-8).midi(
+    "C4 E4 G4 Bb4 | G4 E4 D4 -",
+    bars=2,
+    velocity=96,
+)
+
+synth = lead.instrument(
+    "lead",
+    waveform="saw",
+    cutoff_hz=1200,
+)
+
+echo = lead.effect(
+    "delay",
+    name="Echo",
+    time_beats=0.5,
+    feedback=0.3,
+    mix=0.15,
+)
+
+lead.effect("filter", name="Final Tone", cutoff_hz=4000)
+
+song.automation(
+    "Echo Build",
+    target=echo,
+    parameter="mix",
+    points=[(0, 0.0), (4, 0.15), (8, 0.6)],
+)
+```
+
+Automation positions are absolute bars from the beginning of the song. Values
+move smoothly by default; use `curve="hold"` for an immediate change. Stock
+instrument gain and cutoff can also be automated.
 
 ## Continue with the tutorial
 
@@ -170,6 +220,10 @@ every available setting using the folder and run command Prism printed.
 ## Checks for Prism contributors
 
 Most music producers can ignore this section.
+
+To extend Prism itself, follow
+[Adding a stock plugin](docs/adding-stock-plugins.md). It covers instruments,
+effects, automation, MIDI mappings, deterministic DSP, tests, and documentation.
 
 ```text
 uv sync --locked --extra dev

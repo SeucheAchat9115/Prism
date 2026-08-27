@@ -124,6 +124,75 @@ part.midi(
 Notes use scientific pitch notation from `C-1` through `G9`, including sharps
 and flats such as `F#3` and `Bb2`.
 
+## `instrument(...)`
+
+`midi(...)` creates a matching stock instrument automatically. Use the
+separate form when you want the signal flow to be especially visible or need a
+plugin object for automation:
+
+```python
+part = song.track("Lead").midi("C4 E4 G4 -", bars=2, velocity=100)
+synth = part.instrument(
+    "lead",
+    name="Stock Lead",
+    waveform="saw",
+    attack_ms=8,
+    decay_ms=90,
+    sustain=0.62,
+    release_ms=140,
+    cutoff_hz=3600,
+    gain_db=-6,
+)
+```
+
+The presets and parameter ranges match `midi(...)`. MIDI owns the notes,
+`bars`, `velocity`, and `gate`; the instrument owns waveform, envelope, cutoff,
+and instrument gain. `instrument()` follows `midi()` on the same track.
+
+## `effect(...)`
+
+```python
+drive = part.effect("distortion", name="Drive", drive_db=12, mix=0.5)
+echo = part.effect(
+    "delay", name="Echo", time_beats=0.5, feedback=0.25, mix=0.2
+)
+part.effect("filter", name="Final Tone", cutoff_hz=1200, mix=1)
+```
+
+Effects process the instrument output in the order they are added. Calling
+`effect()` several times builds a top-to-bottom chain.
+
+| Stock effect | Parameters and defaults | Accepted values |
+| --- | --- | --- |
+| `gain` | `gain_db=0` | -60 through +12 dB |
+| `filter` | `cutoff_hz=1200`, `mix=1` | 20–20000 Hz; mix 0–1 |
+| `distortion` | `drive_db=12`, `mix=0.5` | drive 0–36 dB; mix 0–1 |
+| `delay` | `time_beats=0.5`, `feedback=0.25`, `mix=0.2` | time 0.03125–4 beats; feedback 0–0.95; mix 0–1 |
+
+The returned `Plugin` object identifies the exact effect and can be saved in a
+readable variable for automation.
+
+## `automation(...)`
+
+```python
+song.automation(
+    "Echo Build",
+    target=echo,
+    parameter="mix",
+    points=[(0, 0.0), (4, 0.2), (8, 0.7)],
+    curve="linear",
+)
+```
+
+Each point is `(bar, value)`, measured from the beginning of the complete song.
+Bars are zero or greater, strictly increasing, and cannot finish beyond the
+arrangement. `linear` moves smoothly between values; `hold` keeps the previous
+value until the next point. One plugin parameter can have one automation lane.
+
+Every stock-effect setting is automatable. Stock instruments expose
+`gain_db`; melodic instruments also expose `cutoff_hz`. The target must be a
+plugin object belonging to the same project.
+
 ## `section(...)`
 
 ```python
@@ -148,7 +217,7 @@ render = song.render("renders/song.wav")
 - `validate()` checks the complete song and returns name, track count, section
   count, bar count, and duration.
 - `configuration()` returns a resolved dictionary containing the complete song
-  description.
+  description, instruments, ordered effects, and automation lanes.
 - `export_midi()` returns `path`, music-track count, ticks per beat, and SHA-256.
   It exports built-in drums and MIDI tracks, not guessed notes from audio.
 - `render()` returns `path`, sample rate, channels, frames, duration, SHA-256,

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Literal
 
 import numpy as np
 
@@ -32,6 +33,22 @@ _PATCHES: dict[str, _Patch] = {
     "lead": _Patch("square", 8.0, 90.0, 0.62, 140.0, 3_600.0, 0.82, 0.30),
     "pad": _Patch("triangle", 180.0, 380.0, 0.76, 420.0, 2_400.0, 0.92, 0.26),
 }
+
+
+def native_instrument_settings(
+    preset: Literal["bass", "lead", "pad"],
+) -> dict[str, str | float]:
+    """Return the resolved public settings for one stock melodic instrument."""
+
+    patch = _PATCHES[preset]
+    return {
+        "waveform": patch.waveform,
+        "attack_ms": patch.attack_ms,
+        "decay_ms": patch.decay_ms,
+        "sustain": patch.sustain_level,
+        "release_ms": patch.release_ms,
+        "cutoff_hz": patch.cutoff_hz,
+    }
 
 
 def render_native_synth(

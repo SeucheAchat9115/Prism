@@ -11,7 +11,10 @@ import prism
 def test_public_package_is_small_and_script_first() -> None:
     assert prism.__version__ == "0.2.0.dev0"
     assert set(prism.__all__) == {
+        "AutomationLane",
+        "AutomationPoint",
         "MidiResult",
+        "Plugin",
         "PrismError",
         "Project",
         "ProjectError",
@@ -51,6 +54,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "08-inspect-and-reproduce.md",
         "09-complete-reference-project.md",
         "10-parameter-reference.md",
+        "11-plugins-and-automation.md",
     )
     for name in expected:
         assert (root / "tutorial" / name).is_file()
@@ -66,6 +70,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "05-shape-and-mix.md",
         "06-work-with-an-agent.md",
         "08-inspect-and-reproduce.md",
+        "11-plugins-and-automation.md",
     ),
 )
 def test_complete_tutorial_projects_are_readable_and_runnable(
@@ -104,7 +109,7 @@ def test_complete_reference_mentions_every_authoring_feature() -> None:
         '"snare"',
         '"hihat"',
         'instrument="bass"',
-        'instrument="lead"',
+        '.instrument(',
         'instrument="pad"',
         "velocity=",
         "waveform=",
@@ -120,6 +125,8 @@ def test_complete_reference_mentions_every_authoring_feature() -> None:
         "gate=",
         "muted=True",
         ".configuration()",
+        ".effect(",
+        ".automation(",
         ".export_midi(",
         ".render(",
     )
@@ -147,3 +154,24 @@ def test_generated_projects_are_ignored() -> None:
     root = Path(__file__).resolve().parents[1]
     gitignore = (root / ".gitignore").read_text(encoding="utf-8")
     assert "/projects/" in gitignore.splitlines()
+
+
+def test_stock_plugin_contributor_guide_is_complete_and_packaged() -> None:
+    root = Path(__file__).resolve().parents[1]
+    guide = (root / "docs" / "adding-stock-plugins.md").read_text(encoding="utf-8")
+    packaging = (root / "pyproject.toml").read_text(encoding="utf-8")
+
+    for topic in (
+        "Add a stock effect",
+        "Add a stock melodic instrument",
+        "Add a stock percussion instrument",
+        "automation",
+        "MIDI",
+        "deterministic",
+        "tests/test_plugins.py",
+    ):
+        assert topic in guide
+    assert '"/docs"' in packaging
+    assert "docs/adding-stock-plugins.md" in (root / "README.md").read_text(
+        encoding="utf-8"
+    )
