@@ -5,12 +5,40 @@ from __future__ import annotations
 import math
 import re
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from prism.errors import ProjectError
 
 _NOTE = re.compile(r"^(?P<letter>[A-Ga-g])(?P<accidental>[#b]?)(?P<octave>-?\d{1,2})$")
 _SEMITONES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
 _RESTS = {"-", ".", "r", "rest"}
+
+
+@dataclass(frozen=True, slots=True)
+class Note:
+    """One MIDI note positioned in beats from the beginning of its clip."""
+
+    pitch: str
+    start: float
+    duration: float
+    velocity: int = 100
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "pitch", normalize_note(self.pitch))
+        if not math.isfinite(self.start) or self.start < 0.0:
+            raise ProjectError("Note start must be finite and zero or greater.")
+        if not math.isfinite(self.duration) or self.duration <= 0.0:
+            raise ProjectError("Note duration must be finite and greater than zero.")
+        if not isinstance(self.velocity, int) or not 1 <= self.velocity <= 127:
+            raise ProjectError("Note velocity must be an integer between 1 and 127.")
+
+
+@dataclass(frozen=True, slots=True)
+class ControlPoint:
+    """One pitch-bend or modulation value positioned in clip beats."""
+
+    beat: float
+    value: float
 
 
 def rhythm_steps(pattern: str | Sequence[str]) -> tuple[str, ...]:

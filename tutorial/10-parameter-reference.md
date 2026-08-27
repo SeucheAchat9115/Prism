@@ -121,7 +121,7 @@ part.midi(
 
 | Parameter | Default | Accepted values |
 | --- | --- | --- |
-| `notes` | required | 1–512 equal steps; `-` is rest, `+` makes a chord |
+| `notes` | required | Compact equal-step notation or a non-empty list of `Note` objects |
 | `instrument` | `lead` | `bass`, `lead`, or `pad` |
 | `bars` | `1` | 1–256 and at most 120 seconds |
 | `velocity` | `100` | 1–127 |
@@ -136,9 +136,49 @@ part.midi(
 | `section` | `None` | A section name, or `None` for the default clip |
 | `start_bar` | `0` | Zero or greater; relative to the section start |
 | `repeat` | `True` | Repeat to the section end, or play once |
+| `pitch_bend` | `()` | Increasing `(beat, semitones)` points; values -2 through +2 |
+| `modulation` | `()` | Increasing `(beat, amount)` points; amounts 0–1 |
+| `swing` | `0.5` | 0.5 straight through 0.75 strongly swung |
+| `humanize_timing_ms` | `0` | 0–50 ms of seeded timing variation |
+| `humanize_velocity` | `0` | 0–30 velocity steps of seeded variation |
+| `humanize_seed` | `0` | 0–4294967295 |
 
 Notes use scientific pitch notation from `C-1` through `G9`, including sharps
 and flats such as `F#3` and `Bb2`.
+
+For individual positions, lengths, and velocities, import `Note` and pass a
+list instead of compact notation:
+
+```python
+from prism import Note
+
+lead.midi(
+    [
+        Note("C4", start=0, duration=0.75, velocity=92),
+        Note("E4", start=1.25, duration=0.5, velocity=108),
+        Note("G4", start=2, duration=1.5, velocity=120),
+    ],
+    bars=1,
+    pitch_bend=[(0, 0), (1, 2), (2, 0)],
+    modulation=[(0, 0), (2, 1), (4, 0)],
+    swing=0.62,
+    humanize_timing_ms=6,
+    humanize_velocity=4,
+    humanize_seed=42,
+)
+```
+
+`start`, `duration`, and controller positions are measured in beats from the
+clip start. Notes must start and finish inside the clip. Pitch bend and
+modulation move linearly between their points in the WAV and are written as
+standard pitch-wheel and modulation-wheel messages in the MIDI file.
+
+Swing delays notes placed exactly on offbeat eighth notes. Humanization adds a
+bounded timing and velocity variation. Its seed makes the resolved performance
+identical on every render; `configuration()` shows those resolved note values.
+
+The compact string form still uses the clip-wide `velocity` and `gate` values.
+Explicit `Note` objects use their own velocities and durations instead.
 
 ## Clip placement and section variations
 

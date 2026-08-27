@@ -4,12 +4,20 @@ from __future__ import annotations
 
 import inspect
 import math
+import random
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path, PurePath
 from typing import TYPE_CHECKING, Literal, Self, Sequence
 
 from prism.errors import ProjectError
-from prism.music import note_steps, rhythm_steps, validate_gain, validate_pan
+from prism.music import (
+    ControlPoint,
+    Note,
+    note_steps,
+    rhythm_steps,
+    validate_gain,
+    validate_pan,
+)
 from prism.plugins import (
     STOCK_PLUGINS,
     AutomationCurve,
@@ -60,6 +68,9 @@ class DrumClip:
 class MidiClip:
     instrument: str
     notes: tuple[str, ...]
+    events: tuple[Note, ...]
+    pitch_bend: tuple[ControlPoint, ...]
+    modulation: tuple[ControlPoint, ...]
     bars: int
     velocity: int
     waveform: SynthWaveform | None
@@ -70,6 +81,10 @@ class MidiClip:
     cutoff_hz: float | None
     gate: float
     gain_db: float
+    swing: float
+    humanize_timing_ms: float
+    humanize_velocity: int
+    humanize_seed: int
 
 
 TrackClip = SampleClip | AudioClip | DrumClip | MidiClip
@@ -288,7 +303,7 @@ class Track:
 
     def midi(
         self,
-        notes: str,
+        notes: str | Sequence[str] | Sequence[Note],
         *,
         instrument: str = "lead",
         bars: int = 1,
@@ -304,6 +319,12 @@ class Track:
         section: str | None = None,
         start_bar: float = 0.0,
         repeat: bool = True,
+        pitch_bend: Sequence[tuple[float, float]] = (),
+        modulation: Sequence[tuple[float, float]] = (),
+        swing: float = 0.5,
+        humanize_timing_ms: float = 0.0,
+        humanize_velocity: int = 0,
+        humanize_seed: int = 0,
     ) -> Self:
         """Add a placed MIDI-note clip rendered by this track's instrument."""
 
@@ -320,11 +341,42 @@ class Track:
         _optional_range(cutoff_hz, 20.0, 20_000.0, "Cutoff")
         if not 0.05 <= gate <= 1.0:
             raise ProjectError("MIDI gate must be between 0.05 and 1.0.")
+        resolved_bars = _synth_bars(bars, f"MIDI track {self.name!r}", self._project)
+        notation, events = _midi_notes(
+            notes,
+            bars=resolved_bars,
+            beats_per_bar=self._project.beats_per_bar,
+            velocity=velocity,
+            gate=gate,
+            tempo=self._project.tempo,
+            swing=swing,
+            humanize_timing_ms=humanize_timing_ms,
+            humanize_velocity=humanize_velocity,
+            humanize_seed=humanize_seed,
+        )
+        clip_beats = resolved_bars * self._project.beats_per_bar
+        bends = _control_points(
+            pitch_bend,
+            label="Pitch bend",
+            minimum=-2.0,
+            maximum=2.0,
+            clip_beats=clip_beats,
+        )
+        modulation_points = _control_points(
+            modulation,
+            label="Modulation",
+            minimum=0.0,
+            maximum=1.0,
+            clip_beats=clip_beats,
+        )
         self._add_clip(
             MidiClip(
                 instrument=instrument,
-                notes=note_steps(notes),
-                bars=_synth_bars(bars, f"MIDI track {self.name!r}", self._project),
+                notes=notation,
+                events=events,
+                pitch_bend=bends,
+                modulation=modulation_points,
+                bars=resolved_bars,
                 velocity=velocity,
                 waveform=waveform,
                 attack_ms=attack_ms,
@@ -334,6 +386,10 @@ class Track:
                 cutoff_hz=cutoff_hz,
                 gate=float(gate),
                 gain_db=validate_gain(gain_db, label=f"MIDI track {self.name!r} clip gain"),
+                swing=float(swing),
+                humanize_timing_ms=float(humanize_timing_ms),
+                humanize_velocity=humanize_velocity,
+                humanize_seed=humanize_seed,
             ),
             section=section,
             start_bar=start_bar,
@@ -884,7 +940,7 @@ class Project:
                 }
             )
         return {
-            "schema_version": 4,
+            "schema_version": 5,
             "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,
@@ -1072,6 +1128,136 @@ def _synth_bars(value: int, label: str, project: Project) -> int:
             f"{label} cannot exceed {MAX_SYNTH_SECONDS:g} seconds; use fewer bars."
         )
     return bars
+
+
+def _midi_notes(
+    value: str | Sequence[str] | Sequence[Note],
+    *,
+    bars: int,
+    beats_per_bar: int,
+    velocity: int,
+    gate: float,
+    tempo: float,
+    swing: float,
+    humanize_timing_ms: float,
+    humanize_velocity: int,
+    humanize_seed: int,
+) -> tuple[tuple[str, ...], tuple[Note, ...]]:
+    if not math.isfinite(swing) or not 0.5 <= swing <= 0.75:
+        raise ProjectError("MIDI swing must be between 0.5 and 0.75.")
+    if not math.isfinite(humanize_timing_ms) or not 0.0 <= humanize_timing_ms <= 50.0:
+        raise ProjectError("MIDI humanize_timing_ms must be between 0 and 50.")
+    if not isinstance(humanize_velocity, int) or not 0 <= humanize_velocity <= 30:
+        raise ProjectError("MIDI humanize_velocity must be an integer between 0 and 30.")
+    if not isinstance(humanize_seed, int) or not 0 <= humanize_seed <= 4_294_967_295:
+        raise ProjectError("MIDI humanize_seed must be between 0 and 4294967295.")
+
+    clip_beats = bars * beats_per_bar
+    authored: tuple[Note, ...]
+    if isinstance(value, str):
+        notation = note_steps(value)
+        authored = _step_notes(notation, clip_beats, velocity, gate)
+    else:
+        supplied = tuple(value)
+        if supplied and all(isinstance(item, Note) for item in supplied):
+            notation = ()
+            authored = tuple(item for item in supplied if isinstance(item, Note))
+        elif all(isinstance(item, str) for item in supplied):
+            notation = note_steps(tuple(item for item in supplied if isinstance(item, str)))
+            authored = _step_notes(notation, clip_beats, velocity, gate)
+        else:
+            raise ProjectError(
+                "MIDI notes must be notation text or a non-empty list of Note objects."
+            )
+    if not authored:
+        raise ProjectError("A MIDI clip needs at least one Note.")
+    for note in authored:
+        if note.start >= clip_beats or note.start + note.duration > clip_beats + 1e-9:
+            raise ProjectError(
+                f"Note {note.pitch!r} must start and finish inside the clip's "
+                f"{clip_beats:g} beats."
+            )
+    return notation, _humanized_notes(
+        authored,
+        clip_beats=clip_beats,
+        tempo=tempo,
+        swing=swing,
+        timing_ms=humanize_timing_ms,
+        velocity_range=humanize_velocity,
+        seed=humanize_seed,
+    )
+
+
+def _step_notes(
+    notation: tuple[str, ...], clip_beats: float, velocity: int, gate: float
+) -> tuple[Note, ...]:
+    step = clip_beats / len(notation)
+    return tuple(
+        Note(pitch, index * step, step * gate, velocity)
+        for index, token in enumerate(notation)
+        if token != "-"
+        for pitch in token.split("+")
+    )
+
+
+def _humanized_notes(
+    notes: tuple[Note, ...],
+    *,
+    clip_beats: float,
+    tempo: float,
+    swing: float,
+    timing_ms: float,
+    velocity_range: int,
+    seed: int,
+) -> tuple[Note, ...]:
+    generator = random.Random(seed)
+    maximum_jitter = timing_ms * tempo / 60_000.0
+    timing_by_start: dict[float, float] = {}
+    resolved: list[Note] = []
+    for note in notes:
+        if note.start not in timing_by_start:
+            timing_by_start[note.start] = generator.uniform(-maximum_jitter, maximum_jitter)
+        fraction = note.start - math.floor(note.start)
+        swing_delay = swing - 0.5 if math.isclose(fraction, 0.5, abs_tol=1e-9) else 0.0
+        start = note.start + swing_delay + timing_by_start[note.start]
+        start = min(max(0.0, start), clip_beats - note.duration)
+        velocity = note.velocity + generator.randint(-velocity_range, velocity_range)
+        resolved.append(
+            Note(note.pitch, start, note.duration, min(127, max(1, velocity)))
+        )
+    return tuple(resolved)
+
+
+def _control_points(
+    values: Sequence[tuple[float, float]],
+    *,
+    label: str,
+    minimum: float,
+    maximum: float,
+    clip_beats: float,
+) -> tuple[ControlPoint, ...]:
+    points: list[ControlPoint] = []
+    previous = -1.0
+    for beat, value in values:
+        resolved_beat = float(beat)
+        resolved_value = float(value)
+        if (
+            not math.isfinite(resolved_beat)
+            or resolved_beat < 0.0
+            or resolved_beat > clip_beats
+        ):
+            raise ProjectError(
+                f"{label} positions must be between 0 and {clip_beats:g} clip beats."
+            )
+        if resolved_beat <= previous:
+            raise ProjectError(f"{label} positions must be in strictly increasing order.")
+        if not math.isfinite(resolved_value) or not minimum <= resolved_value <= maximum:
+            raise ProjectError(
+                f"{label} values must be between {minimum:g} and {maximum:g}."
+            )
+        points.append(ControlPoint(resolved_beat, resolved_value))
+        previous = resolved_beat
+    return tuple(points)
 
 
 def _optional_range(value: float | None, low: float, high: float, label: str) -> None:

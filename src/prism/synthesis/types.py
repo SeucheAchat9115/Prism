@@ -6,7 +6,7 @@ import math
 from dataclasses import dataclass
 from typing import Literal
 
-from prism.music import note_steps, rhythm_steps
+from prism.music import ControlPoint, Note, note_steps, rhythm_steps
 
 SynthPreset = str
 SynthWaveform = Literal["sine", "triangle", "saw", "square"]
@@ -33,6 +33,9 @@ class SynthPatch:
 class NativeSynthSpec:
     preset: SynthPreset
     sequence: tuple[str, ...]
+    note_events: tuple[Note, ...] = ()
+    pitch_bend: tuple[ControlPoint, ...] = ()
+    modulation: tuple[ControlPoint, ...] = ()
     bars: int = 1
     waveform: SynthWaveform | None = None
     attack_ms: float | None = None
@@ -49,11 +52,12 @@ class NativeSynthSpec:
             raise ValueError("Instrument preset cannot be empty")
         if not 1 <= self.bars <= 256:
             raise ValueError("Synth clip bars must be between 1 and 256")
-        normalized = (
-            rhythm_steps(self.sequence)
-            if self.preset in PERCUSSION_PRESETS
-            else note_steps(self.sequence)
-        )
+        if self.preset in PERCUSSION_PRESETS:
+            normalized = rhythm_steps(self.sequence)
+        elif self.note_events:
+            normalized = self.sequence
+        else:
+            normalized = note_steps(self.sequence)
         object.__setattr__(self, "sequence", normalized)
         _range(self.gain_db, -60.0, 12.0, "Synth gain")
         if not 0 <= self.seed <= 4_294_967_295:

@@ -15,6 +15,7 @@ def test_public_package_is_small_and_script_first() -> None:
         "AutomationPoint",
         "Bus",
         "MidiResult",
+        "Note",
         "Plugin",
         "PrismError",
         "Project",
@@ -59,6 +60,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "11-plugins-and-automation.md",
         "12-clips-variations-and-fills.md",
         "13-buses-sends-and-master-effects.md",
+        "14-expressive-midi.md",
     )
     for name in expected:
         assert (root / "tutorial" / name).is_file()
@@ -77,6 +79,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "11-plugins-and-automation.md",
         "12-clips-variations-and-fills.md",
         "13-buses-sends-and-master-effects.md",
+        "14-expressive-midi.md",
     ),
 )
 def test_complete_tutorial_projects_are_readable_and_runnable(
@@ -138,6 +141,13 @@ def test_complete_reference_mentions_every_authoring_feature() -> None:
         ".master_effect(",
         'section="Chorus"',
         "start_bar=",
+        "Note(",
+        "pitch_bend=",
+        "modulation=",
+        "swing=",
+        "humanize_timing_ms=",
+        "humanize_velocity=",
+        "humanize_seed=",
         ".export_midi(",
         ".render(",
     )

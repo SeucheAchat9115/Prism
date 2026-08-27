@@ -147,6 +147,7 @@ rejects absolute paths and paths that leave the project folder.
 - `sample(...)` triggers your sound with a rhythm such as `x--- x---`.
 - `audio(...)` plays a complete loop or one-shot.
 - `midi(...)` writes notes and renders a built-in `bass`, `lead`, or `pad`.
+- `Note(...)` gives individual MIDI notes their own position, length, and velocity.
 - `instrument(...)` separates a MIDI part from its stock synthesizer settings.
 - `effect(...)` adds ordered stock dynamics, tone, modulation, delay, and reverb plugins.
 - `automation(...)` moves a plugin setting at exact song positions in bars.
@@ -233,6 +234,26 @@ room.effect("reverb", room_size=0.6, mix=1)
 snare.send(room, gain_db=-10)
 
 song.master_effect("compressor", name="Master Control", threshold_db=-8, ratio=2)
+```
+
+For a performed part instead of equal steps, place individual notes in beats
+and add reproducible feel and controller movement:
+
+```python
+from prism import Note
+
+lead = song.track("Lead").midi(
+    [
+        Note("G4", start=0, duration=1.5, velocity=92),
+        Note("C5", start=2, duration=1, velocity=118),
+    ],
+    pitch_bend=[(0, 0), (1, 2), (2, 0)],
+    modulation=[(0, 0), (2, 1), (4, 0)],
+    swing=0.62,
+    humanize_timing_ms=6,
+    humanize_velocity=4,
+    humanize_seed=42,
+)
 ```
 
 ## Continue with the tutorial

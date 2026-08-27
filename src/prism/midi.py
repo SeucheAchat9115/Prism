@@ -137,37 +137,73 @@ def _section_events(
     if not isinstance(clip, DrumClip | MidiClip):
         return
     clip_ticks = clip.bars * TICKS_PER_BEAT * beats_per_bar
-    steps = clip.pattern if isinstance(clip, DrumClip) else clip.notes
-    boundaries = [round(index * clip_ticks / len(steps)) for index in range(len(steps) + 1)]
     placement_start = round(placement.start_bar * beats_per_bar * TICKS_PER_BEAT)
     cycle = placement_start
     section_end = section_start + section_ticks
     while cycle < section_ticks:
-        for index, token in enumerate(steps):
-            if token == "-":
-                continue
-            start = section_start + cycle + boundaries[index]
-            if start >= section_end:
-                continue
-            step_ticks = max(1, boundaries[index + 1] - boundaries[index])
-            if isinstance(clip, DrumClip):
+        if isinstance(clip, DrumClip):
+            boundaries = [
+                round(index * clip_ticks / len(clip.pattern))
+                for index in range(len(clip.pattern) + 1)
+            ]
+            for index, token in enumerate(clip.pattern):
+                if token == "-":
+                    continue
+                start = section_start + cycle + boundaries[index]
+                if start >= section_end:
+                    continue
+                step_ticks = max(1, boundaries[index + 1] - boundaries[index])
                 drum_note = STOCK_PLUGINS.get("instrument", clip.preset).drum_note
                 if drum_note is None:
                     raise ProjectError(f"Percussion instrument {clip.preset!r} has no MIDI note.")
-                notes: tuple[int, ...] = (drum_note,)
-                velocity = 100
                 duration = min(120, step_ticks)
-            else:
-                notes = tuple(note_to_midi(note) for note in token.split("+"))
-                velocity = clip.velocity
-                duration = max(1, round(step_ticks * clip.gate))
-            end = min(section_end, start + duration)
-            for note in notes:
-                events.append((start, 1, bytes([0x90 | channel, note, velocity])))
-                events.append((end, 0, bytes([0x80 | channel, note, 0])))
+                end = min(section_end, start + duration)
+                events.append((start, 1, bytes([0x90 | channel, drum_note, 100])))
+                events.append((end, 0, bytes([0x80 | channel, drum_note, 0])))
+        else:
+            _midi_expression_events(
+                events,
+                clip,
+                channel=channel,
+                cycle_start=section_start + cycle,
+                section_end=section_end,
+            )
         cycle += clip_ticks
         if not placement.repeat:
             break
+
+
+def _midi_expression_events(
+    events: list[tuple[int, int, bytes]],
+    clip: MidiClip,
+    *,
+    channel: int,
+    cycle_start: int,
+    section_end: int,
+) -> None:
+    for point in clip.pitch_bend:
+        tick = cycle_start + round(point.beat * TICKS_PER_BEAT)
+        if tick < section_end:
+            events.append((tick, -1, _pitch_bend_message(channel, point.value)))
+    for point in clip.modulation:
+        tick = cycle_start + round(point.beat * TICKS_PER_BEAT)
+        if tick < section_end:
+            amount = min(127, max(0, round(point.value * 127.0)))
+            events.append((tick, -1, bytes([0xB0 | channel, 1, amount])))
+    for note in clip.events:
+        start = cycle_start + round(note.start * TICKS_PER_BEAT)
+        if start >= section_end:
+            continue
+        duration = max(1, round(note.duration * TICKS_PER_BEAT))
+        end = min(section_end, start + duration)
+        midi_note = note_to_midi(note.pitch)
+        events.append((start, 1, bytes([0x90 | channel, midi_note, note.velocity])))
+        events.append((end, 0, bytes([0x80 | channel, midi_note, 0])))
+
+
+def _pitch_bend_message(channel: int, semitones: float) -> bytes:
+    value = min(16_383, max(0, round(8_192 + semitones * 8_191 / 2.0)))
+    return bytes([0xE0 | channel, value & 0x7F, (value >> 7) & 0x7F])
 
 
 def _chunk(events: list[tuple[int, int, bytes]]) -> bytes:

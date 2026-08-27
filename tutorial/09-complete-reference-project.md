@@ -10,7 +10,7 @@ Replace the project’s `main.py` with this complete reference:
 ```python
 from pprint import pprint
 
-from prism import Project
+from prism import Note, Project
 
 
 song = Project(
@@ -60,6 +60,16 @@ pad = song.track("Pad", gain_db=-12, pan=-0.3).midi(
 lead = song.track("Lead", gain_db=-10, pan=0.35).midi(
     "C4 D4 Eb4 G4 | Bb4 G4 Eb4 -",
     bars=2, velocity=96, gate=0.82,
+)
+lead.midi(
+    [
+        Note("G4", start=0, duration=0.75, velocity=88),
+        Note("Bb4", start=1.5, duration=0.4, velocity=106),
+        Note("C5", start=2, duration=1.25, velocity=118),
+    ],
+    section="Chorus", pitch_bend=[(0, 0), (1, 2), (2, 0)],
+    modulation=[(0, 0), (2, 1), (4, 0)], swing=0.62,
+    humanize_timing_ms=6, humanize_velocity=4, humanize_seed=42,
 )
 lead_synth = lead.instrument(
     "lead", name="Stock Lead", waveform="square",
@@ -130,7 +140,8 @@ validation, configuration inspection, MIDI export, WAV rendering, and result
 hashes. It also demonstrates an explicit stock instrument, an ordered
 multi-effect chain, effects on a sample track, and several automation tracks.
 It also includes a section-specific clip, drum group bus, shared reverb send,
-bus automation, and final master processing.
+bus automation, final master processing, individually positioned MIDI notes,
+pitch bend, modulation, swing, and deterministic humanization.
 
 All input and output paths are relative to `main.py`. Prism rejects absolute
 paths, `..` traversal, missing sources, duplicate names, empty tracks, unknown

@@ -38,6 +38,7 @@ in your normal music player. Keep the terminal in the repository root.
 | 11 | [Plugins and automation](11-plugins-and-automation.md) | Explicit instruments, ordered effects, and moving settings |
 | 12 | [Clips, variations, and fills](12-clips-variations-and-fills.md) | Multiple clips per track and section-specific arrangements |
 | 13 | [Buses, sends, and master effects](13-buses-sends-and-master-effects.md) | Group processing, shared returns, and final mix processing |
+| 14 | [Expressive MIDI](14-expressive-midi.md) | Free note timing, duration, velocity, controllers, swing, and humanization |
 
 Levels are independent: every page shows the whole `main.py`, not only a diff.
 You can replace the file at each level or put each level in a separate folder.
@@ -91,4 +92,5 @@ the Prism version used when that project was created.
 | Stock instrument plugins, ordered effect chains, and automation tracks | Level 11 |
 | Default clips, section variations, exact clip positions, and one-time fills | Level 12 |
 | Group buses, post-fader sends, return effects, and master effects | Level 13 |
+| Individual MIDI notes, pitch bend, modulation, swing, and seeded humanization | Level 14 |
 | Exact defaults, ranges, and return values | Level 10 |

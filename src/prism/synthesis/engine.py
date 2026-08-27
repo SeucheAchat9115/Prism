@@ -6,7 +6,7 @@ import math
 
 import numpy as np
 
-from prism.music import note_frequency
+from prism.music import ControlPoint, note_frequency
 from prism.plugins import STOCK_PLUGINS
 from prism.synthesis.types import (
     MAX_SYNTH_SECONDS,
@@ -47,7 +47,13 @@ def render_native_synth(
     if spec.preset in {"kick", "snare", "hihat"}:
         _render_percussion(samples, boundaries, spec, sample_rate)
     else:
-        _render_melodic(samples, boundaries, spec, sample_rate)
+        _render_melodic(
+            samples,
+            boundaries,
+            spec,
+            sample_rate,
+            frames_per_beat=sample_rate * 60.0 / tempo_bpm,
+        )
     gain = 10.0 ** (spec.gain_db / 20.0)
     samples *= gain
     samples = np.tanh(samples * 1.15) / math.tanh(1.15)
@@ -97,6 +103,8 @@ def _render_melodic(
     boundaries: np.ndarray,
     spec: NativeSynthSpec,
     sample_rate: int,
+    *,
+    frames_per_beat: float,
 ) -> None:
     default = STOCK_PLUGINS.get("instrument", spec.preset).synth_patch
     if default is None:
@@ -113,21 +121,57 @@ def _render_melodic(
         gate=default.gate if spec.gate is None else spec.gate,
         amplitude=default.amplitude,
     )
-    for index, token in enumerate(spec.sequence):
-        if token == "-":
+    bend = _control_values(
+        spec.pitch_bend, output.size, frames_per_beat=frames_per_beat, default=0.0
+    )
+    modulation = _control_values(
+        spec.modulation, output.size, frames_per_beat=frames_per_beat, default=0.0
+    )
+    if spec.note_events:
+        events = tuple(
+            (
+                note.pitch,
+                int(round(note.start * frames_per_beat)),
+                max(1, int(round(note.duration * frames_per_beat))),
+                note.velocity,
+            )
+            for note in spec.note_events
+        )
+    else:
+        events = tuple(
+            (
+                pitch,
+                int(boundaries[index]),
+                max(
+                    1,
+                    int(
+                        round(
+                            (int(boundaries[index + 1]) - int(boundaries[index]))
+                            * patch.gate
+                        )
+                    ),
+                ),
+                100,
+            )
+            for index, token in enumerate(spec.sequence)
+            if token != "-"
+            for pitch in token.split("+")
+        )
+    for pitch, start, note_off, velocity in events:
+        if start >= output.size:
             continue
-        start = int(boundaries[index])
-        step_frames = max(1, int(boundaries[index + 1]) - start)
-        note_off = max(1, int(round(step_frames * patch.gate)))
         release_frames = max(0, int(round(patch.release_ms * sample_rate / 1000.0)))
         voice_frames = min(output.size - start, note_off + release_frames)
-        chord = token.split("+")
-        chord_output = np.zeros(voice_frames, dtype=np.float64)
-        for note in chord:
-            frequency = note_frequency(note)
-            time = np.arange(voice_frames, dtype=np.float64) / sample_rate
-            chord_output += _oscillator(patch.waveform, frequency, time)
-        chord_output /= math.sqrt(len(chord))
+        global_time = (start + np.arange(voice_frames, dtype=np.float64)) / sample_rate
+        vibrato = 0.5 * modulation[start : start + voice_frames] * np.sin(
+            2.0 * np.pi * 5.0 * global_time
+        )
+        frequency = note_frequency(pitch) * np.power(
+            2.0, (bend[start : start + voice_frames] + vibrato) / 12.0
+        )
+        phase = np.cumsum(frequency) / sample_rate
+        phase -= phase[0]
+        voice = _oscillator(patch.waveform, phase)
         envelope = _adsr_envelope(
             voice_frames,
             note_off=note_off,
@@ -137,7 +181,9 @@ def _render_melodic(
             sustain_level=patch.sustain_level,
             release_ms=patch.release_ms,
         )
-        output[start : start + voice_frames] += patch.amplitude * chord_output * envelope
+        output[start : start + voice_frames] += (
+            patch.amplitude * (velocity / 100.0) * voice * envelope
+        )
     window = int(round(sample_rate / max(40.0, patch.cutoff_hz * 2.0)))
     window = max(1, min(64, output.size, window))
     if window > 1:
@@ -145,8 +191,7 @@ def _render_melodic(
         output[:] = np.convolve(output, kernel, mode="same")
 
 
-def _oscillator(waveform: str, frequency: float, time: np.ndarray) -> np.ndarray:
-    phase_cycles = frequency * time
+def _oscillator(waveform: str, phase_cycles: np.ndarray) -> np.ndarray:
     if waveform == "sine":
         return np.sin(2.0 * np.pi * phase_cycles)
     if waveform == "triangle":
@@ -154,6 +199,26 @@ def _oscillator(waveform: str, frequency: float, time: np.ndarray) -> np.ndarray
     if waveform == "saw":
         return 2.0 * (phase_cycles - np.floor(phase_cycles + 0.5))
     return np.where(np.sin(2.0 * np.pi * phase_cycles) >= 0.0, 1.0, -1.0)
+
+
+def _control_values(
+    points: tuple[ControlPoint, ...],
+    frames: int,
+    *,
+    frames_per_beat: float,
+    default: float,
+) -> np.ndarray:
+    if not points:
+        return np.full(frames, default, dtype=np.float64)
+    positions = [point.beat * frames_per_beat for point in points]
+    values = [point.value for point in points]
+    if positions[0] > 0.0:
+        positions.insert(0, 0.0)
+        values.insert(0, default)
+    return np.asarray(
+        np.interp(np.arange(frames, dtype=np.float64), positions, values),
+        dtype=np.float64,
+    )
 
 
 def _adsr_envelope(

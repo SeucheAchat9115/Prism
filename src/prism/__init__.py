@@ -2,6 +2,7 @@
 
 from prism.errors import PrismError, ProjectError, RenderError
 from prism.midi import MidiResult
+from prism.music import Note
 from prism.plugins import AutomationLane, AutomationPoint, Plugin
 from prism.project import Bus, Project, ProjectSummary, Section, Send, Track
 from prism.render import RenderResult
@@ -12,6 +13,7 @@ __all__ = [
     "AutomationPoint",
     "Bus",
     "MidiResult",
+    "Note",
     "Plugin",
     "PrismError",
     "Project",

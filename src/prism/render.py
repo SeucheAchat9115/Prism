@@ -165,6 +165,9 @@ def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
     spec = NativeSynthSpec(
         preset=clip.instrument,
         sequence=clip.notes,
+        note_events=clip.events,
+        pitch_bend=clip.pitch_bend,
+        modulation=clip.modulation,
         bars=clip.bars,
         waveform=clip.waveform,
         attack_ms=clip.attack_ms,
@@ -179,7 +182,7 @@ def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
         gate=clip.gate,
         gain_db=clip.gain_db,
     )
-    return _synth_audio(project, spec) * (clip.velocity / 100.0)
+    return _synth_audio(project, spec)
 
 
 def _synth_audio(project: Project, spec: NativeSynthSpec) -> np.ndarray:
