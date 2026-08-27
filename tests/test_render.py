@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 from pathlib import Path
 
 import numpy as np
@@ -12,7 +11,13 @@ from prism import Project, ProjectError, RenderError
 
 
 def _mini_song(script: Path) -> Project:
-    song = Project(script, "Deterministic Mini Song", tempo=120, sample_rate=8_000)
+    song = Project(
+        "Deterministic Mini Song",
+        prism_version="test",
+        tempo=120,
+        sample_rate=8_000,
+        _script=script,
+    )
     kick = song.track("Kick", gain_db=-3).drum("kick", "x--- x--- x--- x---")
     snare = song.track("Snare", gain_db=-7).drum("snare", "---- x--- ---- x---", seed=11)
     hat = song.track("Hi-Hat", gain_db=-12, pan=0.25).drum(
@@ -34,46 +39,46 @@ def _mini_song(script: Path) -> Project:
     return song
 
 
-def test_render_is_non_silent_deterministic_and_manifested(project_script: Path) -> None:
+def test_render_is_non_silent_and_deterministic(project_script: Path) -> None:
     song = _mini_song(project_script)
 
     first = song.render("renders/first.wav")
     second = song.render("renders/second.wav")
     samples, sample_rate = sf.read(first.path, dtype="float32", always_2d=True)
-    manifest = json.loads(first.manifest_path.read_text(encoding="utf-8"))
 
     assert first.path.read_bytes() == second.path.read_bytes()
     assert first.sha256 == hashlib.sha256(first.path.read_bytes()).hexdigest()
     assert sample_rate == 8_000
     assert samples.shape == (96_000, 2)
     assert np.max(np.abs(samples)) > 0.05
-    assert manifest["script"] == "main.py"
-    assert manifest["script_sha256"] == hashlib.sha256(project_script.read_bytes()).hexdigest()
-    assert manifest["render"]["sha256"] == second.sha256
-    assert manifest["tracks"][3]["part"]["kind"] == "midi"
 
 
-def test_project_local_sample_is_loaded_resampled_and_hashed(
+def test_project_local_sample_is_loaded_and_resampled(
     project_script: Path, sample_file: Path
 ) -> None:
-    song = Project(project_script, "Sample Beat", tempo=120, sample_rate=16_000)
+    song = Project(
+        "Sample Beat",
+        prism_version="test",
+        tempo=120,
+        sample_rate=16_000,
+        _script=project_script,
+    )
     song.track("Kick").sample("sounds/kick.wav", "x--- x---", bars=1)
     song.section("Loop", bars=2)
 
     result = song.render("renders/sample-beat.wav")
     samples, rate = sf.read(result.path, dtype="float32", always_2d=True)
-    manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
 
     assert rate == 16_000
     assert samples.shape == (64_000, 2)
     assert np.max(np.abs(samples[:4_000])) > 0.1
-    assert manifest["sources"]["sounds/kick.wav"]["sha256"] == hashlib.sha256(
-        sample_file.read_bytes()
-    ).hexdigest()
+    assert sample_file.is_file()
 
 
 def test_audio_one_shot_pads_without_looping(project_script: Path, sample_file: Path) -> None:
-    song = Project(project_script, "One Shot", sample_rate=8_000)
+    song = Project(
+        "One Shot", prism_version="test", sample_rate=8_000, _script=project_script
+    )
     song.track("Texture").audio("sounds/kick.wav", bars=1, loop=False)
     song.section("Only", bars=1)
 
@@ -98,7 +103,7 @@ def test_render_reports_unsupported_multichannel_source(
     sounds = tmp_path / "sounds"
     sounds.mkdir()
     sf.write(sounds / "wide.wav", np.zeros((100, 3), dtype=np.float32), 8_000)
-    song = Project(project_script, "Wide", sample_rate=8_000)
+    song = Project("Wide", prism_version="test", sample_rate=8_000, _script=project_script)
     song.track("Wide").audio("sounds/wide.wav")
     song.section("Only", bars=1)
     with pytest.raises(RenderError, match="mono or stereo"):

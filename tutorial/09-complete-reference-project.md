@@ -2,15 +2,10 @@
 
 Goal: use every producer-facing authoring feature in one readable project.
 
-Prepare three files you own or have permission to use:
+Using your file manager, put three files you own into the project’s `sounds/` folder:
+`kick.wav`, `percussion-loop.wav`, and `vocal-shot.wav`.
 
-```powershell
-Copy-Item C:\path\to\kick.wav .\tutorial-song\sounds\kick.wav
-Copy-Item C:\path\to\percussion-loop.wav .\tutorial-song\sounds\percussion-loop.wav
-Copy-Item C:\path\to\vocal-shot.wav .\tutorial-song\sounds\vocal-shot.wav
-```
-
-Replace `tutorial-song\main.py` with this complete reference:
+Replace the project’s `main.py` with this complete reference:
 
 ```python
 from pprint import pprint
@@ -19,8 +14,8 @@ from prism import Project
 
 
 song = Project(
-    __file__,
     "Complete Prism Song",
+    prism_version="0.2.0.dev0",
     tempo=112,
     sample_rate=44100,
     beats_per_bar=4,
@@ -82,21 +77,19 @@ print(song.render("renders/complete-song.wav"))
 
 Run, inspect, and listen:
 
-```powershell
-uv run python .\tutorial-song\main.py
-Get-Content .\tutorial-song\.prism\project.json
-Start-Process .\tutorial-song\renders\complete-song.wav
-```
+Run the command Prism printed for your timestamped tutorial project.
+
+Listen to `renders/complete-song.wav` inside the project folder.
 
 This project demonstrates triggered samples, looping audio, one-shots, all
 three drums, all three melodic instruments, all four waveforms, chords, rests, every synth control,
 track and clip gain, panning, muting, explicit sections, an all-track section,
-validation, configuration inspection, MIDI export, WAV rendering, and the
-reproducibility manifest.
+validation, configuration inspection, MIDI export, WAV rendering, and result
+hashes.
 
 All input and output paths are relative to `main.py`. Prism rejects absolute
 paths, `..` traversal, missing sources, duplicate names, empty tracks, unknown
 section tracks, unsafe output paths, and attempts to overwrite source files.
 
 Checkpoint: this folder is a complete, copyable Prism project. Copy the folder,
-install the same Prism version, and run `main.py`; no ZIP import step exists.
+install the Prism version recorded in `main.py`, and run that file again.

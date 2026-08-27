@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 import math
 from dataclasses import asdict, dataclass
 from pathlib import Path, PurePath
@@ -240,25 +241,27 @@ class Track:
 class Project:
     """A complete song described by the producer's ``main.py`` file.
 
-    Pass ``__file__`` as the first argument. Relative sample and output paths
-    are then resolved inside that script's project folder.
+    Prism locates the running script automatically. Relative sample and output
+    paths are resolved inside that script's project folder.
     """
 
     def __init__(
         self,
-        script: str | Path,
         name: str,
         *,
+        prism_version: str,
         tempo: float = 120.0,
         sample_rate: int = 44_100,
         beats_per_bar: int = 4,
         beat_unit: Literal[1, 2, 4, 8, 16] = 4,
         master_gain_db: float = -3.0,
         normalize: bool = True,
+        _script: str | Path | None = None,
     ) -> None:
-        self.script = Path(script).resolve(strict=False)
+        self.script = _project_script(_script)
         self.root = self.script.parent
         self.name = _name(name, "Project")
+        self.prism_version = _version(prism_version)
         if not math.isfinite(tempo) or not 20.0 <= tempo <= 300.0:
             raise ProjectError("Tempo must be between 20 and 300 BPM.")
         if not 8_000 <= sample_rate <= 192_000:
@@ -376,7 +379,7 @@ class Project:
         return export_midi(self, output)
 
     def configuration(self) -> dict[str, object]:
-        """Return the resolved, JSON-ready song plan used by agents and manifests."""
+        """Return the resolved song settings as a plain dictionary."""
 
         tracks: list[dict[str, object]] = []
         for track in self.tracks:
@@ -392,6 +395,7 @@ class Project:
             )
         return {
             "schema_version": 1,
+            "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,
             "tempo": self.tempo,
@@ -459,6 +463,28 @@ def _name(value: str, label: str) -> str:
     if len(clean) > 120:
         raise ProjectError(f"{label} name cannot exceed 120 characters.")
     return clean
+
+
+def _version(value: str) -> str:
+    clean = value.strip()
+    if not clean or len(clean) > 64:
+        raise ProjectError("Prism version must be a non-empty value from the project template.")
+    return clean
+
+
+def _project_script(value: str | Path | None) -> Path:
+    if value is not None:
+        return Path(value).resolve(strict=False)
+    frame = inspect.currentframe()
+    try:
+        constructor = None if frame is None else frame.f_back
+        caller = None if constructor is None else constructor.f_back
+        filename = None if caller is None else caller.f_code.co_filename
+    finally:
+        del frame
+    if filename is None or filename.startswith("<"):
+        raise ProjectError("Create and run a main.py file so Prism can locate the project folder.")
+    return Path(filename).resolve(strict=False)
 
 
 def _bars(value: int, label: str) -> int:

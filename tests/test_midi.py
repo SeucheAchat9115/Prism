@@ -8,7 +8,9 @@ from prism import Project, ProjectError
 
 
 def test_midi_export_contains_conductor_drums_and_notes(project_script: Path) -> None:
-    song = Project(project_script, "MIDI Song", tempo=90, beats_per_bar=3)
+    song = Project(
+        "MIDI Song", prism_version="test", tempo=90, beats_per_bar=3, _script=project_script
+    )
     kick = song.track("Kick").drum("kick", "x-- x--")
     bass = song.track("Bass").midi("C2 - G1", instrument="bass", gate=0.5)
     song.section("A", bars=2, tracks=[kick, bass])
@@ -26,7 +28,7 @@ def test_midi_export_contains_conductor_drums_and_notes(project_script: Path) ->
 
 
 def test_midi_export_requires_midi_capable_tracks(project_script: Path, sample_file: Path) -> None:
-    song = Project(project_script, "Audio Only")
+    song = Project("Audio Only", prism_version="test", _script=project_script)
     song.track("Sample").sample("sounds/kick.wav")
     song.section("Only", bars=1)
     with pytest.raises(ProjectError, match="no built-in drum or MIDI tracks"):
@@ -34,7 +36,7 @@ def test_midi_export_requires_midi_capable_tracks(project_script: Path, sample_f
 
 
 def test_one_midi_track_uses_readable_singular_word(project_script: Path) -> None:
-    song = Project(project_script, "Solo")
+    song = Project("Solo", prism_version="test", _script=project_script)
     song.track("Lead").midi("C4")
     song.section("Only", bars=1)
 

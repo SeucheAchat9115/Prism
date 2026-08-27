@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import math
 import os
 import tempfile
@@ -23,10 +22,9 @@ from prism.synthesis.types import NativeSynthSpec
 
 @dataclass(frozen=True, slots=True)
 class RenderResult:
-    """Useful facts about one completed WAV and its reproducibility manifest."""
+    """Useful facts about one completed WAV render."""
 
     path: Path
-    manifest_path: Path
     sample_rate: int
     channels: int
     frames: int
@@ -39,7 +37,7 @@ class RenderResult:
 
 
 def render_project(project: Project, output: str | Path) -> RenderResult:
-    """Render every named section in order and write a stable project manifest."""
+    """Render every named section in order to a WAV file."""
 
     try:
         summary = project.validate()
@@ -70,10 +68,8 @@ def render_project(project: Project, output: str | Path) -> RenderResult:
         mix = np.clip(mix, -1.0, 1.0)
         _write_wav(output_path, mix, project.sample_rate)
         digest = _sha256(output_path)
-        manifest_path = project.root / ".prism" / "project.json"
         result = RenderResult(
             path=output_path,
-            manifest_path=manifest_path,
             sample_rate=project.sample_rate,
             channels=2,
             frames=total_frames,
@@ -81,7 +77,6 @@ def render_project(project: Project, output: str | Path) -> RenderResult:
             sha256=digest,
             peak_dbfs=None if peak == 0.0 else 20.0 * math.log10(peak),
         )
-        _write_manifest(project, result)
         return result
     except (ProjectError, RenderError):
         raise
@@ -217,40 +212,6 @@ def _write_wav(path: Path, samples: np.ndarray, sample_rate: int) -> None:
     finally:
         if temporary is not None:
             temporary.unlink(missing_ok=True)
-
-
-def _write_manifest(project: Project, result: RenderResult) -> None:
-    document = project.configuration()
-    document["sources"] = {
-        path.relative_to(project.root).as_posix(): {
-            "bytes": path.stat().st_size,
-            "sha256": _sha256(path),
-        }
-        for path in sorted(project._sample_files(), key=lambda item: item.as_posix().casefold())
-    }
-    document["script_sha256"] = _sha256(project.script)
-    document["render"] = {
-        "path": result.path.relative_to(project.root).as_posix(),
-        "format": "WAV",
-        "subtype": "PCM_16",
-        "sample_rate": result.sample_rate,
-        "channels": result.channels,
-        "frames": result.frames,
-        "duration_seconds": result.duration_seconds,
-        "sha256": result.sha256,
-        "peak_dbfs": result.peak_dbfs,
-    }
-    payload = (json.dumps(document, indent=2, sort_keys=True, ensure_ascii=False) + "\n").encode()
-    path = result.manifest_path
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_suffix(".json.tmp")
-    try:
-        temporary.write_bytes(payload)
-        os.replace(temporary, path)
-    except OSError as error:
-        raise RenderError(f"Could not write project manifest {path}: {error}") from error
-    finally:
-        temporary.unlink(missing_ok=True)
 
 
 def _sha256(path: Path) -> str:

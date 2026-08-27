@@ -5,22 +5,22 @@ paths passed to a song are relative to the folder containing `main.py`.
 
 ## Create a folder
 
-```powershell
+```text
 uv run prism create my-song --name "My Song" --tempo 120
-uv run python .\my-song\main.py
 ```
 
-`FOLDER` must not already exist. `--name` defaults to a title made from the
-folder name. `--tempo` defaults to `120` and accepts `20` through `300` BPM.
-The result is always a directory containing `main.py`, `sounds/`, and
-`renders/`; Prism does not create or read a project ZIP.
+Prism creates `projects/my-song-DATE-TIME/` and prints its exact run command.
+The timestamp keeps repeated creations separate. `--name` defaults to a title
+made from the folder name. `--tempo` defaults to `120` and accepts `20` through
+`300` BPM. Add `--tutorial`, with or without a folder name, to create the
+tutorial starting point.
 
 ## `Project(...)`
 
 ```python
 song = Project(
-    __file__,
     "Song Name",
+    prism_version="0.2.0.dev0",
     tempo=120,
     sample_rate=44100,
     beats_per_bar=4,
@@ -32,8 +32,8 @@ song = Project(
 
 | Parameter | Default | Accepted values |
 | --- | --- | --- |
-| `script` | required | Pass `__file__` |
 | `name` | required | Non-empty, at most 120 characters |
+| `prism_version` | required | Keep the literal version created by Prism |
 | `tempo` | `120` | 20–300 BPM |
 | `sample_rate` | `44100` | 8000–192000 Hz |
 | `beats_per_bar` | `4` | 1–32 |
@@ -147,16 +147,16 @@ render = song.render("renders/song.wav")
 
 - `validate()` checks the complete song and returns name, track count, section
   count, bar count, and duration.
-- `configuration()` returns the resolved JSON-ready dictionary used in the
-  manifest.
+- `configuration()` returns a resolved dictionary containing the complete song
+  description.
 - `export_midi()` returns `path`, music-track count, ticks per beat, and SHA-256.
   It exports built-in drums and MIDI tracks, not guessed notes from audio.
-- `render()` returns `path`, manifest path, sample rate, channels, frames,
-  duration, SHA-256, and peak dBFS.
+- `render()` returns `path`, sample rate, channels, frames, duration, SHA-256,
+  and peak dBFS.
 
 WAV outputs must end in `.wav`; MIDI outputs must end in `.mid`. Outputs must
 stay inside the project and cannot replace `main.py` or a source sample. Writes
-are atomic. Rendering writes stereo PCM-16 WAV plus `.prism/project.json`.
+are atomic. Rendering writes a stereo PCM-16 WAV.
 
 ## Errors are authoring feedback
 

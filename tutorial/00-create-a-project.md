@@ -1,53 +1,35 @@
-# Level 0 — create an editable project folder
+# Level 0 — create the tutorial project
 
-Goal: use Prism's only CLI operation to create a starting point, run it, and
-listen to the result. The command creates a normal directory, not an archive.
+Goal: create the folder used throughout the tutorial and render its starter song.
 
-From the Prism repository root:
-
-```powershell
-uv sync --locked --extra dev
-uv run prism create tutorial-song --name "Tutorial Song" --tempo 112
-```
-
-Prism prints the created path and run command. Inspect the result:
-
-```powershell
-Get-ChildItem .\tutorial-song
-Get-Content .\tutorial-song\main.py
-```
-
-You now have:
+Open a terminal in the Prism repository root and run:
 
 ```text
-tutorial-song/
-├── main.py      editable song, parameters, arrangement, and render calls
-├── sounds/      put project-local WAV or AIFF files here
-└── renders/     generated WAV and MIDI files go here
+uv sync --locked
+uv run prism create --tutorial
 ```
 
-Run the generated song and listen:
+Prism creates a timestamped folder inside `projects/`. Its name looks like:
 
-```powershell
-uv run python .\tutorial-song\main.py
-Start-Process .\tutorial-song\renders\song.wav
+```text
+projects/tutorial-20260827-143500/
+├── main.py
+├── sounds/
+└── renders/
 ```
 
-After rendering, `.prism/project.json` appears inside the same folder. It is a
-generated manifest; `main.py` remains the source of truth.
+Your timestamp will reflect the moment you ran the command. Prism prints the
+exact command for your folder, for example:
 
-Prism protects existing work. Running the same create command again reports an
-error instead of replacing `main.py`:
-
-```powershell
-uv run prism create tutorial-song
+```text
+uv run "projects/tutorial-20260827-143500/main.py"
 ```
 
-You can also invoke the same command through Python:
+Copy and run the command Prism printed. Then open `renders/song.wav` inside the
+new folder in your music player.
 
-```powershell
-uv run python -m prism create another-song --tempo 96
-```
+Keep this project folder for the remaining levels. Each page gives you a
+complete replacement for its `main.py`; the run command stays the same.
 
-Checkpoint: you can edit `tutorial-song\main.py`, rerun it, and hear a changed
-render without unpacking, importing, or converting a project file.
+Checkpoint: the timestamped folder contains an editable `main.py`, a `sounds/`
+folder, and rendered WAV and MIDI files.

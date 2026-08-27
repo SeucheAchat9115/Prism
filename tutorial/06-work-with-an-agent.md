@@ -37,7 +37,11 @@ from prism import Project
 TEMPO = 118
 OUTPUT = "renders/song.wav"
 
-song = Project(__file__, "Agent-Assisted Song", tempo=TEMPO)
+song = Project(
+    "Agent-Assisted Song",
+    prism_version="0.2.0.dev0",
+    tempo=TEMPO,
+)
 
 
 # Rhythm section
@@ -95,17 +99,10 @@ or broad filesystem operations are not part of music authoring.
 
 The agent should then run the ordinary project command:
 
-```powershell
-uv run python .\tutorial-song\main.py
-```
+Use the command Prism printed for your timestamped tutorial project.
 
-It should verify:
-
-```powershell
-Get-Item .\tutorial-song\renders\song.wav
-Get-FileHash .\tutorial-song\renders\song.wav -Algorithm SHA256
-Get-Content .\tutorial-song\.prism\project.json
-```
+Listen to `renders/song.wav` inside the project folder. The printed result also
+shows its SHA-256 hash for exact comparisons.
 
 ## Readability checklist
 

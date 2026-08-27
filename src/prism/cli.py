@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from prism import PrismError
+from prism.version import __version__
 
 
 def main(arguments: list[str] | None = None) -> int:
@@ -18,28 +21,58 @@ def main(arguments: list[str] | None = None) -> int:
     if namespace.command is None:
         parser.print_help()
         return 0
+    if namespace.folder is None and not namespace.tutorial:
+        parser.error("Give the project a name or use --tutorial.")
+    folder = "tutorial" if namespace.folder is None else namespace.folder
     try:
         target = create_project(
-            namespace.folder,
+            folder,
             name=namespace.name,
             tempo=namespace.tempo,
+            tutorial=namespace.tutorial,
         )
     except (OSError, PrismError) as error:
         parser.error(str(error))
     print(f"Created Prism project: {target}")
-    print(f'Run it with: python "{target / "main.py"}"')
+    script = target / "main.py"
+    try:
+        run_path = script.relative_to(Path.cwd()).as_posix()
+    except ValueError:
+        run_path = script.as_posix()
+    print(f'Run it with: uv run "{run_path}"')
+    if namespace.tutorial:
+        print("Tutorial guide: tutorial/README.md")
     return 0
 
 
-def create_project(folder: str | Path, *, name: str | None = None, tempo: float = 120.0) -> Path:
-    """Create a normal project directory containing a readable starter song."""
+def create_project(
+    folder: str | Path,
+    *,
+    name: str | None = None,
+    tempo: float = 120.0,
+    tutorial: bool = False,
+    _root: str | Path | None = None,
+    _timestamp: str | None = None,
+) -> Path:
+    """Create a timestamped project directory beneath the local projects folder."""
 
-    target = Path(folder).expanduser().resolve(strict=False)
+    requested = Path(folder)
+    if requested.is_absolute() or len(requested.parts) != 1:
+        raise PrismError("Give the project a folder name, not a path.")
+    folder_name = requested.name.strip()
+    if not folder_name or folder_name in {".", ".."}:
+        raise PrismError("The project folder name cannot be empty.")
+    timestamp = _timestamp or datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+    if re.fullmatch(r"\d{8}-\d{6}", timestamp) is None:
+        raise PrismError("The project timestamp is invalid.")
+    root = (Path.cwd() if _root is None else Path(_root)).resolve(strict=False)
+    target = root / "projects" / f"{folder_name}-{timestamp}"
     if target.exists():
-        raise PrismError(f"Target already exists; choose a new folder: {target}")
+        raise PrismError(f"Timestamped project already exists; try again: {target}")
     if not 20.0 <= tempo <= 300.0:
         raise PrismError("Tempo must be between 20 and 300 BPM.")
-    project_name = _project_name(name, target.name)
+    requested_name = "Prism Tutorial" if tutorial and name is None else name
+    project_name = _project_name(requested_name, folder_name)
     target.mkdir(parents=True)
     try:
         (target / "sounds").mkdir()
@@ -64,11 +97,16 @@ def _parser() -> argparse.ArgumentParser:
     subcommands = parser.add_subparsers(dest="command")
     create = subcommands.add_parser(
         "create",
-        help="create a folder with main.py, sounds, and renders",
+        help="create projects/NAME-TIMESTAMP with main.py, sounds, and renders",
     )
-    create.add_argument("folder", help="new project folder, for example my-song")
+    create.add_argument("folder", nargs="?", help="project folder name, for example my-song")
     create.add_argument("--name", help="song name written into main.py")
     create.add_argument("--tempo", type=float, default=120.0, help="tempo in BPM (default: 120)")
+    create.add_argument(
+        "--tutorial",
+        action="store_true",
+        help="create a Prism Tutorial starting project",
+    )
     return parser
 
 
@@ -88,8 +126,8 @@ def _starter_script(name: str, tempo: float) -> str:
     return f'''from prism import Project
 
 song = Project(
-    __file__,
-    {name!r},
+    {json.dumps(name, ensure_ascii=False)},
+    prism_version={json.dumps(__version__)},
     tempo={tempo:g},
 )
 

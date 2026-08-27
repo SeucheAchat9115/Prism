@@ -4,23 +4,19 @@ Goal: understand the smallest complete Prism project and hear its result.
 
 ## 1. Create the folder
 
-From the Prism repository root:
-
-```powershell
-New-Item -ItemType Directory -Force .\tutorial-song | Out-Null
-```
+Start with the timestamped folder created in Level 0.
 
 ## 2. Write the complete `main.py`
 
-Save this as `tutorial-song\main.py`:
+Replace `main.py` in that folder with:
 
 ```python
 from prism import Project
 
 
 song = Project(
-    __file__,
     "My First Beat",
+    prism_version="0.2.0.dev0",
     tempo=120,
 )
 
@@ -42,17 +38,14 @@ print("SHA-256:", result.sha256)
 ```
 
 Read it from top to bottom: create a song, create a track, give the track a
-part, arrange a section, then render. There are no IDs, requests, servers, or
-configuration files to maintain.
+part, arrange a section, then render.
 
 `x` is a kick hit and `-` is a rest. Spaces only make the four beats easier to
 see.
 
 ## 3. Run it
 
-```powershell
-uv run python .\tutorial-song\main.py
-```
+Run the exact `uv run "projects/.../main.py"` command Prism printed in Level 0.
 
 Expected summary:
 
@@ -62,9 +55,7 @@ My First Beat: 1 tracks, 1 sections, 4 bars, 8.00 seconds
 
 ## 4. Listen
 
-```powershell
-Start-Process .\tutorial-song\renders\song.wav
-```
+Open `renders/song.wav` inside your timestamped project folder.
 
 This uses your normal audio player. Prism itself performs device-free offline
 rendering.

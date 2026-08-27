@@ -10,8 +10,8 @@ from prism import Project
 
 
 song = Project(
-    __file__,
     "Night Window",
+    prism_version="0.2.0.dev0",
     tempo=120,
     sample_rate=44_100,
     master_gain_db=-3,
@@ -70,24 +70,11 @@ order, so the Python file reads like the song from top to bottom.
 
 ## 2. Render the eight-bar song
 
-```powershell
-uv run python .\tutorial-song\main.py
-Start-Process .\tutorial-song\renders\song.wav
-```
+Run the command Prism printed for your timestamped tutorial project.
+
+Open `renders/song.wav` inside the project folder.
 
 At 120 BPM in 4/4, eight bars last sixteen seconds.
 
-## 3. Verify that rerendering is reproducible
-
-```powershell
-$FirstHash = (Get-FileHash .\tutorial-song\renders\song.wav -Algorithm SHA256).Hash
-uv run python .\tutorial-song\main.py
-$SecondHash = (Get-FileHash .\tutorial-song\renders\song.wav -Algorithm SHA256).Hash
-$FirstHash -eq $SecondHash
-```
-
-The result should be `True` when the script, sources, Prism version, and audio
-libraries are unchanged.
-
 Checkpoint: the project is now a small linear production with rhythm, bass,
-harmony, melody, arrangement, stereo mix, WAV, MIDI, and provenance manifest.
+harmony, melody, arrangement, stereo mix, WAV, and MIDI.

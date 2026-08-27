@@ -19,7 +19,7 @@ Every step has equal duration inside the clip's number of bars.
 from prism import Project
 
 
-song = Project(__file__, "MIDI Sketch", tempo=108)
+song = Project("MIDI Sketch", prism_version="0.2.0.dev0", tempo=108)
 
 bass = song.track("Bass", gain_db=-6, pan=-0.1).midi(
     "C2 - C2 Eb2 | G1 - Bb1 -",
@@ -56,11 +56,10 @@ into the `.mid` file for use in another DAW.
 
 ## 3. Run, listen, and locate the MIDI file
 
-```powershell
-uv run python .\tutorial-song\main.py
-Start-Process .\tutorial-song\renders\song.wav
-Get-Item .\tutorial-song\renders\song.mid
-```
+Run the command Prism printed for your timestamped tutorial project.
+
+Listen to `renders/song.wav` inside the project. The MIDI file is beside it at
+`renders/song.mid`.
 
 Sample/audio-only tracks are not guessed into MIDI. Built-in kick, snare, and
 hi-hat parts are exported as General MIDI percussion; pitched tracks use

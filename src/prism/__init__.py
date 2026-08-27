@@ -4,6 +4,7 @@ from prism.errors import PrismError, ProjectError, RenderError
 from prism.midi import MidiResult
 from prism.project import Project, ProjectSummary, Section, Track
 from prism.render import RenderResult
+from prism.version import __version__
 
 __all__ = [
     "MidiResult",
@@ -17,5 +18,3 @@ __all__ = [
     "Track",
     "__version__",
 ]
-
-__version__ = "0.2.0.dev0"

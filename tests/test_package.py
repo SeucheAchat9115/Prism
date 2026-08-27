@@ -80,6 +80,8 @@ def test_complete_tutorial_projects_are_readable_and_runnable(
     assert len(code.splitlines()) <= 90
     assert any(node.module == "prism" for node in imports)
     assert not any(isinstance(node, ast.ClassDef | ast.FunctionDef) for node in tree.body)
+    assert "__file__" not in code
+    assert 'prism_version="0.2.0.dev0"' in code
 
     script = tmp_path / "main.py"
     script.write_text(code + "\n", encoding="utf-8")
@@ -88,7 +90,6 @@ def test_complete_tutorial_projects_are_readable_and_runnable(
 
     output = tmp_path / "renders" / "song.wav"
     assert output.is_file()
-    assert (tmp_path / ".prism" / "project.json").is_file()
 
 
 def test_complete_reference_mentions_every_authoring_feature() -> None:
@@ -124,3 +125,25 @@ def test_complete_reference_mentions_every_authoring_feature() -> None:
     )
     for token in expected:
         assert token in document
+
+
+def test_user_documentation_never_requires_file_dunder_or_changing_folders() -> None:
+    root = Path(__file__).resolve().parents[1]
+    documents = [root / "README.md", *sorted((root / "tutorial").glob("*.md"))]
+    text = "\n".join(path.read_text(encoding="utf-8") for path in documents)
+
+    assert "__file__" not in text
+    assert "uv run python" not in text
+    assert "cd my-song" not in text
+    assert "cd tutorial-song" not in text
+    assert "tutorial-song" not in text
+    assert ".prism" not in text
+    assert "project.json" not in text
+    assert "manifest" not in text.lower()
+    assert "zip" not in text.lower()
+
+
+def test_generated_projects_are_ignored() -> None:
+    root = Path(__file__).resolve().parents[1]
+    gitignore = (root / ".gitignore").read_text(encoding="utf-8")
+    assert "/projects/" in gitignore.splitlines()

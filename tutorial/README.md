@@ -5,20 +5,20 @@ that you can copy, run, change, rerun, and listen to. It starts with one sound
 and ends with a structured mini-song that is comfortable for both a music
 producer and a coding agent to edit.
 
-Run the setup once from the Prism repository root:
+Open a terminal in the Prism repository root and run this setup once:
 
-```powershell
-uv sync --locked --extra dev
-uv run prism create tutorial-song --name "Tutorial Song" --tempo 120
+```text
+uv sync --locked
+uv run prism create --tutorial
 ```
 
-Use any text editor to save the level's Python block as
-`tutorial-song\main.py`. Run and listen with:
+Prism creates a folder such as `projects/tutorial-20260827-143500/` and prints
+its exact run command. Keep that command: every level uses the same folder and
+the same command.
 
-```powershell
-uv run python .\tutorial-song\main.py
-Start-Process .\tutorial-song\renders\song.wav
-```
+Use any text editor to replace `main.py` with a level's Python block. Run the
+command Prism printed, then open `renders/song.wav` inside that project folder
+in your normal music player. Keep the terminal in the repository root.
 
 ## Learning path
 
@@ -41,14 +41,14 @@ You can replace the file at each level or put each level in a separate folder.
 
 ## The project folder is the project
 
-`Project(__file__, ...)` makes the directory containing `main.py` the root.
-Prism accepts only relative sample and output paths beneath that directory.
+Prism automatically makes the directory containing the running `main.py` the
+project root. It accepts only relative sample and output paths beneath that directory.
 That means copying the folder also copies every input needed for rendering.
 
-The producer authors:
+You edit:
 
 ```text
-tutorial-song/
+projects/tutorial-20260827-143500/
 ├── main.py
 └── sounds/
     └── your samples.wav
@@ -57,22 +57,22 @@ tutorial-song/
 Prism generates:
 
 ```text
-tutorial-song/
+projects/tutorial-20260827-143500/
 ├── renders/
 │   ├── song.wav
 │   └── song.mid
-└── .prism/
-    └── project.json
 ```
 
-The generated manifest is useful for checking exactly which script and sample
-bytes produced a render. `main.py` remains the editable source of truth.
+`main.py` remains the editable source of truth.
+
+Every `main.py` also contains a visible `prism_version="..."` line. It records
+the Prism version used when that project was created.
 
 ## Complete functionality map
 
 | Prism feature | Tutorial |
 | --- | --- |
-| Folder scaffolding and overwrite safety | Level 0 |
+| Timestamped project scaffolding | Level 0 |
 | Project name, tempo, sample rate, time signature, master gain, normalization | Levels 5 and 9 |
 | Built-in kick, snare, and hi-hat | Levels 1, 4, and 9 |
 | Triggered project-local samples | Levels 2 and 9 |
@@ -83,6 +83,6 @@ bytes produced a render. `main.py` remains the editable source of truth.
 | Explicit and all-track sections | Levels 4 and 9 |
 | Validation and resolved configuration | Level 8 |
 | Standard MIDI export | Levels 3, 8, and 9 |
-| WAV render results and deterministic manifest hashes | Levels 8 and 9 |
+| WAV result details and deterministic output hashes | Levels 8 and 9 |
 | Safe relative paths and agent-assisted editing | Levels 6 and 9 |
 | Exact defaults, ranges, and return values | Level 10 |

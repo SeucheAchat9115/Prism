@@ -7,19 +7,10 @@ are accepted, and Prism resamples them to the project's sample rate.
 
 ## 1. Put a sample inside the project
 
-Create the sounds folder if it does not exist:
+Using your file manager, copy a kick that you own into the `sounds/` folder of
+your timestamped tutorial project and name it `kick.wav`.
 
-```powershell
-New-Item -ItemType Directory -Force .\tutorial-song\sounds | Out-Null
-```
-
-Copy a kick that you own. Replace the first path with its real location:
-
-```powershell
-Copy-Item "C:\Your Samples\kick.wav" .\tutorial-song\sounds\kick.wav
-```
-
-Keeping the sample under `tutorial-song\sounds` makes the project portable.
+Keeping the sample under `sounds/` makes the project portable.
 Prism deliberately rejects absolute paths such as `C:\Your Samples\kick.wav`
 inside `main.py`.
 
@@ -30,8 +21,8 @@ from prism import Project
 
 
 song = Project(
-    __file__,
     "Sample Drum Loop",
+    prism_version="0.2.0.dev0",
     tempo=112,
     sample_rate=44_100,
 )
@@ -60,19 +51,13 @@ track name.
 
 ## 3. Render and listen
 
-```powershell
-uv run python .\tutorial-song\main.py
-Start-Process .\tutorial-song\renders\song.wav
-```
+Run the exact command Prism printed when it created the tutorial project.
 
-## 4. Inspect reproducibility information
+Open `renders/song.wav` inside that project folder.
 
-```powershell
-Get-Content .\tutorial-song\.prism\project.json
-```
+## 4. Change the source sound
 
-Find `sounds/kick.wav` under `sources`. Its SHA-256 proves which exact kick file
-was used. Replacing the sample and rerunning changes that hash and the render.
+Replace `sounds/kick.wav` with a different kick and run the same command again.
+The rhythm stays the same while the rendered sound changes.
 
-Checkpoint: the folder contains `main.py`, your kick, the rendered WAV, and a
-machine-readable record tying them together.
+Checkpoint: the folder contains `main.py`, your kick, and the rendered WAV.

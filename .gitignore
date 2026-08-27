@@ -25,9 +25,8 @@ env/
 .vscode/
 
 # Prism generated project state and media
-**/.prism/
 **/renders/
-tutorial-song/
+/projects/
 /examples/
 .test-tmp-*/
 

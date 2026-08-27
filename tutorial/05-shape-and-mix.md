@@ -18,8 +18,8 @@ from prism import Project
 
 
 song = Project(
-    __file__,
     "Shaped Synth Study",
+    prism_version="0.2.0.dev0",
     tempo=96,
     master_gain_db=-4,
     normalize=True,
@@ -86,10 +86,9 @@ print("Peak dBFS:", result.peak_dbfs)
 
 ## Render and compare changes
 
-```powershell
-uv run python .\tutorial-song\main.py
-Start-Process .\tutorial-song\renders\song.wav
-```
+Run the command Prism printed for your timestamped tutorial project.
+
+Open `renders/song.wav` inside the project folder.
 
 Try one control at a time:
 

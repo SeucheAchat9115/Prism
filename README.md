@@ -1,51 +1,86 @@
 # Prism
 
-Prism is a Python package for writing reproducible songs. A music project is a
-normal folder whose `main.py` describes its tracks, samples, MIDI notes,
-arrangement, mix, and render.
+Prism lets you make a song in one readable Python file. Your samples stay next
+to that file, and running it creates a WAV you can listen to and a MIDI file you
+can open in music software. A Prism project is an ordinary folder that you can
+copy, back up, or share.
 
-There is no Prism server, browser interface, hidden database, archive, or
-proprietary project file. Prism's small CLI only creates a starting folder;
-the editable Python script remains the interface for making and rendering music.
+## Quick start
 
-## The complete idea
+Open a terminal in the Prism repository folder. Keep it there for every command;
+you never need to enter the song folder.
 
-```text
-my-song/
-├── main.py                 authored song and configuration
-├── sounds/
-│   └── kick.wav            project-local source audio
-├── renders/
-│   ├── my-song.wav         generated stereo mix
-│   └── my-song.mid         generated MIDI arrangement
-└── .prism/
-    └── project.json        generated plan and source/render hashes
-```
+### 1. Install uv once
 
-Create a normal project folder:
+If `uv --version` already works, skip this step.
+
+Windows PowerShell:
 
 ```powershell
-uv run prism create my-first-song --tempo 120
-cd .\my-first-song
-uv run python .\main.py
-Start-Process .\renders\song.wav
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-The command creates directories and files directly—never a ZIP file:
+Linux:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Close and reopen the terminal after installation if `uv` is not found.
+Other installation choices are listed in the
+[official uv installation guide](https://docs.astral.sh/uv/getting-started/installation/).
+
+### 2. Prepare Prism once
 
 ```text
-my-first-song/
-├── main.py
-├── sounds/
-└── renders/
+uv sync --locked
 ```
 
-A small `main.py` can be this direct:
+uv prepares the correct Python version and everything Prism needs.
+
+### 3. Create and render your first song
+
+```text
+uv run prism create my-song
+```
+
+Prism adds the current date and time and prints the exact next command. It looks
+like this:
+
+```text
+uv run "projects/my-song-20260827-143500/main.py"
+```
+
+Copy that printed command whenever you want to render the song. Both Windows
+and Linux accept it from the repository root. To listen, open the new project
+in your file manager and double-click `renders/song.wav`.
+
+## What Prism created
+
+```text
+projects/
+└── my-song-20260827-143500/
+    ├── main.py                 your song
+    ├── sounds/                 put your WAV or AIFF files here
+    └── renders/
+        ├── song.wav            finished audio
+        └── song.mid            MIDI for other music software
+```
+
+The timestamp keeps each new project separate. The whole `projects/` folder is
+ignored by Git. `main.py` is the file you edit, while `renders/` is recreated
+when you run it.
+
+## What `main.py` looks like
 
 ```python
 from prism import Project
 
-song = Project(__file__, "My First Song", tempo=120)
+song = Project(
+    "My Song",
+    prism_version="0.2.0.dev0",
+    tempo=120,
+)
 
 kick = song.track("Kick", gain_db=-3).drum(
     "kick",
@@ -58,108 +93,88 @@ bass = song.track("Bass", gain_db=-6).midi(
     bars=2,
 )
 
-song.section("Intro", bars=2, tracks=[bass])
-song.section("Beat", bars=4, tracks=[kick, bass])
+song.section("Loop", bars=4, tracks=[kick, bass])
 
 print(song.validate())
-print(song.export_midi("renders/my-first-song.mid"))
-print(song.render("renders/my-first-song.wav"))
+print(song.export_midi("renders/song.mid"))
+print(song.render("renders/song.wav"))
 ```
 
-Run it like any Python program:
+Prism automatically knows that the folder containing the running `main.py` is
+the project folder. This is why the printed `uv run "projects/.../main.py"`
+command works while your terminal stays in the repository root.
 
-```powershell
-uv run python .\my-song\main.py
-Start-Process .\my-song\renders\my-first-song.wav
-```
+`prism_version` is written as plain text when the project is created. Leave it
+in the file: it tells you which Prism version the project started with.
 
-## Install for development
+## Make changes
 
-Prism currently targets Python 3.12.
-
-```powershell
-git clone https://github.com/SeucheAchat9115/Prism.git
-cd Prism
-uv sync --locked --extra dev
-```
-
-Applications that consume the package need only Prism's normal dependencies:
-NumPy, SoundFile, and SoXR. PortAudio, FastAPI, browser tooling, and VST hosting
-are not part of the package.
-
-## Create command
+Open the timestamped project’s `main.py` in any text editor. Change a note,
+rhythm, tempo, or mix setting, save the file, and run the command Prism printed
+when the folder was created:
 
 ```text
-prism create FOLDER [--name "Song Name"] [--tempo BPM]
+uv run "projects/my-song-20260827-143500/main.py"
 ```
 
-`prism create` refuses to overwrite an existing path. It writes a complete,
-runnable `main.py` plus empty `sounds/` and `renders/` folders. After creation,
-all work happens in that ordinary folder with normal Python and audio files.
-`python -m prism create ...` is equivalent when console scripts are unavailable.
+Prism replaces the generated WAV and MIDI with the new version. If the script
+and samples have not changed, the WAV is reproduced byte for byte.
 
-## Public workflow
+## Use your own sounds
 
-1. Construct `Project(__file__, ...)` so all relative paths use the folder that
-   contains the producer's script.
-2. Add named tracks with `song.track(...)`.
-3. Give each track exactly one readable part:
-   `drum(...)`, `sample(...)`, `audio(...)`, or `midi(...)`.
-4. Append named sections in playback order with `song.section(...)`.
-5. Call `validate()`, optionally `export_midi()`, then `render()`.
+Copy sounds into the project’s `sounds/` folder, then refer to them with a short
+relative path:
 
-Important behavior:
+```python
+kick = song.track("Sample Kick").sample(
+    "sounds/kick.wav",
+    "x--- x--- x--- x---",
+)
 
-- `drum("kick" | "snare" | "hihat", pattern)` uses deterministic built-in
-  sounds.
-- `sample("sounds/kick.wav", pattern)` triggers a mono or stereo project-local
-  sample with an `x---` pattern.
-- `audio("sounds/loop.wav")` plays or loops a complete audio file.
-- `midi("C4 - E4 G4", instrument="lead")` creates real note data and renders
-  it through the built-in `bass`, `lead`, or `pad` instrument.
-- `+` makes a chord, `-` makes a rest, spaces and `|` can visually group a bar.
-- Sections choose which tracks play and determine the final linear arrangement.
-- Source and output paths must stay inside the project folder. This prevents a
-  project from depending silently on a producer's machine-specific absolute
-  path.
+texture = song.track("Texture").audio(
+    "sounds/texture.wav",
+    bars=4,
+    loop=True,
+)
+```
 
-## Reproducibility
+Keeping every sound inside the song folder makes the project portable. Prism
+rejects absolute paths and paths that leave the project folder.
 
-Prism's source of truth is `main.py` plus files beneath the project folder.
-Rendering writes `.prism/project.json`, which records:
+## The musical building blocks
 
-- the fully resolved tempo, meter, tracks, parts, mix, and sections;
-- the SHA-256 of `main.py` and every external sample;
-- output format, duration, frame count, peak, and SHA-256.
+- `drum(...)` creates a built-in `kick`, `snare`, or `hihat`.
+- `sample(...)` triggers your sound with a rhythm such as `x--- x---`.
+- `audio(...)` plays a complete loop or one-shot.
+- `midi(...)` writes notes and renders a built-in `bass`, `lead`, or `pad`.
+- `section(...)` puts parts into the song in playback order.
+- `validate()` checks the project and explains authoring mistakes.
+- `export_midi()` writes a standard MIDI file.
+- `render()` writes a stereo WAV.
 
-Given the same script, sample bytes, Prism version, and platform-compatible
-audio libraries, repeated renders are byte-identical PCM-16 WAV files. Prism
-writes outputs atomically, so a failed render does not replace a good file.
+In rhythm patterns, `x` is a hit and `-` is a rest. In MIDI parts, `-` is a
+rest and `C3+Eb3+G3` is a chord.
 
-## Learn Prism
+## Continue with the tutorial
 
-The [progressive tutorial](tutorial/README.md) covers project creation, every
-track type, all built-in instruments, MIDI export, arrangement, mixing, synth
-controls, configuration inspection, manifests, deterministic rerendering, and
-safe collaboration with an agent. Every practical level contains complete
-commands and a full `main.py`.
+Create a timestamped tutorial workspace directly from the CLI:
 
-## Scope
+```text
+uv run prism create --tutorial
+```
 
-Prism is intentionally an offline, script-first package. Its CLI only creates
-project folders; it does not edit, play, or render songs. Prism does not provide
-an HTTP/WebSocket API, GUI, live playback engine, session server, VST host,
-recording system, ZIP project archive, or mutable project database. Python code
-is the music interface and the reproducible project format.
+Then open the [step-by-step tutorial](tutorial/README.md). It covers samples,
+audio loops, MIDI, arrangement, synthesis, mixing, reproducible renders, and
+every available setting using the folder and run command Prism printed.
 
-## Development
+## Checks for Prism contributors
 
-```powershell
+Most music producers can ignore this section.
+
+```text
+uv sync --locked --extra dev
 uv run pytest --cov --cov-report=term-missing
 uv run mypy src/prism
 uv run ruff check .
 uv build --no-sources
 ```
-
-The tests exercise only the public Python workflow and device-free offline
-rendering. No audio hardware is required.

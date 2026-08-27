@@ -3,21 +3,16 @@
 Goal: learn `audio(...)`, which places a complete audio file on a track instead
 of triggering it from a rhythm pattern.
 
-Copy two audio files into the project. Use material you own or have permission
-to use:
+Using your file manager, copy two audio files that you own into the project’s
+`sounds/` folder. Name them `percussion-loop.wav` and `vocal-shot.wav`.
 
-```powershell
-Copy-Item C:\path\to\your\percussion-loop.wav .\tutorial-song\sounds\percussion-loop.wav
-Copy-Item C:\path\to\your\vocal-shot.wav .\tutorial-song\sounds\vocal-shot.wav
-```
-
-Replace `tutorial-song\main.py` with:
+Replace the project’s `main.py` with:
 
 ```python
 from prism import Project
 
 
-song = Project(__file__, "Audio Files", tempo=120)
+song = Project("Audio Files", prism_version="0.2.0.dev0", tempo=120)
 
 loop = song.track("Percussion Loop", gain_db=-7).audio(
     "sounds/percussion-loop.wav",
@@ -47,10 +42,9 @@ print(song.render("renders/song.wav"))
 
 Run and listen:
 
-```powershell
-uv run python .\tutorial-song\main.py
-Start-Process .\tutorial-song\renders\song.wav
-```
+Run the command Prism printed for your timestamped tutorial project.
+
+Open `renders/song.wav` inside the project folder.
 
 `loop=True` repeats or trims the complete source to the declared clip length.
 `loop=False` plays it once and pads the remaining clip with silence. The clip

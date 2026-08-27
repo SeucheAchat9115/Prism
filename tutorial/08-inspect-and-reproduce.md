@@ -1,9 +1,9 @@
 # Level 8 — inspect and reproduce a render
 
-Goal: inspect the resolved project configuration, MIDI/WAV result objects, and
-the generated reproducibility manifest.
+Goal: inspect the resolved project configuration and the MIDI/WAV result
+objects, then confirm that an unchanged song renders identically.
 
-Replace `tutorial-song\main.py` with:
+Replace the project’s `main.py` with:
 
 ```python
 from pprint import pprint
@@ -12,8 +12,8 @@ from prism import Project
 
 
 song = Project(
-    __file__,
     "Reproducible Loop",
+    prism_version="0.2.0.dev0",
     tempo=100,
     sample_rate=44100,
     beats_per_bar=4,
@@ -48,30 +48,16 @@ print(
     render.peak_dbfs,
     render.sha256,
 )
-print("Manifest:", render.manifest_path)
 ```
 
-Run it and inspect the generated manifest:
+Run the command Prism printed for your timestamped tutorial project.
 
-```powershell
-uv run python .\tutorial-song\main.py
-Get-Content .\tutorial-song\.prism\project.json
-```
-
-Prove that an unchanged rerender is byte-identical:
-
-```powershell
-$first = (Get-FileHash .\tutorial-song\renders\song.wav -Algorithm SHA256).Hash
-uv run python .\tutorial-song\main.py
-$second = (Get-FileHash .\tutorial-song\renders\song.wav -Algorithm SHA256).Hash
-$first
-$second
-$first -eq $second
-```
-
-The last command should print `True`. The manifest records the resolved song,
-script hash, source hashes, render format, duration, peak, and output hash.
+The output includes a long SHA-256 value for the WAV. Run the same command a
+second time. The WAV SHA-256 is identical when nothing changed. The printed
+configuration shows the resolved tracks, parts, sections, tempo, meter, and
+Prism version.
+The MIDI and WAV result lines show their paths and hashes; the WAV line also
+shows its format, duration, and peak level.
 
 Checkpoint: you can explain which file is authored (`main.py`), which files are
-inputs (`sounds/`), and which files are reproducibly generated (`renders/` and
-`.prism/project.json`).
+inputs (`sounds/`), and which files are reproducibly generated (`renders/`).
