@@ -208,8 +208,9 @@ The plugin definition in `src/prism/stock_plugins/pluck.py` exposes
 new numeric setting there only when the renderer can apply it continuously.
 
 An automated instrument parameter must use one value per frame and must not
-change the timing or length of the MIDI clip. The standard engine currently
-supports instrument `gain_db` and melodic `cutoff_hz` automation.
+change the timing or length of the MIDI clip. The Uniwave reference plugin
+demonstrates sample-accurate automation of envelope, oscillator, filter, drive,
+vibrato, and noise settings.
 
 ### 5. Add instrument tests
 

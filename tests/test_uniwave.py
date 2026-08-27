@@ -110,3 +110,53 @@ def test_uniwave_object_owns_its_sound_settings(project_script: Path) -> None:
 
     with pytest.raises(ProjectError, match="inside the Uniwave object"):
         song.track("Lead").midi("C4", instrument=Uniwave.lead(), cutoff_hz=800)
+
+
+def test_uniwave_sound_parameters_are_automatable(project_script: Path) -> None:
+    sound = Uniwave.lead()
+
+    def render(automated: bool, output: str) -> bytes:
+        song = Project(
+            "Automated Uniwave",
+            prism_version="test",
+            tempo=120,
+            sample_rate=8_000,
+            normalize=False,
+            _script=project_script,
+        )
+        lead = song.track("Lead").midi("C4 E4 G4 C5", bars=2, instrument=sound)
+        plugin = lead.instrument_plugin
+        assert plugin is not None
+        assert {
+            "attack_ms",
+            "decay_ms",
+            "sustain",
+            "release_ms",
+            "cutoff_hz",
+            "resonance",
+            "drive",
+            "vibrato_rate_hz",
+            "vibrato_depth_cents",
+            "noise_level",
+            "wave_1_level",
+            "wave_1_detune_cents",
+        } <= set(plugin.automatable)
+        if automated:
+            song.automation(
+                "Filter Motion",
+                target=plugin,
+                parameter="cutoff_hz",
+                points=[(0, 400), (1, 7_000), (2, 900)],
+            )
+            song.automation(
+                "Wave Motion",
+                target=plugin,
+                parameter="wave_1_level",
+                points=[(0, 0.1), (1, 1.0), (2, 0.2)],
+            )
+        song.section("Only", bars=2, tracks=[lead])
+        return song.render(output).path.read_bytes()
+
+    static = render(False, "renders/static.wav")
+    automated = render(True, "renders/automated.wav")
+    assert static != automated

@@ -39,9 +39,9 @@ def render_native_synth(
     if beats_per_bar <= 0:
         raise ValueError("beats_per_bar must be positive")
     seconds = spec.bars * beats_per_bar * 60.0 / tempo_bpm
-    if seconds > MAX_SYNTH_SECONDS:
+    if spec.frame_count is None and seconds > MAX_SYNTH_SECONDS:
         raise ValueError(f"native synth output cannot exceed {MAX_SYNTH_SECONDS:g} seconds")
-    frames = max(1, int(round(seconds * sample_rate)))
+    frames = spec.frame_count or max(1, int(round(seconds * sample_rate)))
     definition = STOCK_PLUGINS.get("instrument", spec.preset)
     if definition.synth_processor is not None:
         rendered = definition.synth_processor(spec, sample_rate, tempo_bpm, beats_per_bar)

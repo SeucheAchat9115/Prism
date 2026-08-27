@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Literal, Mapping
 
 from prism.errors import ProjectError
 from prism.music import ControlPoint, Note, note_steps, rhythm_steps
+
+if TYPE_CHECKING:
+    import numpy as np
 
 SynthPreset = str
 SynthWaveform = Literal["sine", "triangle", "saw", "square"]
@@ -154,6 +157,9 @@ class NativeSynthSpec:
     pitch_bend: tuple[ControlPoint, ...] = ()
     modulation: tuple[ControlPoint, ...] = ()
     uniwave: Uniwave | None = None
+    automation: Mapping[str, "np.ndarray"] | None = None
+    automation_base_gain_db: float | None = None
+    frame_count: int | None = None
     bars: int = 1
     waveform: SynthWaveform | None = None
     attack_ms: float | None = None

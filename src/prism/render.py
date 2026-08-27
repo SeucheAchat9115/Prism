@@ -13,9 +13,14 @@ import numpy as np
 import soundfile as sf
 import soxr
 
-from prism.effects import has_automation, process_effect_chain, process_track_plugins
+from prism.effects import (
+    has_automation,
+    parameter_values,
+    process_effect_chain,
+    process_track_plugins,
+)
 from prism.errors import ProjectError, RenderError
-from prism.music import db_gain
+from prism.music import ControlPoint, Note, db_gain
 from prism.project.builder import (
     AudioClip,
     DrumClip,
@@ -58,34 +63,37 @@ def render_project(project: Project, output: str | Path) -> RenderResult:
             if track.muted:
                 track_outputs[track.name] = np.zeros_like(mix)
                 continue
-            clip_buffers = {
-                id(placement): _clip_buffer(project, track, placement.clip)
-                for placement in track.clips
-            }
-            arranged = np.zeros((total_frames, 2), dtype=np.float64)
-            cursor = 0
-            for section in project.sections:
-                frames = section.bars * project.frames_per_bar
-                active = (
-                    {item.name for item in project.tracks}
-                    if section.tracks is None
-                    else set(section.tracks)
-                )
-                if track.name in active:
-                    for placement in track.clips_for(section):
-                        offset = int(round(placement.start_bar * project.frames_per_bar))
-                        available = frames - offset
-                        if available <= 0:
-                            continue
-                        source = clip_buffers[id(placement)]
-                        placed = (
-                            _loop_to(source, available)
-                            if placement.repeat
-                            else _fit_to(source, available)
-                        )
-                        start = cursor + offset
-                        arranged[start : start + available] += placed
-                cursor += frames
+            if isinstance(track.clip, MidiClip):
+                arranged = _arrange_midi_track(project, track, total_frames, summary.bars)
+            else:
+                clip_buffers = {
+                    id(placement): _clip_buffer(project, track, placement.clip)
+                    for placement in track.clips
+                }
+                arranged = np.zeros((total_frames, 2), dtype=np.float64)
+                cursor = 0
+                for section in project.sections:
+                    frames = section.bars * project.frames_per_bar
+                    active = (
+                        {item.name for item in project.tracks}
+                        if section.tracks is None
+                        else set(section.tracks)
+                    )
+                    if track.name in active:
+                        for placement in track.clips_for(section):
+                            offset = int(round(placement.start_bar * project.frames_per_bar))
+                            available = frames - offset
+                            if available <= 0:
+                                continue
+                            source = clip_buffers[id(placement)]
+                            placed = (
+                                _loop_to(source, available)
+                                if placement.repeat
+                                else _fit_to(source, available)
+                            )
+                            start = cursor + offset
+                            arranged[start : start + available] += placed
+                    cursor += frames
             processed = process_track_plugins(project, track, arranged)
             track_outputs[track.name] = _mix_channel(
                 processed, gain_db=track.gain_db, pan=track.pan
@@ -184,6 +192,114 @@ def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
         gain_db=clip.gain_db,
     )
     return _synth_audio(project, spec)
+
+
+def _arrange_midi_track(
+    project: Project, track: Track, total_frames: int, total_bars: int
+) -> np.ndarray:
+    """Render MIDI placements as global events so synth automation follows arrangement time."""
+
+    arranged = np.zeros((total_frames, 2), dtype=np.float64)
+    automation = _synth_automation(project, track, total_frames)
+    cursor_bar = 0.0
+    for section in project.sections:
+        active = section.tracks is None or track.name in section.tracks
+        if active:
+            for placement in track.clips_for(section):
+                clip = placement.clip
+                assert isinstance(clip, MidiClip)
+                start_bar = cursor_bar + placement.start_bar
+                available_beats = (
+                    section.bars - placement.start_bar
+                ) * project.beats_per_bar
+                if available_beats <= 0:
+                    continue
+                events: list[Note] = []
+                bends: list[ControlPoint] = []
+                modulations: list[ControlPoint] = []
+                repeats = (
+                    max(1, math.ceil(available_beats / (clip.bars * project.beats_per_bar)))
+                    if placement.repeat
+                    else 1
+                )
+                for repeat_index in range(repeats):
+                    repeat_beats = repeat_index * clip.bars * project.beats_per_bar
+                    for note in clip.events:
+                        start = repeat_beats + note.start
+                        if start < available_beats:
+                            duration = min(note.duration, available_beats - start)
+                            events.append(
+                                Note(
+                                    note.pitch,
+                                    start=start_bar * project.beats_per_bar + start,
+                                    duration=duration,
+                                    velocity=note.velocity,
+                                )
+                            )
+                    for point in clip.pitch_bend:
+                        if repeat_beats + point.beat <= available_beats:
+                            bends.append(
+                                ControlPoint(
+                                    start_bar * project.beats_per_bar + repeat_beats + point.beat,
+                                    point.value,
+                                )
+                            )
+                    for point in clip.modulation:
+                        if repeat_beats + point.beat <= available_beats:
+                            modulations.append(
+                                ControlPoint(
+                                    start_bar * project.beats_per_bar + repeat_beats + point.beat,
+                                    point.value,
+                                )
+                            )
+                if not events:
+                    continue
+                spec = NativeSynthSpec(
+                    preset=clip.instrument,
+                    sequence=clip.notes,
+                    note_events=tuple(events),
+                    pitch_bend=tuple(bends),
+                    modulation=tuple(modulations),
+                    uniwave=clip.uniwave,
+                    automation=automation,
+                    automation_base_gain_db=(
+                        _automation_base_gain(track)
+                        if automation
+                        else None
+                    ),
+                    frame_count=total_frames,
+                    bars=total_bars,
+                    waveform=clip.waveform,
+                    attack_ms=clip.attack_ms,
+                    decay_ms=clip.decay_ms,
+                    sustain_level=clip.sustain,
+                    release_ms=clip.release_ms,
+                    cutoff_hz=clip.cutoff_hz,
+                    gate=clip.gate,
+                    gain_db=clip.gain_db,
+                )
+                arranged += _synth_audio(project, spec)
+        cursor_bar += section.bars
+    return arranged
+
+
+def _synth_automation(project: Project, track: Track, frames: int) -> dict[str, np.ndarray]:
+    instrument = track.instrument_plugin
+    if instrument is None or instrument.preset != "uniwave":
+        return {}
+    return {
+        lane.parameter: parameter_values(project, instrument, lane.parameter, frames)
+        for lane in project.automation_lanes
+        if lane.target is instrument
+    }
+
+
+def _automation_base_gain(track: Track) -> float:
+    instrument = track.instrument_plugin
+    if instrument is None:
+        return -6.0
+    value = instrument.settings.get("gain_db", -6.0)
+    return float(value) if isinstance(value, int | float) else -6.0
 
 
 def _synth_audio(project: Project, spec: NativeSynthSpec) -> np.ndarray:

@@ -312,9 +312,9 @@ Bars are zero or greater, strictly increasing, and cannot finish beyond the
 arrangement. `linear` moves smoothly between values; `hold` keeps the previous
 value until the next point. One plugin parameter can have one automation lane.
 
-Every stock-effect setting is automatable. Stock instruments expose
-`gain_db`; melodic instruments also expose `cutoff_hz`. The target must be a
-plugin object belonging to the same project.
+Every stock-effect setting is automatable. Uniwave exposes its global numeric
+sound controls plus `wave_N_level` and `wave_N_detune_cents` for each wave in
+the sound. The target must be a plugin object belonging to the same project.
 
 ## `bus(...)`
 

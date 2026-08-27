@@ -32,7 +32,7 @@ def process_effect_chain(
     output = np.asarray(samples, dtype=np.float64).copy()
     for effect in effects:
         parameters = {
-            name: _parameter_values(project, effect, name, output.shape[0])
+            name: parameter_values(project, effect, name, output.shape[0])
             for name in effect.settings
         }
         definition = STOCK_PLUGINS.get("effect", effect.preset)
@@ -57,17 +57,17 @@ def _instrument_automation(
     project: Project, instrument: Plugin, samples: np.ndarray
 ) -> np.ndarray:
     output = samples
-    if has_automation(project, instrument, "gain_db"):
-        values = _parameter_values(project, instrument, "gain_db", output.shape[0])
+    if instrument.preset != "uniwave" and has_automation(project, instrument, "gain_db"):
+        values = parameter_values(project, instrument, "gain_db", output.shape[0])
         base = _setting(instrument, "gain_db")
         output = output * db_envelope(values - base)[:, np.newaxis]
-    if has_automation(project, instrument, "cutoff_hz"):
-        cutoff = _parameter_values(project, instrument, "cutoff_hz", output.shape[0])
+    if instrument.preset != "uniwave" and has_automation(project, instrument, "cutoff_hz"):
+        cutoff = parameter_values(project, instrument, "cutoff_hz", output.shape[0])
         output = low_pass(output, cutoff, project.sample_rate)
     return output
 
 
-def _parameter_values(
+def parameter_values(
     project: Project, plugin: Plugin, parameter: str, frames: int
 ) -> np.ndarray:
     base = _setting(plugin, parameter)
@@ -100,4 +100,4 @@ def _setting(plugin: Plugin, name: str) -> float:
     return float(value)
 
 
-__all__ = ["has_automation", "process_effect_chain", "process_track_plugins"]
+__all__ = ["has_automation", "parameter_values", "process_effect_chain", "process_track_plugins"]

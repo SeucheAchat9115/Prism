@@ -1,19 +1,20 @@
 """Uniwave, Prism's configurable multi-wave native synthesizer plugin."""
 
-import math
 from dataclasses import asdict
+from typing import Mapping
 
 import numpy as np
 
 from prism.music import ControlPoint, Note, note_frequency
 from prism.plugins import Parameter, PluginDefinition
+from prism.stock_plugins.gain import db_envelope
 from prism.synthesis.types import NativeSynthSpec, SynthWave, Uniwave
 
 
 def settings(sound: Uniwave) -> dict[str, object]:
     """Return readable, serializable Uniwave settings."""
 
-    return {
+    resolved: dict[str, object] = {
         "waves": [asdict(wave) for wave in sound.waves],
         "attack_ms": sound.attack_ms,
         "decay_ms": sound.decay_ms,
@@ -28,6 +29,10 @@ def settings(sound: Uniwave) -> dict[str, object]:
         "noise_seed": sound.noise_seed,
         "gain_db": -6.0,
     }
+    for index, wave in enumerate(sound.waves, start=1):
+        resolved[f"wave_{index}_level"] = wave.level
+        resolved[f"wave_{index}_detune_cents"] = wave.detune_cents
+    return resolved
 
 
 def render(
@@ -39,8 +44,9 @@ def render(
     """Render Uniwave oscillators, envelopes, controllers, filter, and drive."""
 
     sound = spec.uniwave or Uniwave()
+    automation = spec.automation or {}
     seconds = spec.bars * beats_per_bar * 60.0 / tempo_bpm
-    frames = max(1, int(round(seconds * sample_rate)))
+    frames = spec.frame_count or max(1, int(round(seconds * sample_rate)))
     frames_per_beat = sample_rate * 60.0 / tempo_bpm
     output = np.zeros(frames, dtype=np.float64)
     bends = _control_values(spec.pitch_bend, frames, frames_per_beat)
@@ -55,41 +61,72 @@ def render(
         note_frames = max(1, int(round(note.duration * frames_per_beat)))
         release = max(0, int(round(sound.release_ms * sample_rate / 1_000.0)))
         voice_frames = min(frames - start, note_frames + release)
-        positions = np.arange(voice_frames, dtype=np.float64)
-        global_time = (start + positions) / sample_rate
-        mod_depth = sound.vibrato_depth_cents + 50.0 * modulation[start : start + voice_frames]
-        vibrato = mod_depth * np.sin(2.0 * np.pi * sound.vibrato_rate_hz * global_time)
+        vibrato_rate = _automated(
+            automation, "vibrato_rate_hz", sound.vibrato_rate_hz, start, voice_frames
+        )
+        vibrato_depth = _automated(
+            automation, "vibrato_depth_cents", sound.vibrato_depth_cents, start, voice_frames
+        )
+        mod_depth = vibrato_depth + 50.0 * modulation[start : start + voice_frames]
+        vibrato_phase = np.cumsum(vibrato_rate) / sample_rate
+        vibrato = mod_depth * np.sin(2.0 * np.pi * vibrato_phase)
         expression_cents = 100.0 * bends[start : start + voice_frames] + vibrato
         voice = np.zeros(voice_frames, dtype=np.float64)
         base_frequency = note_frequency(note.pitch)
-        for wave in sound.waves:
-            tuning = 1_200 * wave.octave + 100 * wave.semitones + wave.detune_cents
+        for wave_index, wave in enumerate(sound.waves, start=1):
+            level = _automated(
+                automation, f"wave_{wave_index}_level", wave.level, start, voice_frames
+            )
+            detune = _automated(
+                automation,
+                f"wave_{wave_index}_detune_cents",
+                wave.detune_cents,
+                start,
+                voice_frames,
+            )
+            tuning = 1_200 * wave.octave + 100 * wave.semitones + detune
             frequency = base_frequency * np.power(
                 2.0, (tuning + expression_cents) / 1_200.0
             )
             phase = np.cumsum(frequency) / sample_rate
             phase -= phase[0]
             phase += wave.phase
-            voice += wave.level * _oscillator(wave, phase)
+            voice += level * _oscillator(wave, phase)
         voice /= wave_level
-        if sound.noise_level > 0.0:
+        noise_level = _automated(automation, "noise_level", sound.noise_level, start, voice_frames)
+        if np.max(noise_level) > 0.0:
             generator = np.random.default_rng(sound.noise_seed + event_index)
-            voice += sound.noise_level * generator.uniform(-1.0, 1.0, voice_frames)
+            voice += noise_level * generator.uniform(-1.0, 1.0, voice_frames)
         envelope = _envelope(
             voice_frames,
             note_frames=note_frames,
             sample_rate=sample_rate,
             sound=sound,
+            automation=automation,
+            start=start,
         )
         output[start : start + voice_frames] += (
             0.38 * (note.velocity / 100.0) * voice * envelope
         )
 
-    output = _filter(output, sound.cutoff_hz, sound.resonance, sample_rate)
-    drive_gain = 1.0 + sound.drive * 10.0
-    if drive_gain > 1.0:
-        output = np.tanh(output * drive_gain) / math.tanh(drive_gain)
+    cutoff = _automated(automation, "cutoff_hz", sound.cutoff_hz, 0, frames)
+    resonance = _automated(automation, "resonance", sound.resonance, 0, frames)
+    output = _filter(output, cutoff, resonance, sample_rate)
+    drive = _automated(automation, "drive", sound.drive, 0, frames)
+    drive_gain = 1.0 + drive * 10.0
+    output = np.tanh(output * drive_gain) / np.tanh(drive_gain)
+    if "gain_db" in automation and spec.automation_base_gain_db is not None:
+        output *= db_envelope(automation["gain_db"] - spec.automation_base_gain_db)
     return np.asarray(output, dtype=np.float64)
+
+
+def _automated(
+    automation: Mapping[str, np.ndarray], name: str, default: float, start: int, frames: int
+) -> np.ndarray:
+    values = automation.get(name)
+    if values is None:
+        return np.full(frames, default, dtype=np.float64)
+    return np.asarray(values[start : start + frames], dtype=np.float64)
 
 
 def _step_events(spec: NativeSynthSpec, beats_per_bar: int) -> tuple[Note, ...]:
@@ -136,43 +173,56 @@ def _envelope(
     note_frames: int,
     sample_rate: int,
     sound: Uniwave,
+    automation: Mapping[str, np.ndarray],
+    start: int,
 ) -> np.ndarray:
-    attack = max(0, int(round(sound.attack_ms * sample_rate / 1_000.0)))
-    decay = max(0, int(round(sound.decay_ms * sample_rate / 1_000.0)))
-    release = max(0, int(round(sound.release_ms * sample_rate / 1_000.0)))
-    envelope = np.full(frames, sound.sustain, dtype=np.float64)
-    attack_end = min(frames, attack)
-    if attack_end:
-        envelope[:attack_end] = np.linspace(0.0, 1.0, attack_end, endpoint=False)
-    decay_end = min(frames, attack_end + decay)
-    if decay_end > attack_end:
-        envelope[attack_end:decay_end] = np.linspace(
-            1.0, sound.sustain, decay_end - attack_end, endpoint=False
-        )
+    positions = np.arange(frames, dtype=np.float64)
+    attack = np.maximum(
+        1.0, _automated(automation, "attack_ms", sound.attack_ms, start, frames)
+        * sample_rate / 1_000.0
+    )
+    decay = np.maximum(
+        1.0, _automated(automation, "decay_ms", sound.decay_ms, start, frames)
+        * sample_rate / 1_000.0
+    )
+    sustain = _automated(automation, "sustain", sound.sustain, start, frames)
+    release = np.maximum(
+        1.0, _automated(automation, "release_ms", sound.release_ms, start, frames)
+        * sample_rate / 1_000.0
+    )
+    envelope = sustain.copy()
+    attack_mask = positions < attack
+    envelope[attack_mask] = positions[attack_mask] / attack[attack_mask]
+    decay_position = positions - attack
+    decay_mask = ~attack_mask & (decay_position < decay)
+    envelope[decay_mask] = 1.0 + (sustain[decay_mask] - 1.0) * (
+        decay_position[decay_mask] / decay[decay_mask]
+    )
     note_off = min(frames, note_frames)
     if note_off < frames:
-        release_end = min(frames, note_off + release)
+        release_position = positions - note_off
+        release_mask = release_position < release
         start_level = envelope[max(0, note_off - 1)]
-        if release_end > note_off:
-            envelope[note_off:release_end] = np.linspace(
-                start_level, 0.0, release_end - note_off, endpoint=False
-            )
-        envelope[release_end:] = 0.0
+        active_indices = np.arange(note_off, frames)[release_mask[note_off:]]
+        envelope[active_indices] = start_level * (
+            1.0 - release_position[active_indices] / release[active_indices]
+        )
+        envelope[np.arange(note_off, frames)[~release_mask[note_off:]]] = 0.0
     return envelope
 
 
 def _filter(
-    samples: np.ndarray, cutoff_hz: float, resonance: float, sample_rate: int
+    samples: np.ndarray, cutoff_hz: np.ndarray, resonance: np.ndarray, sample_rate: int
 ) -> np.ndarray:
-    cutoff = min(cutoff_hz, sample_rate * 0.45)
-    alpha = 1.0 - math.exp(-2.0 * math.pi * cutoff / sample_rate)
+    cutoff = np.clip(cutoff_hz, 20.0, sample_rate * 0.45)
+    alpha = 1.0 - np.exp(-2.0 * np.pi * cutoff / sample_rate)
     first = 0.0
     second = 0.0
     output = np.empty_like(samples)
     for index, sample in enumerate(samples):
-        first += alpha * (sample - first)
-        second += alpha * (first - second)
-        output[index] = second + resonance * 2.0 * (first - second)
+        first += alpha[index] * (sample - first)
+        second += alpha[index] * (first - second)
+        output[index] = second + resonance[index] * 2.0 * (first - second)
     return np.asarray(output, dtype=np.float64)
 
 
@@ -184,6 +234,15 @@ definition = PluginDefinition(
     parameters={
         "gain_db": Parameter(-6.0, -60.0, 12.0),
         "cutoff_hz": Parameter(_DEFAULT.cutoff_hz, 20.0, 20_000.0),
+        "attack_ms": Parameter(_DEFAULT.attack_ms, 0.0, 5_000.0),
+        "decay_ms": Parameter(_DEFAULT.decay_ms, 0.0, 5_000.0),
+        "sustain": Parameter(_DEFAULT.sustain, 0.0, 1.0),
+        "release_ms": Parameter(_DEFAULT.release_ms, 0.0, 5_000.0),
+        "resonance": Parameter(_DEFAULT.resonance, 0.0, 0.95),
+        "drive": Parameter(_DEFAULT.drive, 0.0, 1.0),
+        "vibrato_rate_hz": Parameter(_DEFAULT.vibrato_rate_hz, 0.1, 20.0),
+        "vibrato_depth_cents": Parameter(_DEFAULT.vibrato_depth_cents, 0.0, 100.0),
+        "noise_level": Parameter(_DEFAULT.noise_level, 0.0, 1.0),
     },
     defaults=settings(_DEFAULT),
     midi_program=81,

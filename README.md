@@ -212,7 +212,8 @@ song.automation(
 
 Automation positions are absolute bars from the beginning of the song. Values
 move smoothly by default; use `curve="hold"` for an immediate change. Stock
-instrument gain and cutoff can also be automated.
+instrument gain and cutoff can also be automated. Uniwave additionally exposes
+its envelope, filter, drive, vibrato, noise, and per-wave controls.
 
 Tracks can also contain several clips while sharing the same instrument and
 effects. A default clip plays wherever the track is active. A clip with a

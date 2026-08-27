@@ -79,6 +79,15 @@ chords = song.track("Chords", gain_db=-12, pan=-0.2).midi(
 lead = song.track("Lead", gain_db=-10, pan=0.25).midi(
     "G4 Bb4 C5 G4 | F4 Eb4 D4 -", bars=2, instrument=lead_sound
 )
+lead_synth = lead.instrument(lead_sound, name="Uniwave Lead")
+song.automation(
+    "Lead Filter Sweep", target=lead_synth, parameter="cutoff_hz",
+    points=[(0, 900), (1, 6000), (2, 1800)],
+)
+song.automation(
+    "Lead Wave Mix", target=lead_synth, parameter="wave_1_level",
+    points=[(0, 0.3), (1, 0.9), (2, 0.4)],
+)
 lead.effect("delay", time_beats=0.5, feedback=0.25, mix=0.16)
 
 song.section("Uniwave Loop", bars=2, tracks=[kick, bass, chords, lead])
@@ -109,6 +118,7 @@ at a time, render again, and listen:
 5. Increase `attack_ms` for a slower fade-in or `release_ms` for a longer tail.
 6. Add gentle `drive`, `noise_level`, or `vibrato_depth_cents` for character.
 
-Checkpoint: you have built three independent polyphonic Uniwave instruments.
+Checkpoint: you have built three independent polyphonic Uniwave instruments and
+automated the lead's filter and oscillator mix.
 Chords create several voices at once, while every note uses all configured
 waves. The same `noise_seed` always produces the same render.

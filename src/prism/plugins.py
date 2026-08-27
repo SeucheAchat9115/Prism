@@ -189,6 +189,15 @@ def instrument_plugin(
     gain_db = settings["gain_db"]
     assert isinstance(gain_db, int | float)
     automatable = dict(definition.parameters)
+    if preset == "uniwave":
+        for parameter_name, value in settings.items():
+            if parameter_name.startswith("wave_") and parameter_name.endswith(
+                ("_level", "_detune_cents")
+            ) and isinstance(value, int | float):
+                if parameter_name.endswith("_level"):
+                    automatable[parameter_name] = Parameter(float(value), 0.0, 1.0)
+                else:
+                    automatable[parameter_name] = Parameter(float(value), -100.0, 100.0)
     if melodic and "cutoff_hz" not in automatable:
         cutoff_hz = settings["cutoff_hz"]
         assert isinstance(cutoff_hz, int | float)

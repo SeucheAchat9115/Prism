@@ -83,7 +83,7 @@ the Prism version used when that project was created.
 | Triggered project-local samples | Levels 2 and 9 |
 | Full audio loops and one-shots | Levels 7 and 9 |
 | Uniwave bass, lead, pad, rests, accidentals, and chords | Levels 3, 9, and 15 |
-| Independent waves, tuning, ADSR, filter, drive, noise, and vibrato | Level 15 |
+| Independent waves, tuning, ADSR, filter, drive, noise, vibrato, and Uniwave automation | Level 15 |
 | Gate, velocity, and clip gain | Levels 5, 9, and 15 |
 | Track gain, pan, and mute | Levels 5 and 9 |
 | Explicit and all-track sections | Levels 4 and 9 |
