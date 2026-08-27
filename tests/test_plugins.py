@@ -7,6 +7,7 @@ import pytest
 import soundfile as sf
 
 from prism import Project, ProjectError
+from prism.plugins import STOCK_PLUGINS, Parameter, PluginDefinition, PluginRegistry
 
 
 def _automated_song(script: Path) -> Project:
@@ -146,3 +147,23 @@ def test_plugin_authoring_errors_are_specific(project_script: Path) -> None:
     song.section("Short", bars=1)
     with pytest.raises(ProjectError, match="after the song"):
         song.validate()
+
+
+def test_stock_registry_is_the_single_plugin_catalog() -> None:
+    assert {"gain", "filter", "distortion", "delay"} <= STOCK_PLUGINS.presets("effect")
+    assert {"bass", "lead", "pad"} <= STOCK_PLUGINS.presets("instrument")
+    assert STOCK_PLUGINS.get("effect", "filter").processor is not None
+    assert STOCK_PLUGINS.get("instrument", "lead").synth_patch is not None
+
+    local = PluginRegistry()
+    custom = PluginDefinition(
+        preset="test_effect",
+        kind="effect",
+        parameters={"mix": Parameter(0.5, 0.0, 1.0)},
+        defaults={"mix": 0.5},
+        processor=lambda samples, parameters, sample_rate, tempo: samples,
+    )
+    local.register(custom)
+    assert local.get("effect", "test_effect") is custom
+    with pytest.raises(ProjectError, match="already registered"):
+        local.register(custom)

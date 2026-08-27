@@ -5,13 +5,23 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Literal, Mapping, Sequence
+from typing import TYPE_CHECKING, Callable, Literal, Mapping, Sequence
 
 from prism.errors import ProjectError
+from prism.synthesis.types import SynthPatch
 
 PluginKind = Literal["instrument", "effect"]
 AutomationCurve = Literal["linear", "hold"]
-EffectPreset = Literal["gain", "filter", "distortion", "delay"]
+EffectPreset = str
+
+if TYPE_CHECKING:
+    import numpy as np
+
+    Processor = Callable[
+        [np.ndarray, Mapping[str, "np.ndarray"], int, float], np.ndarray
+    ]
+else:
+    Processor = Callable[..., object]
 
 
 @dataclass(frozen=True, slots=True)
@@ -23,22 +33,70 @@ class Parameter:
     maximum: float
 
 
-_EFFECT_PARAMETERS: dict[str, dict[str, Parameter]] = {
-    "gain": {"gain_db": Parameter(0.0, -60.0, 12.0)},
-    "filter": {
-        "cutoff_hz": Parameter(1_200.0, 20.0, 20_000.0),
-        "mix": Parameter(1.0, 0.0, 1.0),
-    },
-    "distortion": {
-        "drive_db": Parameter(12.0, 0.0, 36.0),
-        "mix": Parameter(0.5, 0.0, 1.0),
-    },
-    "delay": {
-        "time_beats": Parameter(0.5, 0.03125, 4.0),
-        "feedback": Parameter(0.25, 0.0, 0.95),
-        "mix": Parameter(0.2, 0.0, 1.0),
-    },
-}
+@dataclass(frozen=True, slots=True)
+class PluginDefinition:
+    """Registry entry shared by the authoring, renderer, and MIDI layers."""
+
+    preset: str
+    kind: PluginKind
+    parameters: Mapping[str, Parameter]
+    defaults: Mapping[str, object]
+    processor: Processor | None = None
+    midi_program: int | None = None
+    synth_patch: SynthPatch | None = None
+    melodic: bool = False
+    drum_note: int | None = None
+
+
+class PluginRegistry:
+    """Validated catalog of stock instruments and effects."""
+
+    def __init__(self) -> None:
+        self._definitions: dict[tuple[PluginKind, str], PluginDefinition] = {}
+
+    def register(self, definition: PluginDefinition) -> None:
+        key = (definition.kind, definition.preset)
+        if key in self._definitions:
+            raise ProjectError(f"Plugin {definition.preset!r} is already registered.")
+        if definition.kind == "effect" and definition.processor is None:
+            raise ProjectError(f"Effect {definition.preset!r} needs an audio processor.")
+        self._definitions[key] = definition
+
+    def get(self, kind: PluginKind, preset: str) -> PluginDefinition:
+        try:
+            return self._definitions[(kind, preset)]
+        except KeyError as error:
+            available = ", ".join(sorted(self.presets(kind))) or "none"
+            raise ProjectError(
+                f"Unknown stock {kind} plugin {preset!r}. Available: {available}."
+            ) from error
+
+    def presets(self, kind: PluginKind) -> frozenset[str]:
+        return frozenset(
+            preset for entry_kind, preset in self._definitions if entry_kind == kind
+        )
+
+
+class _StockPluginRegistryProxy:
+    """Lazy proxy that avoids importing stock modules during model loading."""
+
+    @staticmethod
+    def _registry() -> PluginRegistry:
+        from prism.stock_plugins.registry import stock_registry
+
+        return stock_registry
+
+    def register(self, definition: PluginDefinition) -> None:
+        self._registry().register(definition)
+
+    def get(self, kind: PluginKind, preset: str) -> PluginDefinition:
+        return self._registry().get(kind, preset)
+
+    def presets(self, kind: PluginKind) -> frozenset[str]:
+        return self._registry().presets(kind)
+
+
+STOCK_PLUGINS = _StockPluginRegistryProxy()
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,9 +145,8 @@ def effect_plugin(
 ) -> Plugin:
     """Validate and create one stock effect plugin."""
 
-    if preset not in _EFFECT_PARAMETERS:
-        raise ProjectError("Stock effects are gain, filter, distortion, or delay.")
-    parameters = _EFFECT_PARAMETERS[preset]
+    definition = STOCK_PLUGINS.get("effect", preset)
+    parameters = definition.parameters
     unknown = sorted(set(settings) - set(parameters))
     if unknown:
         raise ProjectError(
@@ -123,10 +180,11 @@ def instrument_plugin(
 ) -> Plugin:
     """Create the public plugin view of a built-in instrument."""
 
+    definition = STOCK_PLUGINS.get("instrument", preset)
     gain_db = settings["gain_db"]
     assert isinstance(gain_db, int | float)
-    automatable = {"gain_db": Parameter(float(gain_db), -60.0, 12.0)}
-    if melodic:
+    automatable = dict(definition.parameters)
+    if melodic and "cutoff_hz" not in automatable:
         cutoff_hz = settings["cutoff_hz"]
         assert isinstance(cutoff_hz, int | float)
         automatable["cutoff_hz"] = Parameter(float(cutoff_hz), 20.0, 20_000.0)
@@ -183,4 +241,13 @@ def _parameter_value(value: float, parameter: Parameter, label: str) -> float:
     return resolved
 
 
-__all__ = ["AutomationLane", "AutomationPoint", "EffectPreset", "Plugin"]
+__all__ = [
+    "AutomationLane",
+    "AutomationPoint",
+    "EffectPreset",
+    "Parameter",
+    "Plugin",
+    "PluginDefinition",
+    "PluginRegistry",
+    "STOCK_PLUGINS",
+]

@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 
-from prism.plugins import Plugin
+from prism.plugins import STOCK_PLUGINS, Plugin
+from prism.stock_plugins.filter import low_pass
+from prism.stock_plugins.gain import db_envelope
 
 if TYPE_CHECKING:
     from prism.project.builder import Project, Track
@@ -24,28 +26,12 @@ def process_track_plugins(project: Project, track: Track, samples: np.ndarray) -
             name: _parameter_values(project, effect, name, output.shape[0])
             for name in effect.settings
         }
-        if effect.preset == "gain":
-            output *= _db_envelope(parameters["gain_db"])[:, np.newaxis]
-        elif effect.preset == "filter":
-            wet = _low_pass(output, parameters["cutoff_hz"], project.sample_rate)
-            output = _blend(output, wet, parameters["mix"])
-        elif effect.preset == "distortion":
-            drive = _db_envelope(parameters["drive_db"])
-            wet = np.tanh(output * drive[:, np.newaxis]) / np.tanh(
-                np.maximum(drive[:, np.newaxis], 1.0)
-            )
-            output = _blend(output, wet, parameters["mix"])
-        elif effect.preset == "delay":
-            wet = _delay(
-                output,
-                time_beats=parameters["time_beats"],
-                feedback=parameters["feedback"],
-                sample_rate=project.sample_rate,
-                tempo=project.tempo,
-            )
-            output = _blend(output, wet, parameters["mix"])
-        else:
+        definition = STOCK_PLUGINS.get("effect", effect.preset)
+        if definition.processor is None:
             raise TypeError(f"Stock effect {effect.preset!r} has no audio processor")
+        processor = definition.processor
+        assert processor is not None
+        output = processor(output, parameters, project.sample_rate, project.tempo)
     return np.asarray(output, dtype=np.float64)
 
 
@@ -65,10 +51,10 @@ def _instrument_automation(
     if has_automation(project, instrument, "gain_db"):
         values = _parameter_values(project, instrument, "gain_db", output.shape[0])
         base = _setting(instrument, "gain_db")
-        output = output * _db_envelope(values - base)[:, np.newaxis]
+        output = output * db_envelope(values - base)[:, np.newaxis]
     if has_automation(project, instrument, "cutoff_hz"):
         cutoff = _parameter_values(project, instrument, "cutoff_hz", output.shape[0])
-        output = _low_pass(output, cutoff, project.sample_rate)
+        output = low_pass(output, cutoff, project.sample_rate)
     return output
 
 
@@ -103,44 +89,6 @@ def _setting(plugin: Plugin, name: str) -> float:
     if not isinstance(value, int | float):
         raise TypeError(f"Plugin parameter {name!r} is not numeric")
     return float(value)
-
-
-def _db_envelope(values: np.ndarray) -> np.ndarray:
-    return np.asarray(np.power(10.0, values / 20.0), dtype=np.float64)
-
-
-def _blend(dry: np.ndarray, wet: np.ndarray, mix: np.ndarray) -> np.ndarray:
-    amount = mix[:, np.newaxis]
-    return np.asarray(dry * (1.0 - amount) + wet * amount, dtype=np.float64)
-
-
-def _low_pass(samples: np.ndarray, cutoff: np.ndarray, sample_rate: int) -> np.ndarray:
-    limited = np.clip(cutoff, 20.0, sample_rate * 0.45)
-    alpha = 1.0 - np.exp(-2.0 * np.pi * limited / sample_rate)
-    output = np.empty_like(samples)
-    state = np.zeros(2, dtype=np.float64)
-    for index in range(samples.shape[0]):
-        state += alpha[index] * (samples[index] - state)
-        output[index] = state
-    return output
-
-
-def _delay(
-    samples: np.ndarray,
-    *,
-    time_beats: np.ndarray,
-    feedback: np.ndarray,
-    sample_rate: int,
-    tempo: float,
-) -> np.ndarray:
-    output = np.zeros_like(samples)
-    frames_per_beat = sample_rate * 60.0 / tempo
-    delays = np.maximum(1, np.rint(time_beats * frames_per_beat).astype(np.int64))
-    for index in range(samples.shape[0]):
-        source = index - int(delays[index])
-        if source >= 0:
-            output[index] = samples[source] + output[source] * feedback[index]
-    return np.asarray(output, dtype=np.float64)
 
 
 __all__ = ["has_automation", "process_track_plugins"]

@@ -55,23 +55,27 @@ The following example describes a hypothetical `chorus` effect.
 
 ### 1. Declare its public name and parameters
 
-Open `src/prism/plugins.py`.
+Create a new module such as `src/prism/stock_plugins/chorus.py`.
 
-Add the preset to `EffectPreset`:
-
-```python
-EffectPreset = Literal["gain", "filter", "distortion", "delay", "chorus"]
-```
-
-Add one entry to `_EFFECT_PARAMETERS`:
+Declare the plugin definition in that module:
 
 ```python
-"chorus": {
-    "rate_hz": Parameter(0.8, 0.05, 10.0),
-    "depth_ms": Parameter(6.0, 0.0, 30.0),
-    "mix": Parameter(0.3, 0.0, 1.0),
-},
+definition = PluginDefinition(
+    preset="chorus",
+    kind="effect",
+    parameters={
+        "rate_hz": Parameter(0.8, 0.05, 10.0),
+        "depth_ms": Parameter(6.0, 0.0, 30.0),
+        "mix": Parameter(0.3, 0.0, 1.0),
+    },
+    defaults={"rate_hz": 0.8, "depth_ms": 6.0, "mix": 0.3},
+    processor=process,
+)
 ```
+
+Import `Parameter` and `PluginDefinition` at the top of the module. The module
+is the complete plugin implementation: its schema and processor travel
+together.
 
 Each `Parameter` receives `default`, `minimum`, and `maximum`. Prism uses this
 schema to reject unknown settings and out-of-range values. Every declared
@@ -89,19 +93,39 @@ chorus = lead.effect(
 )
 ```
 
-### 2. Implement deterministic audio processing
+### 2. Register the one-file plugin
 
-Open `src/prism/effects.py` and add a small processing function. Its inputs
+Open `src/prism/stock_plugins/registry.py`, import the module, and add its
+definition to `_EFFECTS`:
+
+```python
+from prism.stock_plugins import bass, chorus, delay, distortion, filter, gain, lead, pad
+
+_EFFECTS = (
+    gain.definition,
+    filter.definition,
+    distortion.definition,
+    delay.definition,
+    chorus.definition,
+)
+```
+
+The registry is the only central file changed when a new plugin file is added.
+It validates duplicate names and makes the plugin available to authoring,
+rendering, automation, and configuration.
+
+### 3. Implement deterministic audio processing
+
+In the same plugin file, add a small processing function. Its inputs
 should be the stereo sample buffer, parameter arrays, and only the project
 values it genuinely needs:
 
 ```python
-def _chorus(
+def process(
     samples: np.ndarray,
-    *,
-    rate_hz: np.ndarray,
-    depth_ms: np.ndarray,
+    parameters: Mapping[str, np.ndarray],
     sample_rate: int,
+    tempo: float,
 ) -> np.ndarray:
     output = np.zeros_like(samples)
     # Deterministic DSP implementation goes here.
@@ -111,24 +135,11 @@ def _chorus(
 Parameter values are arrays with one value per audio frame. This is what makes
 both static settings and automation use the same DSP path.
 
-Add an explicit `chorus` branch inside `process_track_plugins(...)`, before the
-final delay branch:
+The registry passes parameter arrays to `process`; no change to the renderer
+dispatch is needed. Keep dry/wet blending inside the plugin processor when the
+effect has a `mix` parameter, so the plugin file remains self-contained.
 
-```python
-elif effect.preset == "chorus":
-    wet = _chorus(
-        output,
-        rate_hz=parameters["rate_hz"],
-        depth_ms=parameters["depth_ms"],
-        sample_rate=project.sample_rate,
-    )
-    output = _blend(output, wet, parameters["mix"])
-```
-
-Keep dry/wet blending outside the processor when possible. That gives all
-effects the same `mix=0` and `mix=1` behavior.
-
-### 3. Add effect tests
+### 4. Add effect tests
 
 Add tests to `tests/test_plugins.py` that prove:
 
@@ -143,70 +154,53 @@ Add tests to `tests/test_plugins.py` that prove:
 
 The following example describes a hypothetical `pluck` instrument.
 
-### 1. Register the preset type
+### 1. Create the plugin module
 
-Open `src/prism/synthesis/types.py` and add `pluck` to `SynthPreset` and
-`MELODIC_PRESETS`:
-
-```python
-SynthPreset = Literal[
-    "kick", "snare", "hihat", "bass", "lead", "pad", "pluck"
-]
-
-MELODIC_PRESETS = frozenset({"bass", "lead", "pad", "pluck"})
-```
-
-Update the melodic instrument `Literal` annotations and validation messages in
-`src/prism/project/builder.py`. This keeps editor autocomplete and producer
-errors synchronized with the registry.
-
-### 2. Define the default patch
-
-Open `src/prism/synthesis/engine.py` and add a `_Patch` entry:
+Create `src/prism/stock_plugins/pluck.py` with its defaults, `SynthPatch`,
+parameters, and MIDI program:
 
 ```python
-"pluck": _Patch(
-    waveform="triangle",
-    attack_ms=2.0,
-    decay_ms=180.0,
-    sustain_level=0.2,
-    release_ms=120.0,
-    cutoff_hz=4200.0,
-    gate=0.55,
-    amplitude=0.32,
-),
+definition = PluginDefinition(
+    preset="pluck",
+    kind="instrument",
+    parameters={
+        "gain_db": Parameter(-6.0, -60.0, 12.0),
+        "cutoff_hz": Parameter(4200.0, 20.0, 20_000.0),
+    },
+    defaults={"waveform": "triangle", "attack_ms": 2.0, "decay_ms": 180.0,
+              "sustain": 0.2, "release_ms": 120.0, "cutoff_hz": 4200.0,
+              "gain_db": -6.0},
+    midi_program=45,
+    melodic=True,
+    synth_patch=SynthPatch("triangle", 2.0, 180.0, 0.2, 120.0, 4200.0, 0.55, 0.32),
+)
 ```
 
-Add `pluck` to the accepted preset annotation of
-`native_instrument_settings(...)`. That function is the single bridge between
-the synthesis defaults and the public plugin description, so defaults shown by
-`song.configuration()` stay identical to those used for rendering.
+Import `Parameter`, `PluginDefinition`, and `SynthPatch` in the module.
 
-If the instrument uses the existing oscillator and envelope engine, this patch
-entry is normally the only synthesis change. If it needs a new synthesis
-algorithm, give that algorithm a dedicated function and select it explicitly
-inside `_render_melodic(...)`.
+### 2. Register the module
 
-### 3. Add the MIDI program mapping
+Import `pluck` in `src/prism/stock_plugins/registry.py` and append
+`pluck.definition` to the instrument registrations. A melodic definition with
+`synth_patch` is automatically accepted by `midi()` and uses its `midi_program`
+for MIDI export.
 
-Open `src/prism/midi.py` and add a General MIDI program to `_PROGRAMS`:
+### 3. Define or extend synthesis behavior
 
-```python
-_PROGRAMS = {"bass": 38, "lead": 81, "pad": 89, "pluck": 45}
-```
-
-This affects exported `.mid` playback only. Prism’s WAV render continues to use
-the stock instrument implementation.
+If the new instrument uses the existing oscillator/envelope engine, its
+`SynthPatch` is enough. A genuinely new synthesis algorithm should add a
+processor callback to the definition and a small dispatch extension in the
+engine; keep that callback in the plugin module.
 
 ### 4. Decide which settings can be automated
 
-`instrument_plugin(...)` in `src/prism/plugins.py` currently exposes
+The plugin definition in `src/prism/stock_plugins/pluck.py` exposes
 `gain_db` for every instrument and `cutoff_hz` for melodic instruments. Add a
 new numeric setting there only when the renderer can apply it continuously.
 
-Then update `_instrument_automation(...)` in `src/prism/effects.py`. An
-automated instrument parameter must use one value per frame and must not change
-the timing or length of the MIDI clip.
+An automated instrument parameter must use one value per frame and must not
+change the timing or length of the MIDI clip. The standard engine currently
+supports instrument `gain_db` and melodic `cutoff_hz` automation.
 
 ### 5. Add instrument tests
 
@@ -221,14 +215,18 @@ Cover these cases:
 
 ## Add a stock percussion instrument
 
-Percussion presets also belong in `SynthPreset` and `PERCUSSION_PRESETS` in
-`src/prism/synthesis/types.py`. Add the generated hit in
-`_render_percussion(...)`, register its General MIDI note in `_DRUM_NOTES` in
-`src/prism/midi.py`, and update the accepted drum preset annotation and message
-in `src/prism/project/builder.py`.
+Create a module such as `src/prism/stock_plugins/tom.py` with a
+`PluginDefinition(kind="instrument", drum_note=...)`, then import that module
+and add its definition to the instrument registrations in
+`src/prism/stock_plugins/registry.py`. The registry supplies the General MIDI
+note and makes the preset available to `track.drum(...)` and `midi()`.
 
-Noise-based instruments must use `spec.seed` through the local NumPy random
-generator. Never use process-global random state.
+For a new generated drum sound, keep its deterministic hit processor in the
+same plugin module and connect that processor through the definition. Noise-
+based instruments must use a local NumPy random generator seeded from the
+render specification; never use process-global random state. If the algorithm
+needs a new engine callback, keep the callback implementation in the plugin
+file and make only the minimal generic engine hook change.
 
 ## Update the producer documentation
 

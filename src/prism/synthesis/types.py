@@ -8,12 +8,26 @@ from typing import Literal
 
 from prism.music import note_steps, rhythm_steps
 
-SynthPreset = Literal["kick", "snare", "hihat", "bass", "lead", "pad"]
+SynthPreset = str
 SynthWaveform = Literal["sine", "triangle", "saw", "square"]
 
 MAX_SYNTH_SECONDS = 120.0
 PERCUSSION_PRESETS = frozenset({"kick", "snare", "hihat"})
 MELODIC_PRESETS = frozenset({"bass", "lead", "pad"})
+
+
+@dataclass(frozen=True, slots=True)
+class SynthPatch:
+    """Resolved defaults used by a stock melodic instrument."""
+
+    waveform: SynthWaveform
+    attack_ms: float
+    decay_ms: float
+    sustain_level: float
+    release_ms: float
+    cutoff_hz: float
+    gate: float
+    amplitude: float
 
 @dataclass(frozen=True, slots=True)
 class NativeSynthSpec:
@@ -31,8 +45,8 @@ class NativeSynthSpec:
     seed: int = 0
 
     def __post_init__(self) -> None:
-        if self.preset not in PERCUSSION_PRESETS | MELODIC_PRESETS:
-            raise ValueError(f"Unknown built-in instrument: {self.preset!r}")
+        if not self.preset:
+            raise ValueError("Instrument preset cannot be empty")
         if not 1 <= self.bars <= 256:
             raise ValueError("Synth clip bars must be between 1 and 256")
         normalized = (

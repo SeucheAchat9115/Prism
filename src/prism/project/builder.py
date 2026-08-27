@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Literal, Self
 from prism.errors import ProjectError
 from prism.music import note_steps, rhythm_steps, validate_gain, validate_pan
 from prism.plugins import (
+    STOCK_PLUGINS,
     AutomationCurve,
     AutomationLane,
     EffectPreset,
@@ -22,8 +23,6 @@ from prism.plugins import (
 from prism.synthesis.engine import native_instrument_settings
 from prism.synthesis.types import (
     MAX_SYNTH_SECONDS,
-    MELODIC_PRESETS,
-    PERCUSSION_PRESETS,
     SynthWaveform,
 )
 
@@ -50,7 +49,7 @@ class AudioClip:
 
 @dataclass(frozen=True, slots=True)
 class DrumClip:
-    preset: Literal["kick", "snare", "hihat"]
+    preset: str
     pattern: tuple[str, ...]
     bars: int
     gain_db: float
@@ -59,7 +58,7 @@ class DrumClip:
 
 @dataclass(frozen=True, slots=True)
 class MidiClip:
-    instrument: Literal["bass", "lead", "pad"]
+    instrument: str
     notes: tuple[str, ...]
     bars: int
     velocity: int
@@ -193,7 +192,7 @@ class Track:
 
     def drum(
         self,
-        preset: Literal["kick", "snare", "hihat"],
+        preset: str,
         pattern: str,
         *,
         bars: int = 1,
@@ -202,8 +201,9 @@ class Track:
     ) -> Self:
         """Program a built-in drum without needing an external sample."""
 
-        if preset not in PERCUSSION_PRESETS:
-            raise ProjectError("Built-in drums are kick, snare, or hihat.")
+        drum_definition = STOCK_PLUGINS.get("instrument", preset)
+        if drum_definition.drum_note is None:
+            raise ProjectError("This stock instrument is not a percussion preset.")
         if not 0 <= seed <= 4_294_967_295:
             raise ProjectError("Drum seed must be between 0 and 4294967295.")
         self._set_clip(
@@ -229,7 +229,7 @@ class Track:
         self,
         notes: str,
         *,
-        instrument: Literal["bass", "lead", "pad"] = "lead",
+        instrument: str = "lead",
         bars: int = 1,
         velocity: int = 100,
         waveform: SynthWaveform | None = None,
@@ -243,8 +243,9 @@ class Track:
     ) -> Self:
         """Build a MIDI-note clip and render it with a built-in instrument."""
 
-        if instrument not in MELODIC_PRESETS:
-            raise ProjectError("Built-in MIDI instruments are bass, lead, or pad.")
+        definition = STOCK_PLUGINS.get("instrument", instrument)
+        if not definition.melodic:
+            raise ProjectError("MIDI instruments must be melodic stock instruments.")
         _waveform(waveform)
         if not 1 <= velocity <= 127:
             raise ProjectError("MIDI velocity must be between 1 and 127.")
@@ -276,7 +277,7 @@ class Track:
 
     def instrument(
         self,
-        preset: Literal["bass", "lead", "pad"],
+        preset: str,
         *,
         name: str | None = None,
         waveform: SynthWaveform | None = None,
@@ -292,8 +293,9 @@ class Track:
         clip = self._clip
         if not isinstance(clip, MidiClip):
             raise ProjectError("instrument() follows midi() on the same track.")
-        if preset not in MELODIC_PRESETS:
-            raise ProjectError("Built-in MIDI instruments are bass, lead, or pad.")
+        definition = STOCK_PLUGINS.get("instrument", preset)
+        if not definition.melodic:
+            raise ProjectError("MIDI instruments must be melodic stock instruments.")
         _waveform(waveform)
         _optional_range(attack_ms, 0.0, 5000.0, "Attack")
         _optional_range(decay_ms, 0.0, 5000.0, "Decay")
@@ -344,7 +346,7 @@ class Track:
 
     def _set_melodic_instrument(
         self,
-        preset: Literal["bass", "lead", "pad"],
+        preset: str,
         *,
         name: str | None,
     ) -> Plugin:

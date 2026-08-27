@@ -3,52 +3,24 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
-from typing import Literal
 
 import numpy as np
 
 from prism.music import note_frequency
+from prism.plugins import STOCK_PLUGINS
 from prism.synthesis.types import (
     MAX_SYNTH_SECONDS,
     NativeSynthSpec,
-    SynthWaveform,
+    SynthPatch,
 )
 
 
-@dataclass(frozen=True, slots=True)
-class _Patch:
-    waveform: SynthWaveform
-    attack_ms: float
-    decay_ms: float
-    sustain_level: float
-    release_ms: float
-    cutoff_hz: float
-    gate: float
-    amplitude: float
-
-
-_PATCHES: dict[str, _Patch] = {
-    "bass": _Patch("saw", 5.0, 100.0, 0.58, 110.0, 900.0, 0.78, 0.46),
-    "lead": _Patch("square", 8.0, 90.0, 0.62, 140.0, 3_600.0, 0.82, 0.30),
-    "pad": _Patch("triangle", 180.0, 380.0, 0.76, 420.0, 2_400.0, 0.92, 0.26),
-}
-
-
 def native_instrument_settings(
-    preset: Literal["bass", "lead", "pad"],
-) -> dict[str, str | float]:
+    preset: str,
+) -> dict[str, object]:
     """Return the resolved public settings for one stock melodic instrument."""
 
-    patch = _PATCHES[preset]
-    return {
-        "waveform": patch.waveform,
-        "attack_ms": patch.attack_ms,
-        "decay_ms": patch.decay_ms,
-        "sustain": patch.sustain_level,
-        "release_ms": patch.release_ms,
-        "cutoff_hz": patch.cutoff_hz,
-    }
+    return dict(STOCK_PLUGINS.get("instrument", preset).defaults)
 
 
 def render_native_synth(
@@ -126,8 +98,10 @@ def _render_melodic(
     spec: NativeSynthSpec,
     sample_rate: int,
 ) -> None:
-    default = _PATCHES[spec.preset]
-    patch = _Patch(
+    default = STOCK_PLUGINS.get("instrument", spec.preset).synth_patch
+    if default is None:
+        raise ValueError(f"Instrument {spec.preset!r} has no synth patch")
+    patch = SynthPatch(
         waveform=spec.waveform or default.waveform,
         attack_ms=default.attack_ms if spec.attack_ms is None else spec.attack_ms,
         decay_ms=default.decay_ms if spec.decay_ms is None else spec.decay_ms,

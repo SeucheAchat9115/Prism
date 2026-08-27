@@ -11,13 +11,10 @@ from pathlib import Path
 
 from prism.errors import ProjectError, RenderError
 from prism.music import note_to_midi
+from prism.plugins import STOCK_PLUGINS
 from prism.project.builder import DrumClip, MidiClip, Project, Track
 
 TICKS_PER_BEAT = 480
-_PROGRAMS = {"bass": 38, "lead": 81, "pad": 89}
-_DRUM_NOTES = {"kick": 36, "snare": 38, "hihat": 42}
-
-
 @dataclass(frozen=True, slots=True)
 class MidiResult:
     """Facts about a completed standard MIDI file."""
@@ -101,7 +98,10 @@ def _music_track(project: Project, track: Track, channel: int, total_ticks: int)
     assert isinstance(clip, DrumClip | MidiClip)
     events: list[tuple[int, int, bytes]] = [(0, -3, _meta_text(0x03, track.name))]
     if isinstance(clip, MidiClip):
-        events.append((0, -2, bytes([0xC0 | channel, _PROGRAMS[clip.instrument]])))
+        program = STOCK_PLUGINS.get("instrument", clip.instrument).midi_program
+        if program is None:
+            raise ProjectError(f"Instrument {clip.instrument!r} has no MIDI program.")
+        events.append((0, -2, bytes([0xC0 | channel, program])))
     section_start = 0
     for section in project.sections:
         section_ticks = section.bars * project.beats_per_bar * TICKS_PER_BEAT
@@ -146,7 +146,10 @@ def _section_events(
                 continue
             step_ticks = max(1, boundaries[index + 1] - boundaries[index])
             if isinstance(clip, DrumClip):
-                notes: tuple[int, ...] = (_DRUM_NOTES[clip.preset],)
+                drum_note = STOCK_PLUGINS.get("instrument", clip.preset).drum_note
+                if drum_note is None:
+                    raise ProjectError(f"Percussion instrument {clip.preset!r} has no MIDI note.")
+                notes: tuple[int, ...] = (drum_note,)
                 velocity = 100
                 duration = min(120, step_ticks)
             else:
