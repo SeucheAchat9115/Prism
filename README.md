@@ -135,6 +135,11 @@ texture = song.track("Texture").audio(
     "sounds/texture.wav",
     bars=4,
     loop=True,
+    start_seconds=0.25,
+    end_seconds=8.25,
+    fade_in_ms=12,
+    fade_out_ms=40,
+    stretch_bars=4,
 )
 ```
 

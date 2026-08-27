@@ -7,7 +7,7 @@ import math
 import random
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import TYPE_CHECKING, Literal, Self, Sequence
+from typing import TYPE_CHECKING, Literal, Self, Sequence, TypedDict
 
 from prism.errors import ProjectError
 from prism.music import (
@@ -46,6 +46,14 @@ class SampleClip:
     pattern: tuple[str, ...]
     bars: int
     gain_db: float
+    start_seconds: float = 0.0
+    end_seconds: float | None = None
+    fade_in_ms: float = 0.0
+    fade_out_ms: float = 0.0
+    reverse: bool = False
+    playback_rate: float = 1.0
+    transpose_semitones: int = 0
+    stretch_bars: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +62,25 @@ class AudioClip:
     bars: int
     loop: bool
     gain_db: float
+    start_seconds: float = 0.0
+    end_seconds: float | None = None
+    fade_in_ms: float = 0.0
+    fade_out_ms: float = 0.0
+    reverse: bool = False
+    playback_rate: float = 1.0
+    transpose_semitones: int = 0
+    stretch_bars: float | None = None
+
+
+class _AudioEditing(TypedDict):
+    start_seconds: float
+    end_seconds: float | None
+    fade_in_ms: float
+    fade_out_ms: float
+    reverse: bool
+    playback_rate: float
+    transpose_semitones: int
+    stretch_bars: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,6 +225,14 @@ class Track:
         section: str | None = None,
         start_bar: float = 0.0,
         repeat: bool = True,
+        start_seconds: float = 0.0,
+        end_seconds: float | None = None,
+        fade_in_ms: float = 0.0,
+        fade_out_ms: float = 0.0,
+        reverse: bool = False,
+        playback_rate: float = 1.0,
+        transpose_semitones: int = 0,
+        stretch_bars: float | None = None,
     ) -> Self:
         """Add a placed project-local sample pattern to this track."""
 
@@ -207,6 +242,16 @@ class Track:
                 pattern=rhythm_steps(pattern),
                 bars=_bars(bars, f"Sample track {self.name!r}"),
                 gain_db=validate_gain(gain_db, label=f"Sample track {self.name!r} clip gain"),
+                **_audio_editing(
+                    start_seconds=start_seconds,
+                    end_seconds=end_seconds,
+                    fade_in_ms=fade_in_ms,
+                    fade_out_ms=fade_out_ms,
+                    reverse=reverse,
+                    playback_rate=playback_rate,
+                    transpose_semitones=transpose_semitones,
+                    stretch_bars=stretch_bars,
+                ),
             ),
             section=section,
             start_bar=start_bar,
@@ -234,6 +279,14 @@ class Track:
         section: str | None = None,
         start_bar: float = 0.0,
         repeat: bool = True,
+        start_seconds: float = 0.0,
+        end_seconds: float | None = None,
+        fade_in_ms: float = 0.0,
+        fade_out_ms: float = 0.0,
+        reverse: bool = False,
+        playback_rate: float = 1.0,
+        transpose_semitones: int = 0,
+        stretch_bars: float | None = None,
     ) -> Self:
         """Add a placed project-local audio loop or one-shot to this track."""
 
@@ -243,6 +296,16 @@ class Track:
                 bars=_bars(bars, f"Audio track {self.name!r}"),
                 loop=bool(loop),
                 gain_db=validate_gain(gain_db, label=f"Audio track {self.name!r} clip gain"),
+                **_audio_editing(
+                    start_seconds=start_seconds,
+                    end_seconds=end_seconds,
+                    fade_in_ms=fade_in_ms,
+                    fade_out_ms=fade_out_ms,
+                    reverse=reverse,
+                    playback_rate=playback_rate,
+                    transpose_semitones=transpose_semitones,
+                    stretch_bars=stretch_bars,
+                ),
             ),
             section=section,
             start_bar=start_bar,
@@ -1292,6 +1355,50 @@ def _control_points(
 def _optional_range(value: float | None, low: float, high: float, label: str) -> None:
     if value is not None and (not math.isfinite(value) or not low <= value <= high):
         raise ProjectError(f"{label} must be between {low:g} and {high:g}.")
+
+
+def _audio_editing(
+    *,
+    start_seconds: float,
+    end_seconds: float | None,
+    fade_in_ms: float,
+    fade_out_ms: float,
+    reverse: bool,
+    playback_rate: float,
+    transpose_semitones: int,
+    stretch_bars: float | None,
+) -> _AudioEditing:
+    """Validate and normalize deterministic source-editing options."""
+
+    _finite_range(start_seconds, 0.0, math.inf, "Audio start_seconds")
+    if end_seconds is not None:
+        _finite_range(end_seconds, 0.0, math.inf, "Audio end_seconds")
+        if end_seconds <= start_seconds:
+            raise ProjectError("Audio end_seconds must be greater than start_seconds.")
+    _finite_range(fade_in_ms, 0.0, 60_000.0, "Audio fade_in_ms")
+    _finite_range(fade_out_ms, 0.0, 60_000.0, "Audio fade_out_ms")
+    _finite_range(playback_rate, 0.25, 4.0, "Audio playback_rate")
+    if not isinstance(transpose_semitones, int) or not -24 <= transpose_semitones <= 24:
+        raise ProjectError("Audio transpose_semitones must be an integer between -24 and 24.")
+    if stretch_bars is not None:
+        _finite_range(stretch_bars, 0.25, 256.0, "Audio stretch_bars")
+    result: _AudioEditing = {
+        "start_seconds": float(start_seconds),
+        "end_seconds": None if end_seconds is None else float(end_seconds),
+        "fade_in_ms": float(fade_in_ms),
+        "fade_out_ms": float(fade_out_ms),
+        "reverse": bool(reverse),
+        "playback_rate": float(playback_rate),
+        "transpose_semitones": transpose_semitones,
+        "stretch_bars": None if stretch_bars is None else float(stretch_bars),
+    }
+    return result
+
+
+def _finite_range(value: float, low: float, high: float, label: str) -> None:
+    if not math.isfinite(value) or value < low or value > high:
+        high_text = "any finite value" if math.isinf(high) else f"between {low:g} and {high:g}"
+        raise ProjectError(f"{label} must be {high_text}.")
 
 
 def _waveform(value: SynthWaveform | None) -> None:

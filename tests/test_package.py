@@ -64,6 +64,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "13-buses-sends-and-master-effects.md",
         "14-expressive-midi.md",
         "15-uniwave-synthesizer.md",
+        "16-edit-audio.md",
     )
     for name in expected:
         assert (root / "tutorial" / name).is_file()

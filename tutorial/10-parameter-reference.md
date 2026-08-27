@@ -58,6 +58,8 @@ they share one instrument, effect chain, gain, and pan.
 ```python
 part.sample(
     "sounds/kick.wav", "x--- x---", bars=1, gain_db=0,
+    start_seconds=0, end_seconds=None, fade_in_ms=0, fade_out_ms=0,
+    reverse=False, playback_rate=1, transpose_semitones=0, stretch_bars=None,
     section=None, start_bar=0, repeat=True,
 )
 ```
@@ -72,6 +74,8 @@ This triggers a complete source file on each hit. `x` or `*` means hit; `-` or
 ```python
 part.audio(
     "sounds/loop.wav", bars=2, loop=True, gain_db=0,
+    start_seconds=0, end_seconds=None, fade_in_ms=0, fade_out_ms=0,
+    reverse=False, playback_rate=1, transpose_semitones=0, stretch_bars=None,
     section=None, start_bar=0, repeat=True,
 )
 ```
@@ -79,6 +83,15 @@ part.audio(
 This uses the complete source as one part. `loop=True` repeats or trims it to
 the part length. `loop=False` plays once and pads with silence. The finished
 part can repeat to fill a longer section. `bars` accepts 1–256.
+
+Both methods prepare the source before placing it. `start_seconds` and
+`end_seconds` select a region (the end is exclusive); omit the end to use the
+rest of the file. `fade_in_ms` and `fade_out_ms` smooth the prepared source.
+`reverse=True` reverses it. `playback_rate` accepts 0.25–4.0, and
+`transpose_semitones` accepts integer values from -24 to +24. Transposition is
+sampler-style: it changes pitch and speed together. `stretch_bars`, when set,
+resizes the edited source to that many project bars before looping or padding.
+It accepts 0.25–256 bars.
 
 Samples and audio parts accept mono or stereo formats supported by libsndfile,
 including WAV and AIFF. Prism resamples to the project's sample rate. Source

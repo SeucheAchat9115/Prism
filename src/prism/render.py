@@ -143,7 +143,7 @@ def render_project(project: Project, output: str | Path) -> RenderResult:
 
 def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
     if isinstance(clip, SampleClip):
-        source = _read_audio(project.root / clip.path, project.sample_rate)
+        source = _prepare_audio(project, clip)
         frames = clip.bars * project.frames_per_bar
         output = np.zeros((frames, 2), dtype=np.float64)
         boundaries = np.rint(np.linspace(0, frames, len(clip.pattern) + 1)).astype(np.int64)
@@ -156,7 +156,7 @@ def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
             output[start : start + length] += source[:length]
         return output
     if isinstance(clip, AudioClip):
-        source = _read_audio(project.root / clip.path, project.sample_rate)
+        source = _prepare_audio(project, clip)
         source *= db_gain(clip.gain_db)
         frames = clip.bars * project.frames_per_bar
         return _loop_to(source, frames) if clip.loop else _fit_to(source, frames)
@@ -192,6 +192,65 @@ def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
         gain_db=clip.gain_db,
     )
     return _synth_audio(project, spec)
+
+
+def _prepare_audio(project: Project, clip: SampleClip | AudioClip) -> np.ndarray:
+    """Apply deterministic source selection and playback edits to an audio file."""
+
+    source = _read_audio(project.root / clip.path, project.sample_rate)
+    start = int(round(clip.start_seconds * project.sample_rate))
+    end = (
+        source.shape[0]
+        if clip.end_seconds is None
+        else int(round(clip.end_seconds * project.sample_rate))
+    )
+    if start >= source.shape[0]:
+        raise RenderError(
+            f"Audio start_seconds is outside source {clip.path!r} ({clip.start_seconds:g}s)."
+        )
+    source = source[start : min(end, source.shape[0])]
+    if source.shape[0] == 0:
+        raise RenderError(f"Audio source region is empty: {clip.path}")
+    if clip.reverse:
+        source = source[::-1].copy()
+    speed = clip.playback_rate * 2.0 ** (clip.transpose_semitones / 12.0)
+    if not math.isclose(speed, 1.0):
+        source = _time_resize(source, max(1, int(round(source.shape[0] / speed))))
+    if clip.stretch_bars is not None:
+        target_frames = max(1, int(round(clip.stretch_bars * project.frames_per_bar)))
+        source = _time_resize(source, target_frames)
+    if clip.fade_in_ms > 0.0:
+        fade_frames = min(
+            source.shape[0], int(round(clip.fade_in_ms * project.sample_rate / 1_000.0))
+        )
+        if fade_frames:
+            source[:fade_frames] *= np.linspace(
+                0.0, 1.0, fade_frames, endpoint=True
+            )[:, np.newaxis]
+    if clip.fade_out_ms > 0.0:
+        fade_frames = min(
+            source.shape[0], int(round(clip.fade_out_ms * project.sample_rate / 1_000.0))
+        )
+        if fade_frames:
+            source[-fade_frames:] *= np.linspace(
+                1.0, 0.0, fade_frames, endpoint=True
+            )[:, np.newaxis]
+    return np.asarray(source, dtype=np.float64)
+
+
+def _time_resize(source: np.ndarray, frames: int) -> np.ndarray:
+    """Resize audio with deterministic linear interpolation while preserving channels."""
+
+    if source.shape[0] == frames:
+        return np.asarray(source, dtype=np.float64)
+    old_positions = np.linspace(0.0, 1.0, source.shape[0])
+    new_positions = np.linspace(0.0, 1.0, frames)
+    return np.column_stack(
+        [
+            np.interp(new_positions, old_positions, source[:, channel])
+            for channel in range(source.shape[1])
+        ]
+    ).astype(np.float64)
 
 
 def _arrange_midi_track(

@@ -75,6 +75,47 @@ def test_project_local_sample_is_loaded_and_resampled(
     assert sample_file.is_file()
 
 
+def test_audio_editing_options_change_source_and_are_serialized(
+    project_script: Path, sample_file: Path
+) -> None:
+    def render(edited: bool, output: str) -> tuple[bytes, dict[str, object]]:
+        song = Project(
+            "Edited Audio",
+            prism_version="test",
+            sample_rate=8_000,
+            normalize=False,
+            _script=project_script,
+        )
+        track = song.track("Texture")
+        if edited:
+            track.audio(
+                "sounds/kick.wav",
+                bars=1,
+                loop=False,
+                start_seconds=0.02,
+                end_seconds=0.08,
+                fade_in_ms=8,
+                fade_out_ms=12,
+                reverse=True,
+                playback_rate=0.8,
+                transpose_semitones=7,
+                stretch_bars=1,
+            )
+        else:
+            track.audio("sounds/kick.wav", bars=1, loop=False)
+        song.section("Only", bars=1, tracks=[track])
+        part = song.configuration()["tracks"][0]["part"]  # type: ignore[index]
+        return song.render(output).path.read_bytes(), part  # type: ignore[return-value]
+
+    plain, _ = render(False, "renders/plain.wav")
+    edited, part = render(True, "renders/edited.wav")
+    assert plain != edited
+    assert part["start_seconds"] == 0.02
+    assert part["reverse"] is True
+    assert part["transpose_semitones"] == 7
+    assert part["stretch_bars"] == 1.0
+
+
 def test_audio_one_shot_pads_without_looping(project_script: Path, sample_file: Path) -> None:
     song = Project(
         "One Shot", prism_version="test", sample_rate=8_000, _script=project_script

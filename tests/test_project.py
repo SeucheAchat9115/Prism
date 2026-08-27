@@ -144,6 +144,25 @@ def test_source_paths_must_stay_in_the_project(project_script: Path, path: str) 
 
 
 @pytest.mark.parametrize(
+    "kwargs",
+    (
+        {"start_seconds": -1},
+        {"end_seconds": 0.1, "start_seconds": 0.2},
+        {"fade_in_ms": -1},
+        {"playback_rate": 0.1},
+        {"transpose_semitones": 25},
+        {"stretch_bars": 0.1},
+    ),
+)
+def test_audio_editing_options_are_bounded(
+    project_script: Path, kwargs: dict[str, object]
+) -> None:
+    song = Project("Edited Audio", prism_version="test", _script=project_script)
+    with pytest.raises(ProjectError, match="Audio"):
+        song.track("Texture").audio("sounds/texture.wav", **kwargs)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
     "path",
     ("../song.wav", "..\\song.wav", "/renders/song.wav", "C:/renders/song.wav"),
 )
