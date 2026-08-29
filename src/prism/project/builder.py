@@ -986,27 +986,55 @@ class Project:
             duration_seconds=bars * self.beats_per_bar * 60.0 / self.tempo,
         )
 
-    def render(self, output: str | Path = "renders/song.wav") -> RenderResult:
-        """Validate and deterministically render the arrangement to a WAV file."""
+    def render(
+        self,
+        output: str | Path = "renders/song.wav",
+        *,
+        bit_depth: Literal[16, 24, 32] = 16,
+        channels: Literal["mono", "stereo"] = "stereo",
+        sample_rate: int | None = None,
+        tail_seconds: float = 0.0,
+    ) -> RenderResult:
+        """Render the arrangement with selectable WAV quality and effect tail."""
 
         from prism.render import render_project
 
-        return render_project(self, output)
+        return render_project(
+            self,
+            output,
+            bit_depth=bit_depth,
+            channels=channels,
+            sample_rate=sample_rate,
+            tail_seconds=tail_seconds,
+        )
 
     def render_stems(
-        self, output: str | Path = "renders/stems"
+        self,
+        output: str | Path = "renders/stems",
+        *,
+        bit_depth: Literal[16, 24, 32] = 16,
+        channels: Literal["mono", "stereo"] = "stereo",
+        sample_rate: int | None = None,
+        tail_seconds: float = 0.0,
     ) -> StemRenderResult:
         """Render aligned track, bus, and master WAV files into one folder.
 
         Track stems contain each track's instrument or audio, effects, gain,
         and pan. Bus stems contain their routed tracks and sends followed by
         the bus effects, gain, and pan. The master is identical to a normal
-        :meth:`render` of the same project.
+        :meth:`render` of the same project when given the same export options.
         """
 
         from prism.render import render_stems
 
-        return render_stems(self, output)
+        return render_stems(
+            self,
+            output,
+            bit_depth=bit_depth,
+            channels=channels,
+            sample_rate=sample_rate,
+            tail_seconds=tail_seconds,
+        )
 
     def export_midi(self, output: str | Path = "renders/song.mid") -> MidiResult:
         """Write built-in drum and MIDI tracks as a standard MIDI file."""

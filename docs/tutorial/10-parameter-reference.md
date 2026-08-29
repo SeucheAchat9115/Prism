@@ -390,8 +390,20 @@ to fill the section.
 summary = song.validate()
 configuration = song.configuration()
 midi = song.export_midi("renders/song.mid")
-render = song.render("renders/song.wav")
-stems = song.render_stems("renders/stems")
+render = song.render(
+    "renders/song.wav",
+    bit_depth=24,
+    channels="stereo",
+    sample_rate=48_000,
+    tail_seconds=3,
+)
+stems = song.render_stems(
+    "renders/stems",
+    bit_depth=32,
+    channels="stereo",
+    sample_rate=48_000,
+    tail_seconds=3,
+)
 ```
 
 - `validate()` checks the complete song and returns name, track count, section
@@ -402,17 +414,29 @@ stems = song.render_stems("renders/stems")
 - `export_midi()` returns `path`, music-track count, ticks per beat, and SHA-256.
   It exports built-in drums and MIDI tracks, not guessed notes from audio.
 - `render()` returns `path`, sample rate, channels, frames, duration, SHA-256,
-  and peak dBFS.
+  peak dBFS, bit depth, and requested tail seconds.
 - `render_stems()` returns one aligned WAV per track and bus plus the final
   master. Its result contains `directory`, audio format and duration fields,
   ordered `tracks` and `buses`, `master`, and a convenient `files` collection.
   Each `StemFile` contains `name`, `kind`, `path`, SHA-256, and peak dBFS.
 
+Both rendering methods accept the same keyword options:
+
+| Option | Default | Accepted values |
+| --- | --- | --- |
+| `bit_depth` | `16` | `16` PCM, `24` PCM, or `32` floating point |
+| `channels` | `"stereo"` | `"mono"` or `"stereo"` |
+| `sample_rate` | Project rate | 8000–192000 Hz, or omit it |
+| `tail_seconds` | `0` | 0–60 seconds |
+
 WAV outputs must end in `.wav`; MIDI outputs must end in `.mid`. Outputs must
 stay inside the project and cannot replace `main.py` or a source sample. Writes
 are atomic. `render_stems()` accepts a relative folder instead of a filename.
-Rendering writes stereo PCM-16 WAV files. See [Level 17](17-render-stems.md)
-for the exact signal included in each stem.
+Rendering defaults to stereo PCM-16 WAV files; the quality options above can
+change that delivery format. See [Level 17](17-render-stems.md) for the exact
+signal included in each stem.
+See [Level 18](18-export-quality-and-tails.md) for choosing delivery settings
+and preserving instrument and effect tails.
 
 ## Errors are authoring feedback
 

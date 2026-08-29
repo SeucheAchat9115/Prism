@@ -94,6 +94,8 @@ def test_render_stems_exports_aligned_tracks_buses_and_exact_master(
     assert result.frames == song.frames_per_bar
     assert result.sample_rate == 8_000
     assert result.channels == 2
+    assert result.bit_depth == 16
+    assert result.tail_seconds == 0.0
     assert len(result.files) == 5
     for item in result.files:
         samples, rate = sf.read(item.path, dtype="float32", always_2d=True)
@@ -111,6 +113,124 @@ def test_render_stems_exports_aligned_tracks_buses_and_exact_master(
     assert rerendered.master.sha256 == result.master.sha256
     assert not stale.exists()
     assert note.read_text(encoding="utf-8") == "mine"
+
+
+@pytest.mark.parametrize(
+    ("bit_depth", "subtype"),
+    ((16, "PCM_16"), (24, "PCM_24"), (32, "FLOAT")),
+)
+def test_render_writes_selected_bit_depth_and_preserves_float_headroom(
+    project_script: Path, bit_depth: int, subtype: str
+) -> None:
+    song = Project(
+        "WAV Quality",
+        prism_version="test",
+        tempo=300,
+        sample_rate=8_000,
+        master_gain_db=12,
+        normalize=False,
+        _script=project_script,
+    )
+    song.track("Loud Kick", gain_db=12).drum("kick", "x---")
+    song.section("Hit", bars=1)
+
+    result = song.render(f"renders/{bit_depth}.wav", bit_depth=bit_depth)  # type: ignore[arg-type]
+    info = sf.info(result.path)
+    samples, _ = sf.read(result.path, dtype="float64", always_2d=True)
+
+    assert info.subtype == subtype
+    assert result.bit_depth == bit_depth
+    if bit_depth == 32:
+        assert np.max(np.abs(samples)) > 1.0
+    else:
+        assert np.max(np.abs(samples)) <= 1.0
+
+
+def test_render_can_downmix_resample_and_keep_an_effect_tail(
+    project_script: Path,
+) -> None:
+    song = Project(
+        "Tail Export",
+        prism_version="test",
+        tempo=240,
+        sample_rate=8_000,
+        normalize=False,
+        _script=project_script,
+    )
+    kick = song.track("Last Kick").drum("kick", "---x")
+    kick.effect("delay", time_beats=1, feedback=0.5, mix=1)
+    song.section("One Bar", bars=1)
+
+    result = song.render(
+        "renders/tail.wav",
+        bit_depth=24,
+        channels="mono",
+        sample_rate=16_000,
+        tail_seconds=0.5,
+    )
+    samples, rate = sf.read(result.path, dtype="float64", always_2d=True)
+
+    assert sf.info(result.path).subtype == "PCM_24"
+    assert rate == result.sample_rate == 16_000
+    assert samples.shape[1] == result.channels == 1
+    assert abs(result.frames - 24_000) <= 1
+    assert result.duration_seconds == pytest.approx(1.5, abs=1 / rate)
+    assert result.tail_seconds == 0.5
+    assert np.max(np.abs(samples[16_000:])) > 0.01
+
+
+def test_render_stem_quality_options_apply_to_every_file(project_script: Path) -> None:
+    song = Project(
+        "Stem Quality",
+        prism_version="test",
+        tempo=300,
+        sample_rate=8_000,
+        _script=project_script,
+    )
+    kick = song.track("Kick").drum("kick", "x---")
+    bus = song.bus("Drums", tracks=[kick])
+    bus.effect("reverb", mix=1)
+    song.section("Hit", bars=1)
+
+    stems = song.render_stems(
+        "renders/quality-stems",
+        bit_depth=32,
+        channels="mono",
+        sample_rate=16_000,
+        tail_seconds=0.25,
+    )
+    master = song.render(
+        "renders/quality-master.wav",
+        bit_depth=32,
+        channels="mono",
+        sample_rate=16_000,
+        tail_seconds=0.25,
+    )
+
+    assert stems.bit_depth == 32
+    assert stems.channels == 1
+    assert stems.sample_rate == 16_000
+    assert stems.tail_seconds == 0.25
+    assert stems.master.path.read_bytes() == master.path.read_bytes()
+    for item in stems.files:
+        info = sf.info(item.path)
+        assert info.subtype == "FLOAT"
+        assert info.channels == 1
+        assert info.samplerate == 16_000
+        assert info.frames == stems.frames
+
+
+def test_render_rejects_invalid_export_quality(project_script: Path) -> None:
+    song = _mini_song(project_script)
+
+    with pytest.raises(ProjectError, match="bit_depth"):
+        song.render(bit_depth=20)  # type: ignore[arg-type]
+    with pytest.raises(ProjectError, match="channels"):
+        song.render(channels="surround")  # type: ignore[arg-type]
+    with pytest.raises(ProjectError, match="sample_rate"):
+        song.render(sample_rate=1_000)
+    with pytest.raises(ProjectError, match="tail_seconds"):
+        song.render(tail_seconds=-1)
 
 
 def test_render_stems_rejects_unsafe_or_root_output(project_script: Path) -> None:
