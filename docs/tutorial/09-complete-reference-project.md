@@ -2,8 +2,9 @@
 
 Goal: use every producer-facing authoring feature in one readable project.
 
-Using your file manager, put three files you own into the project’s `sounds/` folder:
-`kick.wav`, `percussion-loop.wav`, and `vocal-shot.wav`.
+Using your file manager, put `kick.wav` and `percussion-loop.wav` into the
+project's `sounds/` folder. Create a `recordings/` folder beside it and put
+`vocal-shot.wav` there.
 
 Replace the project’s `main.py` with this complete reference:
 
@@ -23,9 +24,10 @@ song = Project(
     master_gain_db=-4,
     normalize=True,
 )
+song.samples.add_folder("recordings")
 
 sample_kick = song.track("Sample Kick", gain_db=-2).sample(
-    "sounds/kick.wav", "x--- x--- x--- x---", bars=1, gain_db=-1
+    "kick.wav", "x--- x--- x--- x---", bars=1, gain_db=-1
 )
 built_in_kick = song.track("Built-In Kick", gain_db=-5).drum(
     "kick", "x--- x--- x-x- x---"
@@ -34,10 +36,10 @@ built_in_kick.drum(
     "kick", "x--- x-x- x--- xxxx", section="Chorus", start_bar=0
 )
 loop = song.track("Percussion Loop", gain_db=-8, pan=-0.1).audio(
-    "sounds/percussion-loop.wav", bars=2, loop=True, gain_db=-2
+    "percussion-loop.wav", bars=2, loop=True, gain_db=-2
 )
 vocal = song.track("Vocal One-Shot", gain_db=-7, pan=0.25).audio(
-    "sounds/vocal-shot.wav", bars=2, loop=False
+    "vocal-shot.wav", bars=2, loop=False
 )
 snare = song.track("Snare", gain_db=-8).drum(
     "snare", "---- x--- ---- x---", seed=11
@@ -128,6 +130,7 @@ song.automation(
 )
 
 print(song.validate())
+print(song.samples.files())
 pprint(song.configuration())
 print(song.export_midi("renders/complete-song.mid"))
 print(song.render(
@@ -153,6 +156,8 @@ track and clip gain, panning, muting, explicit sections, an all-track section,
 validation, configuration inspection, MIDI export, WAV rendering, and result
 hashes. It also demonstrates an explicit stock instrument, an ordered
 multi-effect chain, effects on a sample track, and several automation tracks.
+Its audio sources use the default sample library, an additional registered
+folder, short filename lookup, and a printable file inventory.
 It also includes a section-specific clip, drum group bus, shared reverb send,
 bus automation, final master processing, individually positioned MIDI notes,
 pitch bend, modulation, swing, and deterministic humanization.

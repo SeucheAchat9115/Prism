@@ -56,6 +56,7 @@ inside its project folder and generated audio goes into `renders/`.
 ## What you can build
 
 - Generated drums, layered Uniwave synthesizer sounds, and sample-based tracks
+- Searchable project sample folders with short-name lookup and duplicate protection
 - Exact MIDI notes, chords, velocity, pitch bend, modulation, swing, and humanization
 - Reusable clips, variations, fills, and named song sections
 - Edited samples with cropping, fades, reversing, playback rate, pitch, and stretching
