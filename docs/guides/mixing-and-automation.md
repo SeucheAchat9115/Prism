@@ -1,0 +1,57 @@
+# Mixing, routing, and automation
+
+## Track processing
+
+Track gain and pan are mixer controls. Effects process audio in authoring order:
+
+```python
+lead = song.track("Lead", gain_db=-7, pan=0.15).midi(
+    "C4 Eb4 G4 Bb4",
+    instrument=Uniwave.lead(),
+)
+filter_fx = lead.effect("filter", name="Lead Filter", cutoff_hz=5200)
+lead.effect("delay", delay_beats=0.5, feedback=0.3, mix=0.2)
+```
+
+## Group buses and sends
+
+A bus can be the main output for several tracks or a parallel return receiving
+post-fader sends:
+
+```python
+drums = song.bus("Drums", tracks=[kick, snare, hat], gain_db=-1)
+drums.effect("compressor", threshold_db=-16, ratio=3, attack_ms=10, release_ms=120)
+
+reverb = song.bus("Reverb Return", gain_db=-8)
+reverb.effect("reverb", room_size=0.7, damping=0.45, mix=1.0)
+lead.send(reverb, gain_db=-12)
+```
+
+Master effects process the complete mix after tracks, buses, and returns:
+
+```python
+song.master_effect("compressor", threshold_db=-10, ratio=2)
+```
+
+## Automate plugin settings
+
+Keep the plugin returned by `effect()` or access an instrument through
+`track.instrument_plugin`, then target one numeric parameter:
+
+```python
+song.automation(
+    "Open Lead Filter",
+    target=filter_fx,
+    parameter="cutoff_hz",
+    points=[(0, 700), (4, 2400), (8, 9000)],
+    curve="linear",
+)
+```
+
+Point positions are absolute song bars. A `linear` curve moves continuously;
+`hold` keeps the previous value until the next point. Prism validates each
+value against the plugin's registered parameter range.
+
+See [Plugins and automation](../tutorial/11-plugins-and-automation.md) and
+[Buses, sends, and master effects](../tutorial/13-buses-sends-and-master-effects.md)
+for complete projects.

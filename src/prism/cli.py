@@ -41,7 +41,7 @@ def main(arguments: list[str] | None = None) -> int:
         run_path = script.as_posix()
     print(f'Run it with: uv run "{run_path}"')
     if namespace.tutorial:
-        print("Tutorial guide: tutorial/README.md")
+        print("Tutorial guide: docs/tutorial/README.md")
     return 0
 
 

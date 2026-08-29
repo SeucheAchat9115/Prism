@@ -24,6 +24,10 @@ dev = [
     "pytest-cov>=6,<8",
     "ruff>=0.9,<1",
 ]
+docs = [
+    "mkdocs-material>=9.6,<10",
+    "mkdocstrings[python]>=0.30,<1",
+]
 
 [tool.hatch.build]
 exclude = [
@@ -35,7 +39,8 @@ exclude = [
     "/.venv",
     "/.wheel-*",
     "/dist",
-    "/tutorial/output",
+    "/docs/assets/audio",
+    "/site",
     "**/renders/**",
 ]
 
@@ -46,11 +51,11 @@ packages = ["src/prism"]
 include = [
     "/.github",
     "/docs",
-    "/tutorial",
     "/src",
     "/tests",
     "/.gitignore",
     "/README.md",
+    "/mkdocs.yml",
     "/pyproject.toml",
     "/uv.lock",
 ]

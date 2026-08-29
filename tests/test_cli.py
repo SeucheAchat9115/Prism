@@ -66,7 +66,7 @@ def test_tutorial_option_creates_a_timestamped_starting_project(
     assert len(matches) == 1
     source = (matches[0] / "main.py").read_text(encoding="utf-8")
     assert '"Prism Tutorial"' in source
-    assert "Tutorial guide: tutorial/README.md" in capsys.readouterr().out
+    assert "Tutorial guide: docs/tutorial/README.md" in capsys.readouterr().out
 
 
 def test_create_requires_a_name_unless_tutorial_is_requested(

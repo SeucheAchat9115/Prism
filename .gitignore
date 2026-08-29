@@ -11,6 +11,7 @@ __pycache__/
 htmlcov/
 dist/
 build/
+site/
 *.egg-info/
 
 # Environments
@@ -29,6 +30,7 @@ env/
 /projects/
 /examples/
 .test-tmp-*/
+/docs/assets/audio/
 
 # OS files
 .DS_Store

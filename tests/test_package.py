@@ -46,7 +46,8 @@ def test_legacy_runtime_interfaces_and_examples_are_absent() -> None:
 
 def test_progressive_tutorial_is_the_only_learning_surface() -> None:
     root = Path(__file__).resolve().parents[1]
-    index = (root / "tutorial" / "README.md").read_text(encoding="utf-8")
+    tutorial = root / "docs" / "tutorial"
+    index = (tutorial / "README.md").read_text(encoding="utf-8")
     expected = (
         "00-create-a-project.md",
         "01-first-render.md",
@@ -67,7 +68,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "16-edit-audio.md",
     )
     for name in expected:
-        assert (root / "tutorial" / name).is_file()
+        assert (tutorial / name).is_file()
         assert f"]({name})" in index
 
 
@@ -91,7 +92,7 @@ def test_complete_tutorial_projects_are_readable_and_runnable(
     tmp_path: Path, tutorial_name: str
 ) -> None:
     root = Path(__file__).resolve().parents[1]
-    document = (root / "tutorial" / tutorial_name).read_text(encoding="utf-8")
+    document = (root / "docs" / "tutorial" / tutorial_name).read_text(encoding="utf-8")
     code = document.split("```python", maxsplit=1)[1].split("```", maxsplit=1)[0].strip()
     tree = ast.parse(code)
     imports = [node for node in tree.body if isinstance(node, ast.ImportFrom)]
@@ -113,7 +114,7 @@ def test_complete_tutorial_projects_are_readable_and_runnable(
 
 def test_complete_reference_mentions_every_authoring_feature() -> None:
     root = Path(__file__).resolve().parents[1]
-    document = (root / "tutorial" / "09-complete-reference-project.md").read_text(
+    document = (root / "docs" / "tutorial" / "09-complete-reference-project.md").read_text(
         encoding="utf-8"
     )
     expected = (
@@ -169,7 +170,10 @@ def test_complete_reference_mentions_every_authoring_feature() -> None:
 
 def test_user_documentation_never_requires_file_dunder_or_changing_folders() -> None:
     root = Path(__file__).resolve().parents[1]
-    documents = [root / "README.md", *sorted((root / "tutorial").glob("*.md"))]
+    documents = [
+        root / "README.md",
+        *sorted((root / "docs" / "tutorial").glob("*.md")),
+    ]
     text = "\n".join(path.read_text(encoding="utf-8") for path in documents)
 
     assert "__file__" not in text
@@ -191,7 +195,9 @@ def test_generated_projects_are_ignored() -> None:
 
 def test_stock_plugin_contributor_guide_is_complete_and_packaged() -> None:
     root = Path(__file__).resolve().parents[1]
-    guide = (root / "docs" / "adding-stock-plugins.md").read_text(encoding="utf-8")
+    guide = (root / "docs" / "plugins" / "adding-stock-plugins.md").read_text(
+        encoding="utf-8"
+    )
     packaging = (root / "pyproject.toml").read_text(encoding="utf-8")
 
     for topic in (
@@ -205,6 +211,23 @@ def test_stock_plugin_contributor_guide_is_complete_and_packaged() -> None:
     ):
         assert topic in guide
     assert '"/docs"' in packaging
-    assert "docs/adding-stock-plugins.md" in (root / "README.md").read_text(
+    assert "docs/plugins/adding-stock-plugins.md" in (root / "README.md").read_text(
         encoding="utf-8"
     )
+
+
+def test_documentation_site_covers_tutorials_reference_and_deployment() -> None:
+    root = Path(__file__).resolve().parents[1]
+    config = (root / "mkdocs.yml").read_text(encoding="utf-8")
+    readme = (root / "README.md").read_text(encoding="utf-8")
+    workflow = (root / ".github" / "workflows" / "docs.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert "https://seucheachat9115.github.io/Prism/" in readme
+    assert "tutorial/README.md" in config
+    assert "reference/project.md" in config
+    assert "plugins/adding-stock-plugins.md" in config
+    assert "mkdocstrings:" in config
+    assert "mkdocs build --strict" in workflow
+    assert "actions/deploy-pages@v4" in workflow

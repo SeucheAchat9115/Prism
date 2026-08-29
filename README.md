@@ -5,6 +5,12 @@ to that file, and running it creates a WAV you can listen to and a MIDI file you
 can open in music software. A Prism project is an ordinary folder that you can
 copy, back up, or share.
 
+**[Read the complete Prism documentation](https://seucheachat9115.github.io/Prism/)**
+
+It includes installation help, the complete step-by-step tutorial, playable
+audio, musical guides, plugin development instructions, troubleshooting, and a
+Python reference generated from the package.
+
 ## Quick start
 
 Open a terminal in the Prism repository folder. Keep it there for every command;
@@ -273,7 +279,7 @@ Create a timestamped tutorial workspace directly from the CLI:
 uv run prism create --tutorial
 ```
 
-Then open the [step-by-step tutorial](tutorial/README.md). It covers samples,
+Then open the [step-by-step tutorial](docs/tutorial/README.md). It covers samples,
 audio loops, MIDI, arrangement, synthesis, mixing, reproducible renders, and
 every available setting using the folder and run command Prism printed.
 
@@ -282,7 +288,7 @@ every available setting using the folder and run command Prism printed.
 Most music producers can ignore this section.
 
 To extend Prism itself, follow
-[Adding a stock plugin](docs/adding-stock-plugins.md). It covers instruments,
+[Adding a stock plugin](docs/plugins/adding-stock-plugins.md). It covers instruments,
 effects, automation, MIDI mappings, deterministic DSP, tests, and documentation.
 
 ```text

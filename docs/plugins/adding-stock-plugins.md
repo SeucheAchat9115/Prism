@@ -242,9 +242,9 @@ file and make only the minimal generic engine hook change.
 
 For either plugin kind:
 
-1. add exact defaults and ranges to `tutorial/10-parameter-reference.md`;
+1. add exact defaults and ranges to `docs/tutorial/10-parameter-reference.md`;
 2. add a complete musical example to the appropriate tutorial level;
-3. update the functionality map in `tutorial/README.md`;
+3. update the functionality map in `docs/tutorial/README.md`;
 4. mention the new stock preset in `README.md` when it changes the basic
    producer workflow.
 
