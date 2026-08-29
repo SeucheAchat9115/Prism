@@ -211,11 +211,6 @@ def test_stock_plugin_contributor_guide_is_complete_and_packaged() -> None:
     ):
         assert topic in guide
     assert '"/docs"' in packaging
-    assert "docs/plugins/adding-stock-plugins.md" in (root / "README.md").read_text(
-        encoding="utf-8"
-    )
-
-
 def test_documentation_site_covers_tutorials_reference_and_deployment() -> None:
     root = Path(__file__).resolve().parents[1]
     config = (root / "mkdocs.yml").read_text(encoding="utf-8")

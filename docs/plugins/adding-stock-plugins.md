@@ -245,7 +245,7 @@ For either plugin kind:
 1. add exact defaults and ranges to `docs/tutorial/10-parameter-reference.md`;
 2. add a complete musical example to the appropriate tutorial level;
 3. update the functionality map in `docs/tutorial/README.md`;
-4. mention the new stock preset in `README.md` when it changes the basic
+4. mention the new stock preset on `docs/index.md` when it changes the basic
    producer workflow.
 
 Examples should remain complete `main.py` files that run from the repository
