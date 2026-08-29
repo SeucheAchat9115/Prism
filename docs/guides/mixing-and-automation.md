@@ -55,3 +55,24 @@ value against the plugin's registered parameter range.
 See [Plugins and automation](../tutorial/11-plugins-and-automation.md) and
 [Buses, sends, and master effects](../tutorial/13-buses-sends-and-master-effects.md)
 for complete projects.
+
+## Export mixer channels as stems
+
+When you want to continue in a DAW or share separate parts, add one line after
+building the song:
+
+```python
+print(song.render_stems("renders/stems"))
+```
+
+Prism writes aligned stereo WAVs for every track, every group/return bus, and
+the final master. Track files stop after the track controls; bus files include
+their received routes and bus processing; the master includes the full final
+chain. Individual stems keep their relative levels and are not normalized.
+
+Track and bus files can represent two stages of the same sound. For example,
+the Drum track files also feed the Drum Group file, so importing both stages
+and playing them together doubles that material. Choose the stage you want.
+
+Follow [Render stems](../tutorial/17-render-stems.md) for a complete project
+and a tour of the generated folders.

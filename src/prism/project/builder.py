@@ -37,7 +37,7 @@ from prism.synthesis.types import (
 
 if TYPE_CHECKING:
     from prism.midi import MidiResult
-    from prism.render import RenderResult
+    from prism.render import RenderResult, StemRenderResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -993,6 +993,21 @@ class Project:
 
         return render_project(self, output)
 
+    def render_stems(
+        self, output: str | Path = "renders/stems"
+    ) -> StemRenderResult:
+        """Render aligned track, bus, and master WAV files into one folder.
+
+        Track stems contain each track's instrument or audio, effects, gain,
+        and pan. Bus stems contain their routed tracks and sends followed by
+        the bus effects, gain, and pan. The master is identical to a normal
+        :meth:`render` of the same project.
+        """
+
+        from prism.render import render_stems
+
+        return render_stems(self, output)
+
     def export_midi(self, output: str | Path = "renders/song.mid") -> MidiResult:
         """Write built-in drum and MIDI tracks as a standard MIDI file."""
 
@@ -1110,6 +1125,21 @@ class Project:
             raise ProjectError("An output cannot overwrite the project script.")
         if resolved in self._sample_files():
             raise ProjectError("An output cannot overwrite a source sample.")
+        return resolved
+
+    def _output_directory(self, value: str | Path) -> Path:
+        path = Path(value)
+        if _unsafe_project_path(value):
+            raise ProjectError("Output folders must be relative to the project folder.")
+        resolved = (self.root / path).resolve(strict=False)
+        try:
+            resolved.relative_to(self.root)
+        except ValueError as error:
+            raise ProjectError("Output folders must stay inside the project folder.") from error
+        if resolved == self.root:
+            raise ProjectError("Choose an output folder inside the project folder.")
+        if resolved == self.script or resolved in self._sample_files():
+            raise ProjectError("A stem folder cannot replace a project file.")
         return resolved
 
     def _sample_files(self) -> set[Path]:

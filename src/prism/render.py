@@ -5,9 +5,11 @@ from __future__ import annotations
 import hashlib
 import math
 import os
+import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 import numpy as np
 import soundfile as sf
@@ -50,95 +52,203 @@ class RenderResult:
         return f"Rendered {self.duration_seconds:.2f}s to {self.path}"
 
 
+@dataclass(frozen=True, slots=True)
+class StemFile:
+    """One WAV file created by :meth:`prism.Project.render_stems`."""
+
+    name: str
+    kind: Literal["track", "bus", "master"]
+    path: Path
+    sha256: str
+    peak_dbfs: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class StemRenderResult:
+    """The aligned files and audio format returned by a stem render."""
+
+    directory: Path
+    sample_rate: int
+    channels: int
+    frames: int
+    duration_seconds: float
+    tracks: tuple[StemFile, ...]
+    buses: tuple[StemFile, ...]
+    master: StemFile
+
+    @property
+    def files(self) -> tuple[StemFile, ...]:
+        """Return every track, bus, and master file in render order."""
+
+        return (*self.tracks, *self.buses, self.master)
+
+    def __str__(self) -> str:
+        count = len(self.tracks) + len(self.buses) + 1
+        return f"Rendered {count} aligned stem files to {self.directory}"
+
+
+@dataclass(frozen=True, slots=True)
+class _RenderedProject:
+    frames: int
+    tracks: dict[str, np.ndarray]
+    buses: dict[str, np.ndarray]
+    master: np.ndarray
+    master_peak_dbfs: float | None
+
+
 def render_project(project: Project, output: str | Path) -> RenderResult:
     """Render every named section in order to a WAV file."""
 
     try:
-        summary = project.validate()
         output_path = project._output_path(output, suffix=".wav")
-        total_frames = summary.bars * project.frames_per_bar
-        mix = np.zeros((total_frames, 2), dtype=np.float64)
-        track_outputs: dict[str, np.ndarray] = {}
-        for track in project.tracks:
-            if track.muted:
-                track_outputs[track.name] = np.zeros_like(mix)
-                continue
-            if isinstance(track.clip, MidiClip):
-                arranged = _arrange_midi_track(project, track, total_frames, summary.bars)
-            else:
-                clip_buffers = {
-                    id(placement): _clip_buffer(project, track, placement.clip)
-                    for placement in track.clips
-                }
-                arranged = np.zeros((total_frames, 2), dtype=np.float64)
-                cursor = 0
-                for section in project.sections:
-                    frames = section.bars * project.frames_per_bar
-                    active = (
-                        {item.name for item in project.tracks}
-                        if section.tracks is None
-                        else set(section.tracks)
-                    )
-                    if track.name in active:
-                        for placement in track.clips_for(section):
-                            offset = int(round(placement.start_bar * project.frames_per_bar))
-                            available = frames - offset
-                            if available <= 0:
-                                continue
-                            source = clip_buffers[id(placement)]
-                            placed = (
-                                _loop_to(source, available)
-                                if placement.repeat
-                                else _fit_to(source, available)
-                            )
-                            start = cursor + offset
-                            arranged[start : start + available] += placed
-                    cursor += frames
-            processed = process_track_plugins(project, track, arranged)
-            track_outputs[track.name] = _mix_channel(
-                processed, gain_db=track.gain_db, pan=track.pan
-            )
-
-        bus_inputs = {bus.name: np.zeros_like(mix) for bus in project.buses}
-        for track in project.tracks:
-            track_output = track_outputs[track.name]
-            if track.output_bus is None:
-                mix += track_output
-            else:
-                bus_inputs[track.output_bus.name] += track_output
-            for send in track.sends:
-                bus_inputs[send.bus] += track_output * db_gain(send.gain_db)
-
-        for bus in project.buses:
-            if bus.muted:
-                continue
-            processed = process_effect_chain(project, bus.effects, bus_inputs[bus.name])
-            mix += _mix_channel(processed, gain_db=bus.gain_db, pan=bus.pan)
-
-        mix = process_effect_chain(project, project.master_effects, mix)
-        mix *= db_gain(project.master_gain_db)
-        peak = float(np.max(np.abs(mix))) if mix.size else 0.0
-        target = 10.0 ** (-1.0 / 20.0)
-        if project.normalize and peak > target:
-            mix *= target / peak
-            peak = target
-        mix = np.clip(mix, -1.0, 1.0)
-        _write_wav(output_path, mix, project.sample_rate)
-        digest = _sha256(output_path)
-        result = RenderResult(
+        rendered = _render_buffers(project)
+        _write_wav(output_path, rendered.master, project.sample_rate)
+        return RenderResult(
             path=output_path,
             sample_rate=project.sample_rate,
             channels=2,
-            frames=total_frames,
-            duration_seconds=total_frames / project.sample_rate,
-            sha256=digest,
-            peak_dbfs=None if peak == 0.0 else 20.0 * math.log10(peak),
+            frames=rendered.frames,
+            duration_seconds=rendered.frames / project.sample_rate,
+            sha256=_sha256(output_path),
+            peak_dbfs=rendered.master_peak_dbfs,
         )
-        return result
     except (ProjectError, RenderError):
         raise
     except (OSError, RuntimeError, ValueError) as error:
         raise RenderError(f"Could not render {project.name!r}: {error}") from error
+
+
+def render_stems(project: Project, output: str | Path) -> StemRenderResult:
+    """Render aligned track, bus/return, and master WAV files."""
+
+    try:
+        directory = project._output_directory(output)
+        rendered = _render_buffers(project)
+        track_files = tuple(
+            _write_stem(
+                directory / "tracks" / _stem_filename(index, name),
+                rendered.tracks[name],
+                project.sample_rate,
+                name=name,
+                kind="track",
+            )
+            for index, name in enumerate(rendered.tracks, start=1)
+        )
+        bus_files = tuple(
+            _write_stem(
+                directory / "buses" / _stem_filename(index, name),
+                rendered.buses[name],
+                project.sample_rate,
+                name=name,
+                kind="bus",
+            )
+            for index, name in enumerate(rendered.buses, start=1)
+        )
+        master = _write_stem(
+            directory / "master.wav",
+            rendered.master,
+            project.sample_rate,
+            name="Master",
+            kind="master",
+        )
+        _remove_stale_stems(directory / "tracks", {item.path for item in track_files})
+        _remove_stale_stems(directory / "buses", {item.path for item in bus_files})
+        return StemRenderResult(
+            directory=directory,
+            sample_rate=project.sample_rate,
+            channels=2,
+            frames=rendered.frames,
+            duration_seconds=rendered.frames / project.sample_rate,
+            tracks=track_files,
+            buses=bus_files,
+            master=master,
+        )
+    except (ProjectError, RenderError):
+        raise
+    except (OSError, RuntimeError, ValueError) as error:
+        raise RenderError(f"Could not render stems for {project.name!r}: {error}") from error
+
+
+def _render_buffers(project: Project) -> _RenderedProject:
+    summary = project.validate()
+    total_frames = summary.bars * project.frames_per_bar
+    mix = np.zeros((total_frames, 2), dtype=np.float64)
+    track_outputs: dict[str, np.ndarray] = {}
+    for track in project.tracks:
+        if track.muted:
+            track_outputs[track.name] = np.zeros_like(mix)
+            continue
+        if isinstance(track.clip, MidiClip):
+            arranged = _arrange_midi_track(project, track, total_frames, summary.bars)
+        else:
+            clip_buffers = {
+                id(placement): _clip_buffer(project, track, placement.clip)
+                for placement in track.clips
+            }
+            arranged = np.zeros((total_frames, 2), dtype=np.float64)
+            cursor = 0
+            for section in project.sections:
+                frames = section.bars * project.frames_per_bar
+                active = (
+                    {item.name for item in project.tracks}
+                    if section.tracks is None
+                    else set(section.tracks)
+                )
+                if track.name in active:
+                    for placement in track.clips_for(section):
+                        offset = int(round(placement.start_bar * project.frames_per_bar))
+                        available = frames - offset
+                        if available <= 0:
+                            continue
+                        source = clip_buffers[id(placement)]
+                        placed = (
+                            _loop_to(source, available)
+                            if placement.repeat
+                            else _fit_to(source, available)
+                        )
+                        start = cursor + offset
+                        arranged[start : start + available] += placed
+                cursor += frames
+        processed = process_track_plugins(project, track, arranged)
+        track_outputs[track.name] = _mix_channel(
+            processed, gain_db=track.gain_db, pan=track.pan
+        )
+
+    bus_inputs = {bus.name: np.zeros_like(mix) for bus in project.buses}
+    for track in project.tracks:
+        track_output = track_outputs[track.name]
+        if track.output_bus is None:
+            mix += track_output
+        else:
+            bus_inputs[track.output_bus.name] += track_output
+        for send in track.sends:
+            bus_inputs[send.bus] += track_output * db_gain(send.gain_db)
+
+    bus_outputs: dict[str, np.ndarray] = {}
+    for bus in project.buses:
+        if bus.muted:
+            bus_outputs[bus.name] = np.zeros_like(mix)
+            continue
+        processed = process_effect_chain(project, bus.effects, bus_inputs[bus.name])
+        bus_output = _mix_channel(processed, gain_db=bus.gain_db, pan=bus.pan)
+        bus_outputs[bus.name] = bus_output
+        mix += bus_output
+
+    mix = process_effect_chain(project, project.master_effects, mix)
+    mix *= db_gain(project.master_gain_db)
+    peak = float(np.max(np.abs(mix))) if mix.size else 0.0
+    target = 10.0 ** (-1.0 / 20.0)
+    if project.normalize and peak > target:
+        mix *= target / peak
+        peak = target
+    mix = np.clip(mix, -1.0, 1.0)
+    return _RenderedProject(
+        frames=total_frames,
+        tracks=track_outputs,
+        buses=bus_outputs,
+        master=mix,
+        master_peak_dbfs=None if peak == 0.0 else 20.0 * math.log10(peak),
+    )
 
 
 def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
@@ -444,6 +554,43 @@ def _write_wav(path: Path, samples: np.ndarray, sample_rate: int) -> None:
             temporary.unlink(missing_ok=True)
 
 
+def _write_stem(
+    path: Path,
+    samples: np.ndarray,
+    sample_rate: int,
+    *,
+    name: str,
+    kind: Literal["track", "bus", "master"],
+) -> StemFile:
+    safe_samples = np.clip(samples, -1.0, 1.0)
+    _write_wav(path, safe_samples, sample_rate)
+    return StemFile(
+        name=name,
+        kind=kind,
+        path=path,
+        sha256=_sha256(path),
+        peak_dbfs=_peak_dbfs(safe_samples),
+    )
+
+
+def _stem_filename(index: int, name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.casefold()).strip("-") or "channel"
+    return f"{index:02d}-{slug}.wav"
+
+
+def _remove_stale_stems(directory: Path, expected: set[Path]) -> None:
+    if not directory.is_dir():
+        return
+    for path in directory.iterdir():
+        if path.is_file() and path.suffix.casefold() == ".wav" and path not in expected:
+            path.unlink()
+
+
+def _peak_dbfs(samples: np.ndarray) -> float | None:
+    peak = float(np.max(np.abs(samples))) if samples.size else 0.0
+    return None if peak == 0.0 else 20.0 * math.log10(peak)
+
+
 def _sha256(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as stream:
@@ -452,4 +599,4 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-__all__ = ["RenderResult"]
+__all__ = ["RenderResult", "StemFile", "StemRenderResult"]

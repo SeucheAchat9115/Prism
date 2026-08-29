@@ -60,7 +60,7 @@ inside its project folder and generated audio goes into `renders/`.
 - Reusable clips, variations, fills, and named song sections
 - Edited samples with cropping, fades, reversing, playback rate, pitch, and stretching
 - Ordered effects, buses, sends, master processing, and parameter automation
-- WAV masters and standard MIDI files with deterministic result hashes
+- WAV masters, aligned track/bus stems, and standard MIDI files with deterministic hashes
 
 The [tutorial learning path](tutorial/README.md) teaches these features from a
 first four-beat loop through a complete arranged and mixed project. The

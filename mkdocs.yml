@@ -101,6 +101,7 @@ nav:
       - "14 · Expressive MIDI": tutorial/14-expressive-midi.md
       - "15 · Design sounds with Uniwave": tutorial/15-uniwave-synthesizer.md
       - "16 · Edit audio": tutorial/16-edit-audio.md
+      - "17 · Render stems": tutorial/17-render-stems.md
   - Guides:
       - How Prism thinks: guides/concepts.md
       - MIDI and expression: guides/midi-and-expression.md

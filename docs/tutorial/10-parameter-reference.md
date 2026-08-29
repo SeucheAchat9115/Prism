@@ -391,6 +391,7 @@ summary = song.validate()
 configuration = song.configuration()
 midi = song.export_midi("renders/song.mid")
 render = song.render("renders/song.wav")
+stems = song.render_stems("renders/stems")
 ```
 
 - `validate()` checks the complete song and returns name, track count, section
@@ -402,10 +403,16 @@ render = song.render("renders/song.wav")
   It exports built-in drums and MIDI tracks, not guessed notes from audio.
 - `render()` returns `path`, sample rate, channels, frames, duration, SHA-256,
   and peak dBFS.
+- `render_stems()` returns one aligned WAV per track and bus plus the final
+  master. Its result contains `directory`, audio format and duration fields,
+  ordered `tracks` and `buses`, `master`, and a convenient `files` collection.
+  Each `StemFile` contains `name`, `kind`, `path`, SHA-256, and peak dBFS.
 
 WAV outputs must end in `.wav`; MIDI outputs must end in `.mid`. Outputs must
 stay inside the project and cannot replace `main.py` or a source sample. Writes
-are atomic. Rendering writes a stereo PCM-16 WAV.
+are atomic. `render_stems()` accepts a relative folder instead of a filename.
+Rendering writes stereo PCM-16 WAV files. See [Level 17](17-render-stems.md)
+for the exact signal included in each stem.
 
 ## Errors are authoring feedback
 
