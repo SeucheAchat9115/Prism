@@ -102,11 +102,13 @@ nav:
       - "15 · Design sounds with Uniwave": tutorial/15-uniwave-synthesizer.md
       - "16 · Edit audio": tutorial/16-edit-audio.md
       - "17 · Render stems": tutorial/17-render-stems.md
+      - "18 · Export quality and effect tails": tutorial/18-export-quality-and-tails.md
   - Guides:
       - How Prism thinks: guides/concepts.md
       - MIDI and expression: guides/midi-and-expression.md
       - Samples and audio: guides/samples-and-audio.md
       - Mixing and automation: guides/mixing-and-automation.md
+      - Rendering and export: guides/rendering-and-export.md
       - Troubleshooting: guides/troubleshooting.md
   - Plugin development:
       - Architecture: plugins/index.md

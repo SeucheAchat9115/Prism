@@ -130,8 +130,14 @@ song.automation(
 print(song.validate())
 pprint(song.configuration())
 print(song.export_midi("renders/complete-song.mid"))
-print(song.render("renders/complete-song.wav"))
-print(song.render_stems("renders/stems"))
+print(song.render(
+    "renders/complete-song.wav", bit_depth=24, channels="stereo",
+    sample_rate=48000, tail_seconds=3,
+))
+print(song.render_stems(
+    "renders/stems", bit_depth=32, channels="stereo",
+    sample_rate=48000, tail_seconds=3,
+))
 ```
 
 Run, inspect, and listen:
@@ -151,6 +157,8 @@ It also includes a section-specific clip, drum group bus, shared reverb send,
 bus automation, final master processing, individually positioned MIDI notes,
 pitch bend, modulation, swing, and deterministic humanization.
 The final call also exports aligned track, bus/return, and master stems.
+Both WAV exports choose their delivery quality and retain three seconds for
+synthesizer releases, delays, and reverbs to finish.
 
 All input and output paths are relative to `main.py`. Prism rejects absolute
 paths, `..` traversal, missing sources, duplicate names, empty tracks, unknown
