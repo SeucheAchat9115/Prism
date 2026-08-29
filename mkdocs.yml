@@ -38,6 +38,9 @@ theme:
         icon: material/brightness-4
         name: Use light mode
 
+extra_css:
+  - stylesheets/extra.css
+
 plugins:
   - search
   - mkdocstrings:
