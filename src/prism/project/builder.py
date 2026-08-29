@@ -27,6 +27,7 @@ from prism.plugins import (
     automation_points,
     effect_plugin,
     instrument_plugin,
+    vst3_plugin,
 )
 from prism.sample_library import SampleLibrary
 from prism.synthesis.engine import native_instrument_settings
@@ -35,6 +36,7 @@ from prism.synthesis.types import (
     SynthWaveform,
     Uniwave,
 )
+from prism.vst import VST3, VSTRegistry
 
 if TYPE_CHECKING:
     from prism.midi import MidiResult
@@ -371,7 +373,7 @@ class Track:
         self,
         notes: str | Sequence[str] | Sequence[Note],
         *,
-        instrument: str | Uniwave = "uniwave",
+        instrument: str | Uniwave | VST3 = "uniwave",
         bars: int = 1,
         velocity: int = 100,
         waveform: SynthWaveform | None = None,
@@ -394,7 +396,7 @@ class Track:
     ) -> Self:
         """Add a placed MIDI-note clip rendered by this track's instrument."""
 
-        preset, uniwave = _resolve_instrument(
+        preset, uniwave, external = _resolve_instrument(
             instrument,
             waveform=waveform,
             attack_ms=attack_ms,
@@ -403,9 +405,10 @@ class Track:
             release_ms=release_ms,
             cutoff_hz=cutoff_hz,
         )
-        definition = STOCK_PLUGINS.get("instrument", preset)
-        if not definition.melodic:
-            raise ProjectError("MIDI instruments must be melodic stock instruments.")
+        if external is None:
+            definition = STOCK_PLUGINS.get("instrument", preset)
+            if not definition.melodic:
+                raise ProjectError("MIDI instruments must be melodic stock instruments.")
         _waveform(waveform)
         if not 1 <= velocity <= 127:
             raise ProjectError("MIDI velocity must be between 1 and 127.")
@@ -472,12 +475,12 @@ class Track:
             repeat=repeat,
         )
         if self._instrument is None:
-            self._set_melodic_instrument(preset, name=None)
+            self._set_melodic_instrument(external or preset, name=None)
         return self
 
     def instrument(
         self,
-        preset: str | Uniwave,
+        preset: str | Uniwave | VST3,
         *,
         name: str | None = None,
         waveform: SynthWaveform | None = None,
@@ -493,7 +496,7 @@ class Track:
         clip = self.clip
         if not isinstance(clip, MidiClip):
             raise ProjectError("instrument() follows midi() on the same track.")
-        preset_name, uniwave = _resolve_instrument(
+        preset_name, uniwave, external = _resolve_instrument(
             preset,
             waveform=waveform,
             attack_ms=attack_ms,
@@ -502,9 +505,10 @@ class Track:
             release_ms=release_ms,
             cutoff_hz=cutoff_hz,
         )
-        definition = STOCK_PLUGINS.get("instrument", preset_name)
-        if not definition.melodic:
-            raise ProjectError("MIDI instruments must be melodic stock instruments.")
+        if external is None:
+            definition = STOCK_PLUGINS.get("instrument", preset_name)
+            if not definition.melodic:
+                raise ProjectError("MIDI instruments must be melodic stock instruments.")
         _waveform(waveform)
         _optional_range(attack_ms, 0.0, 5000.0, "Attack")
         _optional_range(decay_ms, 0.0, 5000.0, "Decay")
@@ -533,16 +537,16 @@ class Track:
             for placement in self._clips
             if isinstance(placement.clip, MidiClip)
         ]
-        return self._set_melodic_instrument(preset_name, name=name)
+        return self._set_melodic_instrument(external or preset_name, name=name)
 
     def effect(
         self,
-        preset: EffectPreset,
+        preset: EffectPreset | VST3,
         *,
         name: str | None = None,
         **settings: float,
     ) -> Plugin:
-        """Append one stock effect after the instrument on this track."""
+        """Append one stock or registered VST3 effect after the instrument."""
 
         if not self._clips:
             raise ProjectError("Add MIDI, a drum, a sample, or audio before adding effects.")
@@ -581,12 +585,20 @@ class Track:
 
     def _set_melodic_instrument(
         self,
-        preset: str,
+        preset: str | VST3,
         *,
         name: str | None,
     ) -> Plugin:
         clip = self.clip
         assert isinstance(clip, MidiClip)
+        if isinstance(preset, VST3):
+            self._instrument = vst3_plugin(
+                preset,
+                name=f"{self.name} Instrument" if name is None else _name(name, "Plugin"),
+                track=self.name,
+                kind="instrument",
+            )
+            return self._instrument
         settings: dict[str, object] = {}
         if clip.uniwave is not None:
             from prism.stock_plugins.uniwave import settings as uniwave_settings
@@ -719,12 +731,12 @@ class Bus:
 
     def effect(
         self,
-        preset: EffectPreset,
+        preset: EffectPreset | VST3,
         *,
         name: str | None = None,
         **settings: float,
     ) -> Plugin:
-        """Append a stock effect to this bus in processing order."""
+        """Append a stock or registered VST3 effect to this bus."""
 
         plugin = _chain_effect(
             self.effects,
@@ -760,6 +772,7 @@ class Project:
         self.script = _project_script(_script)
         self.root = self.script.parent
         self.samples = SampleLibrary(self.root)
+        self.vsts = VSTRegistry(self.root)
         self.name = _name(name, "Project")
         self.prism_version = _version(prism_version)
         if not math.isfinite(tempo) or not 20.0 <= tempo <= 300.0:
@@ -826,12 +839,12 @@ class Project:
 
     def master_effect(
         self,
-        preset: EffectPreset,
+        preset: EffectPreset | VST3,
         *,
         name: str | None = None,
         **settings: float,
     ) -> Plugin:
-        """Append a stock effect to the final master channel."""
+        """Append a stock or registered VST3 effect to the final master channel."""
 
         plugin = _chain_effect(
             self.master_effects,
@@ -969,6 +982,19 @@ class Project:
                 raise ProjectError(
                     f"Sample file is missing: {relative}. Put it inside the project folder."
                 )
+        verified_aliases: set[str] = set()
+        for plugin in self._external_plugins():
+            assert plugin.vst3 is not None
+            if plugin.vst3.alias not in verified_aliases:
+                self.vsts.resolve(plugin.vst3.alias)
+                verified_aliases.add(plugin.vst3.alias)
+            for state_relative in (plugin.vst3.state, plugin.vst3.preset):
+                if state_relative is not None and not (
+                    self.root / state_relative
+                ).is_file():
+                    raise ProjectError(
+                        f"VST file is missing for {plugin.name!r}: {state_relative}."
+                    )
         bars = sum(section.bars for section in self.sections)
         for lane in self.automation_lanes:
             if not self._owns_plugin(lane.target):
@@ -1077,7 +1103,7 @@ class Project:
                 }
             )
         return {
-            "schema_version": 6,
+            "schema_version": 7,
             "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,
@@ -1087,6 +1113,17 @@ class Project:
             "master_gain_db": self.master_gain_db,
             "normalize": self.normalize,
             "sample_folders": self.samples.folders,
+            "vst3": [
+                {
+                    "alias": entry.alias,
+                    "platform": entry.platform,
+                    "sha256": entry.sha256,
+                }
+                for alias in dict.fromkeys(
+                    plugin.preset for plugin in self._external_plugins()
+                )
+                for _path, entry in (self.vsts.resolve(alias),)
+            ],
             "tracks": tracks,
             "buses": [
                 {
@@ -1127,6 +1164,25 @@ class Project:
         return track_plugin or bus_plugin or any(
             effect is plugin for effect in self.master_effects
         )
+
+    def _external_plugins(self) -> tuple[Plugin, ...]:
+        plugins = [
+            plugin
+            for track in self.tracks
+            for plugin in (
+                *((track.instrument_plugin,) if track.instrument_plugin is not None else ()),
+                *track.effects,
+            )
+            if plugin.vst3 is not None
+        ]
+        plugins.extend(
+            effect
+            for bus in self.buses
+            for effect in bus.effects
+            if effect.vst3 is not None
+        )
+        plugins.extend(effect for effect in self.master_effects if effect.vst3 is not None)
+        return tuple(plugins)
 
     def _source_name(self, value: str | Path) -> str:
         return self.samples.find(value)
@@ -1185,25 +1241,38 @@ def _clip_kind(clip: TrackClip) -> str:
 def _plugin_configuration(plugin: Plugin | None) -> dict[str, object] | None:
     if plugin is None:
         return None
-    return {
+    configuration: dict[str, object] = {
         "name": plugin.name,
         "track": plugin.track,
         "kind": plugin.kind,
         "preset": plugin.preset,
         "settings": dict(plugin.settings),
     }
+    if plugin.vst3 is not None:
+        configuration["format"] = "vst3"
+        configuration["external"] = {
+            "alias": plugin.vst3.alias,
+            "state": plugin.vst3.state,
+            "preset": plugin.vst3.preset,
+        }
+    else:
+        configuration["format"] = "stock"
+    return configuration
 
 
 def _chain_effect(
     chain: Sequence[Plugin],
-    preset: EffectPreset,
+    preset: EffectPreset | VST3,
     *,
     name: str | None,
     channel: str,
     settings: dict[str, float],
     reserved: Sequence[str] = (),
 ) -> Plugin:
-    base_name = preset.replace("_", " ").title() if name is None else _name(name, "Plugin")
+    preset_name = preset.alias if isinstance(preset, VST3) else preset
+    base_name = (
+        preset_name.replace("_", " ").title() if name is None else _name(name, "Plugin")
+    )
     plugin_name = base_name
     suffix = 2
     used = {item.name.casefold() for item in chain}
@@ -1211,12 +1280,11 @@ def _chain_effect(
     while plugin_name.casefold() in used:
         plugin_name = f"{base_name} {suffix}"
         suffix += 1
-    return effect_plugin(
-        preset,
-        name=plugin_name,
-        track=channel,
-        settings=settings,
-    )
+    if isinstance(preset, VST3):
+        if settings:
+            raise ProjectError("Put VST3 parameters inside VST3(parameters={...}).")
+        return vst3_plugin(preset, name=plugin_name, track=channel, kind="effect")
+    return effect_plugin(preset, name=plugin_name, track=channel, settings=settings)
 
 
 def _name(value: str, label: str) -> str:
@@ -1458,7 +1526,7 @@ def _waveform(value: SynthWaveform | None) -> None:
 
 
 def _resolve_instrument(
-    value: str | Uniwave,
+    value: str | Uniwave | VST3,
     *,
     waveform: SynthWaveform | None,
     attack_ms: float | None,
@@ -1466,16 +1534,20 @@ def _resolve_instrument(
     sustain: float | None,
     release_ms: float | None,
     cutoff_hz: float | None,
-) -> tuple[str, Uniwave | None]:
+) -> tuple[str, Uniwave | None, VST3 | None]:
     overrides = (waveform, attack_ms, decay_ms, sustain, release_ms, cutoff_hz)
+    if isinstance(value, VST3):
+        if any(item is not None for item in overrides):
+            raise ProjectError("Put VST3 settings inside VST3(parameters={...}).")
+        return value.alias, None, value
     if isinstance(value, Uniwave):
         if any(item is not None for item in overrides):
             raise ProjectError(
                 "Configure waveform, envelope, and cutoff inside the Uniwave object."
             )
-        return "uniwave", value
+        return "uniwave", value, None
     if value != "uniwave":
-        return value, None
+        return value, None, None
     sound = Uniwave()
     if waveform is not None:
         sound = replace(sound, waves=(replace(sound.waves[0], waveform=waveform),))
@@ -1486,7 +1558,7 @@ def _resolve_instrument(
         sustain=sound.sustain if sustain is None else sustain,
         release_ms=sound.release_ms if release_ms is None else release_ms,
         cutoff_hz=sound.cutoff_hz if cutoff_hz is None else cutoff_hz,
-    )
+    ), None
 
 
 def _unsafe_project_path(value: str | Path) -> bool:

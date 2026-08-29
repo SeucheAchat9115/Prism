@@ -78,8 +78,8 @@ is just a normal folder, so it remains easy to understand, copy, and back up.
 
     ---
 
-    Build layered sounds with the native Uniwave synthesizer or add extensible
-    stock instruments and effects.
+    Build layered sounds with the native Uniwave synthesizer, extensible stock
+    plugins, or explicitly registered VST3 instruments and effects.
 
 -   **Produce**
 
@@ -107,5 +107,7 @@ is just a normal folder, so it remains easy to understand, copy, and back up.
   particular part of the toolbox.
 - [Use the Python reference](reference/index.md) when you need an exact setting
   or method signature.
+- [Use external VST3 plugins](guides/external-vst3.md) for Serum, Surge XT,
+  Xfer OTT, and other registered instruments or effects.
 - [Develop a stock plugin](plugins/adding-stock-plugins.md) when you want to add
   a new native instrument or effect.

@@ -138,6 +138,18 @@ wheels = [
 ]
 
 [[package]]
+name = "dawdreamer"
+version = "0.9.0"
+source = { registry = "https://pypi.org/simple" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7e/95/93114482c9dbcab39d6e5b844bd6a96a919d5864e913c966abba0d67f0d5/dawdreamer-0.9.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:cd53384a505918f11182c81113bb782e4a34baa4d5f53c089fa3919fb1deb991", size = 39744246, upload-time = "2026-08-12T14:47:36.571Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/c9/03e9d4c5cdb338a95b0fbb1caa1305dacc9269e1c0ea2b3cccbd3b489d99/dawdreamer-0.9.0-cp312-cp312-macosx_11_0_x86_64.whl", hash = "sha256:01ce44210502201dd35f62dd5f9c356f9bec068ad81ef6d9cfebf8b318a50a86", size = 44397840, upload-time = "2026-08-12T14:47:39.397Z" },
+    { url = "https://files.pythonhosted.org/packages/ef/49/db042fdf577fa216d9b0004c80605286a356b807f6bb38ca3f5dd64c1b5c/dawdreamer-0.9.0-cp312-cp312-manylinux_2_34_aarch64.whl", hash = "sha256:c54166ce08ee37ed2abb5cab718e9e3375cf8d22d4980a52c71f4eb6e2604e84", size = 40638795, upload-time = "2026-08-12T14:47:41.796Z" },
+    { url = "https://files.pythonhosted.org/packages/68/49/962eb7044e97076dc931d143fd78ef1ebb7a866c1e9efe3cdd02d18476b1/dawdreamer-0.9.0-cp312-cp312-manylinux_2_34_x86_64.whl", hash = "sha256:9daf556b0f49b65d14f0504cc3a118c85f0c034eeb51b02e5a267bf42779c6f7", size = 40197583, upload-time = "2026-08-12T14:47:44.178Z" },
+    { url = "https://files.pythonhosted.org/packages/79/d6/439c6ed32f4f4886142ea1a5fc81fb18d0b7fae7acbfe6a9ca926ba30a34/dawdreamer-0.9.0-cp312-cp312-win_amd64.whl", hash = "sha256:0076ebe3de73d0888bc6e5cc08ddb95e71d738dc587afbc7df1bf542e945f5b9", size = 23089487, upload-time = "2026-08-12T14:47:46.441Z" },
+]
+
+[[package]]
 name = "ghp-import"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -483,9 +495,13 @@ docs = [
     { name = "mkdocs-material" },
     { name = "mkdocstrings", extra = ["python"] },
 ]
+vst3 = [
+    { name = "dawdreamer" },
+]
 
 [package.metadata]
 requires-dist = [
+    { name = "dawdreamer", marker = "extra == 'vst3'", specifier = ">=0.9,<0.10" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.6,<10" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.30,<1" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.14,<2" },
@@ -496,7 +512,7 @@ requires-dist = [
     { name = "soundfile", specifier = ">=0.12,<1" },
     { name = "soxr", specifier = ">=0.5,<2" },
 ]
-provides-extras = ["dev", "docs"]
+provides-extras = ["dev", "docs", "vst3"]
 
 [[package]]
 name = "pycparser"

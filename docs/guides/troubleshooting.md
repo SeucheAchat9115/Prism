@@ -1,5 +1,29 @@
 # Troubleshooting
 
+## VST3 support is not installed
+
+Run `uv sync --extra vst3` from the Prism repository root, then rerun the
+project.
+
+## A registered VST3 has changed
+
+Prism's checksum no longer matches the file. If you intentionally updated the
+plugin, register the new binary with `prism plugins add ... --replace`. Do not
+replace the checksum until you know why it changed.
+
+## A VST parameter does not exist or is ambiguous
+
+Run `prism plugins inspect PROJECT ALIAS --search TEXT`. Copy the exact name,
+or the `#INDEX: Name` selector if names are duplicated. Plugin versions can
+expose different parameter lists.
+
+## A VST project renders differently elsewhere
+
+Confirm the other computer has the same plugin build and that its SHA-256
+matches `vst.json`. Third-party plugins can depend on their own content,
+licenses, CPU behavior, and private state. Keep relevant files in
+`plugin-states/` and use the same plugin version.
+
 ## `uv` is not recognized
 
 Close and reopen the terminal after installing uv. If it still fails, repeat

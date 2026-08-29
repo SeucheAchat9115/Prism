@@ -9,9 +9,11 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-from prism import PrismError
+from prism import PrismError, Project
 from prism.sample_library import project_audio_files
 from prism.version import __version__
+from prism.vst import VST3, VSTRegistry
+from prism.vst_host import edit_vst3, inspect_vst3
 
 
 def main(arguments: list[str] | None = None) -> int:
@@ -22,11 +24,13 @@ def main(arguments: list[str] | None = None) -> int:
     if namespace.command is None:
         parser.print_help()
         return 0
-    if namespace.command == "samples":
-        try:
+    try:
+        if namespace.command == "samples":
             return _print_samples(namespace.project)
-        except (OSError, PrismError) as error:
-            parser.error(str(error))
+        if namespace.command == "plugins":
+            return _plugins_command(namespace)
+    except (OSError, PrismError) as error:
+        parser.error(str(error))
     assert namespace.command == "create"
     if namespace.folder is None and not namespace.tutorial:
         parser.error("Give the project a name or use --tutorial.")
@@ -84,6 +88,8 @@ def create_project(
     try:
         (target / "sounds").mkdir()
         (target / "renders").mkdir()
+        (target / "plugin-states").mkdir()
+        VSTRegistry(target).initialize()
         (target / "main.py").write_text(
             _starter_script(project_name, tempo),
             encoding="utf-8",
@@ -122,7 +128,106 @@ def _parser() -> argparse.ArgumentParser:
         "project",
         help="project folder or its main.py file",
     )
+    plugins = subcommands.add_parser(
+        "plugins", help="register, inspect, and edit this project's VST3 plugins"
+    )
+    plugin_commands = plugins.add_subparsers(dest="plugin_command", required=True)
+    add = plugin_commands.add_parser("add", help="add a VST3 path to vst.json")
+    add.add_argument("project", help="project folder or main.py")
+    add.add_argument("alias", help="short name used in main.py, for example serum")
+    add.add_argument("path", help="path to a .vst3 file or bundle")
+    add.add_argument("--replace", action="store_true", help="replace this platform's entry")
+    listing = plugin_commands.add_parser("list", help="show registered VST3 paths")
+    listing.add_argument("project", help="project folder or main.py")
+    inspect_command = plugin_commands.add_parser(
+        "inspect", help="show parameter names and normalized values"
+    )
+    inspect_command.add_argument("project", help="project folder or main.py")
+    inspect_command.add_argument("alias", help="registered VST alias")
+    inspect_command.add_argument("--search", help="show parameter names containing this text")
+    inspect_command.add_argument("--parameter", help="show one exact parameter name or #index")
+    inspect_command.add_argument("--all", action="store_true", help="show every parameter")
+    inspect_command.add_argument(
+        "--python", action="store_true", dest="as_python", help="print copyable Python entries"
+    )
+    inspect_command.add_argument("--state", help="inspect after loading a project state file")
+    remove = plugin_commands.add_parser("remove", help="remove an alias from vst.json")
+    remove.add_argument("project", help="project folder or main.py")
+    remove.add_argument("alias", help="registered VST alias")
+    remove.add_argument(
+        "--all-platforms", action="store_true", help="remove Windows and Linux entries"
+    )
+    edit = plugin_commands.add_parser("edit", help="open the plugin UI and save its state")
+    edit.add_argument("project", help="project folder or main.py")
+    edit.add_argument("alias", help="registered VST alias")
+    edit.add_argument("--state", required=True, help="relative project state-file path")
     return parser
+
+
+def _plugins_command(namespace: argparse.Namespace) -> int:
+    root = _project_root(namespace.project)
+    registry = VSTRegistry(root)
+    if namespace.plugin_command == "add":
+        entry = registry.add(namespace.alias, namespace.path, replace=namespace.replace)
+        print(f"Registered {entry.alias} for {entry.platform}: {entry.path}")
+        print(f"SHA-256: {entry.sha256}")
+        return 0
+    if namespace.plugin_command == "list":
+        entries = registry.all_entries()
+        if not entries:
+            print(f"No VST3 plugins registered in {registry.path}.")
+            return 0
+        for entry in entries:
+            print(f"{entry.alias} [{entry.platform}] {entry.path}  sha256:{entry.sha256[:12]}")
+        return 0
+    if namespace.plugin_command == "remove":
+        registry.remove(namespace.alias, all_platforms=namespace.all_platforms)
+        print(f"Removed {namespace.alias} from {registry.path.name}.")
+        return 0
+    project = Project("VST3 tools", prism_version=__version__, _script=root / "main.py")
+    if namespace.plugin_command == "edit":
+        specification = VST3(namespace.alias, state=namespace.state)
+        path = edit_vst3(project, specification.alias, specification.state or namespace.state)
+        print(f"Saved plugin state: {path.relative_to(root).as_posix()}")
+        return 0
+    assert namespace.plugin_command == "inspect"
+    parameters = inspect_vst3(project, namespace.alias, state=namespace.state)
+    if namespace.parameter:
+        selector = namespace.parameter.casefold()
+        parameters = [
+            item
+            for item in parameters
+            if str(item.get("name", "")).casefold() == selector
+            or f"#{item.get('index')}" == selector.split(":", 1)[0]
+        ]
+    elif namespace.search:
+        search = namespace.search.casefold()
+        parameters = [
+            item for item in parameters if search in str(item.get("name", "")).casefold()
+        ]
+    elif not namespace.all:
+        parameters = parameters[:40]
+    if not parameters:
+        print("No matching parameters.")
+        return 0
+    for item in parameters:
+        selector = f"#{item['index']}: {item['name']}"
+        if namespace.as_python:
+            print(f"{json.dumps(selector)}: {float(str(item['value'])):.6g},")
+        else:
+            label = f" {item['label']}" if item.get("label") else ""
+            print(f"{selector} = {float(str(item['value'])):.6g}{label}")
+    if not namespace.all and not namespace.search and not namespace.parameter:
+        print("Showing the first 40 parameters. Add --all or --search TEXT.")
+    return 0
+
+
+def _project_root(value: str | Path) -> Path:
+    requested = Path(value).resolve(strict=False)
+    root = requested.parent if requested.name.casefold() == "main.py" else requested
+    if not root.is_dir() or not (root / "main.py").is_file():
+        raise PrismError("A Prism project must be a folder containing main.py.")
+    return root
 
 
 def _print_samples(value: str | Path) -> int:
@@ -195,11 +300,19 @@ print(song.render("renders/song.wav"))
 
 
 def _remove_empty_scaffold(target: Path) -> None:
-    for child in (target / "sounds", target / "renders"):
+    for child in (
+        target / "sounds",
+        target / "renders",
+        target / "plugin-states",
+    ):
         try:
             child.rmdir()
         except OSError:
             pass
+    try:
+        (target / "vst.json").unlink()
+    except OSError:
+        pass
     try:
         target.rmdir()
     except OSError:

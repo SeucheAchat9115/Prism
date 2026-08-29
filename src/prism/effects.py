@@ -31,6 +31,11 @@ def process_effect_chain(
 
     output = np.asarray(samples, dtype=np.float64).copy()
     for effect in effects:
+        if effect.vst3 is not None:
+            from prism.vst_host import process_vst3_effect
+
+            output = process_vst3_effect(project, effect, output)
+            continue
         parameters = {
             name: parameter_values(project, effect, name, output.shape[0])
             for name in effect.settings
@@ -57,6 +62,8 @@ def _instrument_automation(
     project: Project, instrument: Plugin, samples: np.ndarray
 ) -> np.ndarray:
     output = samples
+    if instrument.vst3 is not None:
+        return output
     if instrument.preset != "uniwave" and has_automation(project, instrument, "gain_db"):
         values = parameter_values(project, instrument, "gain_db", output.shape[0])
         base = _setting(instrument, "gain_db")
@@ -94,7 +101,11 @@ def parameter_values(
 
 
 def _setting(plugin: Plugin, name: str) -> float:
-    value = plugin.settings[name]
+    value = plugin.settings.get(name)
+    if value is None and plugin.vst3 is not None:
+        return 0.0
+    if value is None:
+        raise TypeError(f"Plugin parameter {name!r} has no base setting")
     if not isinstance(value, int | float):
         raise TypeError(f"Plugin parameter {name!r} is not numeric")
     return float(value)
