@@ -1,0 +1,38 @@
+.prism-hero {
+  margin: 0 auto 2.5rem;
+  max-width: 56rem;
+  text-align: center;
+}
+
+.prism-hero-logo {
+  border-radius: 0.8rem;
+  box-shadow: 0 0.8rem 2.2rem rgb(0 0 0 / 24%);
+  display: block;
+  margin: 0 auto 2rem;
+  width: 100%;
+}
+
+.prism-hero h1 {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  letter-spacing: -0.04em;
+  margin-bottom: 0.25rem;
+}
+
+.prism-hero > p:first-of-type {
+  font-size: 1.1rem;
+}
+
+.prism-hero .md-button {
+  margin: 0.35rem 0.2rem;
+}
+
+@media screen and (max-width: 44.9375em) {
+  .prism-hero {
+    margin-bottom: 1.75rem;
+  }
+
+  .prism-hero-logo {
+    border-radius: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+}
