@@ -28,6 +28,7 @@ from prism.plugins import (
     effect_plugin,
     instrument_plugin,
 )
+from prism.sample_library import SampleLibrary
 from prism.synthesis.engine import native_instrument_settings
 from prism.synthesis.types import (
     MAX_SYNTH_SECONDS,
@@ -758,6 +759,7 @@ class Project:
     ) -> None:
         self.script = _project_script(_script)
         self.root = self.script.parent
+        self.samples = SampleLibrary(self.root)
         self.name = _name(name, "Project")
         self.prism_version = _version(prism_version)
         if not math.isfinite(tempo) or not 20.0 <= tempo <= 300.0:
@@ -1075,7 +1077,7 @@ class Project:
                 }
             )
         return {
-            "schema_version": 5,
+            "schema_version": 6,
             "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,
@@ -1084,6 +1086,7 @@ class Project:
             "time_signature": [self.beats_per_bar, self.beat_unit],
             "master_gain_db": self.master_gain_db,
             "normalize": self.normalize,
+            "sample_folders": self.samples.folders,
             "tracks": tracks,
             "buses": [
                 {
@@ -1126,17 +1129,7 @@ class Project:
         )
 
     def _source_name(self, value: str | Path) -> str:
-        path = Path(value)
-        if _unsafe_project_path(value):
-            raise ProjectError(
-                f"Sample paths must be relative to the project folder, not {str(value)!r}."
-            )
-        candidate = (self.root / path).resolve(strict=False)
-        try:
-            relative = candidate.relative_to(self.root)
-        except ValueError as error:
-            raise ProjectError("Sample paths must stay inside the project folder.") from error
-        return relative.as_posix()
+        return self.samples.find(value)
 
     def _output_path(self, value: str | Path, *, suffix: str) -> Path:
         path = Path(value)

@@ -23,6 +23,7 @@ def test_public_package_is_small_and_script_first() -> None:
         "ProjectSummary",
         "RenderError",
         "RenderResult",
+        "SampleLibrary",
         "Section",
         "Send",
         "StemFile",
@@ -70,6 +71,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "16-edit-audio.md",
         "17-render-stems.md",
         "18-export-quality-and-tails.md",
+        "19-find-and-organize-samples.md",
     )
     for name in expected:
         assert (tutorial / name).is_file()
@@ -125,6 +127,8 @@ def test_complete_reference_mentions_every_authoring_feature() -> None:
     )
     expected = (
         ".sample(",
+        ".samples.add_folder(",
+        ".samples.files(",
         ".audio(",
         '"kick"',
         '"snare"',
@@ -176,6 +180,23 @@ def test_complete_reference_mentions_every_authoring_feature() -> None:
         "tail_seconds=",
     )
     for token in expected:
+        assert token in document
+
+
+def test_sample_library_tutorial_covers_discovery_and_safe_lookup() -> None:
+    root = Path(__file__).resolve().parents[1]
+    document = (
+        root / "docs" / "tutorial" / "19-find-and-organize-samples.md"
+    ).read_text(encoding="utf-8")
+
+    for token in (
+        "uv run prism samples",
+        'song.samples.add_folder("recordings")',
+        "song.samples.files()",
+        '"kick-heavy.wav"',
+        '"sounds/drums/kick-heavy.wav"',
+        "Did you mean",
+    ):
         assert token in document
 
 
@@ -233,6 +254,7 @@ def test_documentation_site_covers_tutorials_reference_and_deployment() -> None:
     assert "https://seucheachat9115.github.io/Prism/" in readme
     assert "tutorial/README.md" in config
     assert "reference/project.md" in config
+    assert "19 · Find and organize samples" in config
     assert "guides/rendering-and-export.md" in config
     assert "plugins/adding-stock-plugins.md" in config
     assert "mkdocstrings:" in config

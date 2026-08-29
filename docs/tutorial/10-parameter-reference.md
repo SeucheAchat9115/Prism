@@ -53,11 +53,35 @@ A muted track remains in the configuration and MIDI file structure but emits
 no arranged notes or audio. A track can hold several clips of the same kind so
 they share one instrument, effect chain, gain, and pan.
 
+## `song.samples`
+
+Every project searches `sounds/` and its subfolders for unique short
+filenames. Additional folders must exist inside the project:
+
+```python
+song.samples.add_folder("recordings")
+print(song.samples.folders)
+print(song.samples.files())
+print(song.samples.find("vocal.wav"))
+```
+
+- `folders` is the ordered tuple of registered relative folders.
+- `add_folder()` registers another folder and returns the same library.
+- `files()` returns every supported project-relative audio path in registered
+  folders.
+- `find()` returns the single matching path, suggests a close filename, or
+  reports every duplicate. An explicit path bypasses short-name lookup.
+
+From the repository root,
+`uv run prism samples "projects/your-project-folder"` lists project audio
+without executing `main.py`. WAV, AIFF, FLAC, and OGG extensions are listed;
+generated files below `renders/` are ignored.
+
 ## `sample(...)`
 
 ```python
 part.sample(
-    "sounds/kick.wav", "x--- x---", bars=1, gain_db=0,
+    "kick.wav", "x--- x---", bars=1, gain_db=0,
     start_seconds=0, end_seconds=None, fade_in_ms=0, fade_out_ms=0,
     reverse=False, playback_rate=1, transpose_semitones=0, stretch_bars=None,
     section=None, start_bar=0, repeat=True,
@@ -73,7 +97,7 @@ This triggers a complete source file on each hit. `x` or `*` means hit; `-` or
 
 ```python
 part.audio(
-    "sounds/loop.wav", bars=2, loop=True, gain_db=0,
+    "loop.wav", bars=2, loop=True, gain_db=0,
     start_seconds=0, end_seconds=None, fade_in_ms=0, fade_out_ms=0,
     reverse=False, playback_rate=1, transpose_semitones=0, stretch_bars=None,
     section=None, start_bar=0, repeat=True,
@@ -94,8 +118,11 @@ resizes the edited source to that many project bars before looping or padding.
 It accepts 0.25–256 bars.
 
 Samples and audio parts accept mono or stereo formats supported by libsndfile,
-including WAV and AIFF. Prism resamples to the project's sample rate. Source
-paths must be relative, cannot contain `..`, and must stay inside the project.
+including WAV, AIFF, FLAC, and OGG. Prism resamples to the project's sample
+rate. Source paths must be relative, cannot contain `..`, and must stay inside
+the project.
+The resolved configuration includes `sample_folders` and complete relative
+paths, so short-name convenience does not reduce reproducibility.
 
 ## `drum(...)`
 

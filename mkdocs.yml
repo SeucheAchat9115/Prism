@@ -103,6 +103,7 @@ nav:
       - "16 · Edit audio": tutorial/16-edit-audio.md
       - "17 · Render stems": tutorial/17-render-stems.md
       - "18 · Export quality and effect tails": tutorial/18-export-quality-and-tails.md
+      - "19 · Find and organize samples": tutorial/19-find-and-organize-samples.md
   - Guides:
       - How Prism thinks: guides/concepts.md
       - MIDI and expression: guides/midi-and-expression.md

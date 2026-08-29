@@ -13,9 +13,14 @@ Relative paths in `main.py` are resolved from that file's project folder even
 when the command is run from the repository root. For example:
 
 ```python
-song.track("Kick").sample("sounds/kick.wav", "x--- x--- x--- x---")
+song.track("Kick").sample("kick.wav", "x--- x--- x--- x---")
 song.render("renders/song.wav")
 ```
+
+Prism searches `sounds/` and its subfolders when a unique filename is used.
+Run `uv run prism samples "projects/your-project-folder"` from the repository
+root to list project audio and identify duplicate names. Files outside
+`sounds/` become searchable after registering their folder in `main.py`.
 
 Prism rejects absolute paths and paths that escape the project. Copying the
 folder therefore copies the script and every local sound it needs.

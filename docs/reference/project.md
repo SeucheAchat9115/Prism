@@ -34,6 +34,19 @@
         - effect
         - send
 
+## SampleLibrary
+
+Every project exposes this as `song.samples`. The `sounds/` folder is
+registered automatically.
+
+::: prism.SampleLibrary
+    options:
+      members:
+        - folders
+        - add_folder
+        - files
+        - find
+
 ## Bus
 
 ::: prism.Bus

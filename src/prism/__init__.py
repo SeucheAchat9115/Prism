@@ -6,6 +6,7 @@ from prism.music import Note
 from prism.plugins import AutomationLane, AutomationPoint, Plugin
 from prism.project import Bus, Project, ProjectSummary, Section, Send, Track
 from prism.render import RenderResult, StemFile, StemRenderResult
+from prism.sample_library import SampleLibrary
 from prism.synthesis.types import SynthWave, Uniwave
 from prism.version import __version__
 
@@ -22,6 +23,7 @@ __all__ = [
     "ProjectSummary",
     "RenderError",
     "RenderResult",
+    "SampleLibrary",
     "Section",
     "Send",
     "StemFile",

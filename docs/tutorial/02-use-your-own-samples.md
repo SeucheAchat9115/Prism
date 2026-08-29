@@ -28,7 +28,7 @@ song = Project(
 )
 
 kick = song.track("Kick", gain_db=-2).sample(
-    "sounds/kick.wav",
+    "kick.wav",
     "x--- x--- x-x- x---",
     bars=1,
 )
@@ -48,6 +48,9 @@ print(song.render("renders/song.wav"))
 The one-bar kick and hi-hat parts repeat for the eight-bar section. Clip gain
 belongs beside the sample or drum call; track gain and pan belong beside the
 track name.
+
+Prism searches `sounds/` and its subfolders automatically. Because
+`kick.wav` is unique, the track only needs its filename.
 
 ## 3. Render and listen
 
