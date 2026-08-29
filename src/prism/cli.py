@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from prism import PrismError
+from prism.sample_library import project_audio_files
 from prism.version import __version__
 
 
@@ -21,6 +22,12 @@ def main(arguments: list[str] | None = None) -> int:
     if namespace.command is None:
         parser.print_help()
         return 0
+    if namespace.command == "samples":
+        try:
+            return _print_samples(namespace.project)
+        except (OSError, PrismError) as error:
+            parser.error(str(error))
+    assert namespace.command == "create"
     if namespace.folder is None and not namespace.tutorial:
         parser.error("Give the project a name or use --tutorial.")
     folder = "tutorial" if namespace.folder is None else namespace.folder
@@ -107,7 +114,44 @@ def _parser() -> argparse.ArgumentParser:
         action="store_true",
         help="create a Prism Tutorial starting project",
     )
+    samples = subcommands.add_parser(
+        "samples",
+        help="list project audio files and duplicate filenames",
+    )
+    samples.add_argument(
+        "project",
+        help="project folder or its main.py file",
+    )
     return parser
+
+
+def _print_samples(value: str | Path) -> int:
+    requested = Path(value).resolve(strict=False)
+    root = requested.parent if requested.name.casefold() == "main.py" else requested
+    if not root.is_dir() or not (root / "main.py").is_file():
+        raise PrismError("A Prism project must be a folder containing main.py.")
+    files = project_audio_files(root)
+    if not files:
+        print(f"No audio files found in: {root}")
+        return 0
+
+    print(f"Audio files in {root}:")
+    relative_files = [path.relative_to(root).as_posix() for path in files]
+    for path in relative_files:
+        print(f"  {path}")
+
+    by_name: dict[str, list[str]] = {}
+    for path in relative_files:
+        by_name.setdefault(Path(path).name.casefold(), []).append(path)
+    duplicates = [paths for paths in by_name.values() if len(paths) > 1]
+    if duplicates:
+        print("Duplicate filenames need an explicit relative path:")
+        for paths in duplicates:
+            print(f"  {Path(paths[0]).name}: {', '.join(paths)}")
+    else:
+        print("Every filename is unique.")
+        print("Files under sounds can be used directly; register other folders in main.py.")
+    return 0
 
 
 def _project_name(value: str | None, folder_name: str) -> str:

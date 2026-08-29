@@ -43,6 +43,7 @@ in your normal music player. Keep the terminal in the repository root.
 | 16 | [Edit audio](16-edit-audio.md) | Source regions, fades, reverse, speed, pitch, and musical stretching |
 | 17 | [Render stems](17-render-stems.md) | Aligned track, bus/return, and master WAV files |
 | 18 | [Export quality and effect tails](18-export-quality-and-tails.md) | Bit depth, mono/stereo, sample rate, and natural endings |
+| 19 | [Find and organize samples](19-find-and-organize-samples.md) | Search folders, short filenames, duplicate detection, and suggestions |
 
 Levels are independent: every page shows the whole `main.py`, not only a diff.
 You can replace the file at each level or put each level in a separate folder.
@@ -101,4 +102,5 @@ the Prism version used when that project was created.
 | Individual MIDI notes, pitch bend, modulation, swing, and seeded humanization | Level 14 |
 | Track, bus/return, and master stem export | Level 17 |
 | 16/24/32-bit WAV, mono/stereo, output sample rate, and effect tails | Level 18 |
+| Sample folders, short-name lookup, terminal listing, duplicates, and suggestions | Level 19 |
 | Exact defaults, ranges, and return values | Level 10 |

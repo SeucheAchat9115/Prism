@@ -95,6 +95,56 @@ def test_cli_without_a_command_prints_help(capsys: pytest.CaptureFixture[str]) -
     assert "prism create" in capsys.readouterr().out
 
 
+def test_samples_command_lists_audio_without_running_project(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    project = tmp_path / "project"
+    (project / "sounds" / "drums").mkdir(parents=True)
+    (project / "recordings").mkdir()
+    (project / "renders").mkdir()
+    (project / "main.py").write_text(
+        "raise RuntimeError('must not execute')\n", encoding="utf-8"
+    )
+    (project / "sounds" / "drums" / "kick.wav").write_bytes(b"sample")
+    (project / "recordings" / "phrase.aiff").write_bytes(b"sample")
+    (project / "renders" / "song.wav").write_bytes(b"generated")
+
+    assert main(["samples", str(project)]) == 0
+    output = capsys.readouterr().out
+
+    assert "sounds/drums/kick.wav" in output
+    assert "recordings/phrase.aiff" in output
+    assert "renders/song.wav" not in output
+    assert "Every filename is unique" in output
+    assert "register other folders" in output
+
+
+def test_samples_command_reports_duplicate_filenames(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    project = tmp_path / "project"
+    (project / "sounds" / "one").mkdir(parents=True)
+    (project / "sounds" / "two").mkdir()
+    (project / "main.py").write_text("# song\n", encoding="utf-8")
+    (project / "sounds" / "one" / "kick.wav").write_bytes(b"one")
+    (project / "sounds" / "two" / "kick.wav").write_bytes(b"two")
+
+    assert main(["samples", str(project / "main.py")]) == 0
+    output = capsys.readouterr().out
+
+    assert "Duplicate filenames" in output
+    assert "sounds/one/kick.wav" in output
+    assert "sounds/two/kick.wav" in output
+
+
+def test_samples_command_requires_a_project_folder(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    with pytest.raises(SystemExit, match="2"):
+        main(["samples", str(tmp_path)])
+    assert "containing main.py" in capsys.readouterr().err
+
+
 def test_python_module_entry_point_prints_help(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

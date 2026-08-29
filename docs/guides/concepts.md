@@ -19,7 +19,8 @@ Project
 
 `Project` holds global musical and technical settings: tempo, time signature,
 sample rate, master gain, normalization, tracks, sections, routing, and
-automation. The song's `main.py` creates exactly one project.
+automation. Its sample library searches project-local audio without hiding the
+resolved paths. The song's `main.py` creates exactly one project.
 
 ## Track
 

@@ -1,13 +1,14 @@
 # Samples, loops, and audio editing
 
-Put source WAV or AIFF files in the project's `sounds/` folder. Prism supports
-triggered one-shots and complete audio clips.
+Put source WAV, AIFF, FLAC, or OGG files in the project's `sounds/` folder.
+Prism searches that folder and its subfolders automatically, so a unique
+filename is enough:
 
 ## Trigger a sample as a rhythm
 
 ```python
 song.track("Kick").sample(
-    "sounds/kick.wav",
+    "kick.wav",
     "x--- x--- x--- x---",
     bars=1,
 )
@@ -17,7 +18,7 @@ song.track("Kick").sample(
 
 ```python
 song.track("Texture").audio(
-    "sounds/texture.wav",
+    "texture.wav",
     bars=4,
     loop=True,
 )
@@ -56,3 +57,41 @@ Playback rate changes speed and pitch together. Transposition adds an
 independent pitch/speed ratio. Stretching then forces the prepared region to an
 exact musical duration. See [Edit audio](../tutorial/16-edit-audio.md) for the
 complete listening exercise.
+
+## Organize samples into folders
+
+Subfolders beneath `sounds/` need no setup:
+
+```text
+sounds/
+├── drums/kick-heavy.wav
+├── drums/snare-dry.wav
+└── textures/rain.flac
+```
+
+You can still write `"kick-heavy.wav"` when that filename is unique. Register
+other project-local folders when they fit your project better:
+
+```python
+song.samples.add_folder("recordings")
+vocal = song.track("Vocal").audio("vocal-take-3.wav", loop=False)
+```
+
+Use `song.samples.files()` to inspect registered folders from Python. Use an
+explicit path such as `"sounds/acoustic/kick.wav"` when two files share a
+name. Prism reports every matching path instead of choosing unpredictably.
+
+## List project audio from the terminal
+
+From the repository root, run:
+
+```text
+uv run prism samples "projects/my-song-20260829-120000"
+```
+
+The command lists audio anywhere in the project, ignores generated files under
+`renders/`, and highlights duplicate filenames. It reads the folders directly
+without executing `main.py`.
+
+See [Find and organize samples](../tutorial/19-find-and-organize-samples.md)
+for a complete project example.
