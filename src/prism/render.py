@@ -35,6 +35,9 @@ from prism.project.builder import (
 from prism.synthesis.engine import render_native_synth
 from prism.synthesis.types import NativeSynthSpec
 
+OutputChannels = Literal["mono", "stereo"]
+BitDepth = Literal[16, 24, 32]
+
 
 @dataclass(frozen=True, slots=True)
 class RenderResult:
@@ -47,6 +50,8 @@ class RenderResult:
     duration_seconds: float
     sha256: str
     peak_dbfs: float | None
+    bit_depth: BitDepth
+    tail_seconds: float
 
     def __str__(self) -> str:
         return f"Rendered {self.duration_seconds:.2f}s to {self.path}"
@@ -72,6 +77,8 @@ class StemRenderResult:
     channels: int
     frames: int
     duration_seconds: float
+    bit_depth: BitDepth
+    tail_seconds: float
     tracks: tuple[StemFile, ...]
     buses: tuple[StemFile, ...]
     master: StemFile
@@ -93,24 +100,54 @@ class _RenderedProject:
     tracks: dict[str, np.ndarray]
     buses: dict[str, np.ndarray]
     master: np.ndarray
-    master_peak_dbfs: float | None
 
 
-def render_project(project: Project, output: str | Path) -> RenderResult:
+@dataclass(frozen=True, slots=True)
+class _ExportSettings:
+    bit_depth: BitDepth
+    channels: OutputChannels
+    sample_rate: int
+    tail_seconds: float
+
+
+def render_project(
+    project: Project,
+    output: str | Path,
+    *,
+    bit_depth: BitDepth = 16,
+    channels: OutputChannels = "stereo",
+    sample_rate: int | None = None,
+    tail_seconds: float = 0.0,
+) -> RenderResult:
     """Render every named section in order to a WAV file."""
 
     try:
         output_path = project._output_path(output, suffix=".wav")
-        rendered = _render_buffers(project)
-        _write_wav(output_path, rendered.master, project.sample_rate)
+        settings = _export_settings(
+            project,
+            bit_depth=bit_depth,
+            channels=channels,
+            sample_rate=sample_rate,
+            tail_seconds=tail_seconds,
+        )
+        rendered = _render_buffers(project, tail_seconds=settings.tail_seconds)
+        output_samples = _prepare_export(rendered.master, project.sample_rate, settings)
+        _write_wav(
+            output_path,
+            output_samples,
+            settings.sample_rate,
+            bit_depth=settings.bit_depth,
+        )
         return RenderResult(
             path=output_path,
-            sample_rate=project.sample_rate,
-            channels=2,
-            frames=rendered.frames,
-            duration_seconds=rendered.frames / project.sample_rate,
+            sample_rate=settings.sample_rate,
+            channels=output_samples.shape[1],
+            frames=output_samples.shape[0],
+            duration_seconds=output_samples.shape[0] / settings.sample_rate,
             sha256=_sha256(output_path),
-            peak_dbfs=rendered.master_peak_dbfs,
+            peak_dbfs=_peak_dbfs(output_samples),
+            bit_depth=settings.bit_depth,
+            tail_seconds=settings.tail_seconds,
         )
     except (ProjectError, RenderError):
         raise
@@ -118,17 +155,32 @@ def render_project(project: Project, output: str | Path) -> RenderResult:
         raise RenderError(f"Could not render {project.name!r}: {error}") from error
 
 
-def render_stems(project: Project, output: str | Path) -> StemRenderResult:
+def render_stems(
+    project: Project,
+    output: str | Path,
+    *,
+    bit_depth: BitDepth = 16,
+    channels: OutputChannels = "stereo",
+    sample_rate: int | None = None,
+    tail_seconds: float = 0.0,
+) -> StemRenderResult:
     """Render aligned track, bus/return, and master WAV files."""
 
     try:
         directory = project._output_directory(output)
-        rendered = _render_buffers(project)
+        settings = _export_settings(
+            project,
+            bit_depth=bit_depth,
+            channels=channels,
+            sample_rate=sample_rate,
+            tail_seconds=tail_seconds,
+        )
+        rendered = _render_buffers(project, tail_seconds=settings.tail_seconds)
         track_files = tuple(
             _write_stem(
                 directory / "tracks" / _stem_filename(index, name),
-                rendered.tracks[name],
-                project.sample_rate,
+                _prepare_export(rendered.tracks[name], project.sample_rate, settings),
+                settings,
                 name=name,
                 kind="track",
             )
@@ -137,17 +189,18 @@ def render_stems(project: Project, output: str | Path) -> StemRenderResult:
         bus_files = tuple(
             _write_stem(
                 directory / "buses" / _stem_filename(index, name),
-                rendered.buses[name],
-                project.sample_rate,
+                _prepare_export(rendered.buses[name], project.sample_rate, settings),
+                settings,
                 name=name,
                 kind="bus",
             )
             for index, name in enumerate(rendered.buses, start=1)
         )
+        master_samples = _prepare_export(rendered.master, project.sample_rate, settings)
         master = _write_stem(
             directory / "master.wav",
-            rendered.master,
-            project.sample_rate,
+            master_samples,
+            settings,
             name="Master",
             kind="master",
         )
@@ -155,10 +208,12 @@ def render_stems(project: Project, output: str | Path) -> StemRenderResult:
         _remove_stale_stems(directory / "buses", {item.path for item in bus_files})
         return StemRenderResult(
             directory=directory,
-            sample_rate=project.sample_rate,
-            channels=2,
-            frames=rendered.frames,
-            duration_seconds=rendered.frames / project.sample_rate,
+            sample_rate=settings.sample_rate,
+            channels=1 if settings.channels == "mono" else 2,
+            frames=master_samples.shape[0],
+            duration_seconds=master_samples.shape[0] / settings.sample_rate,
+            bit_depth=settings.bit_depth,
+            tail_seconds=settings.tail_seconds,
             tracks=track_files,
             buses=bus_files,
             master=master,
@@ -169,9 +224,11 @@ def render_stems(project: Project, output: str | Path) -> StemRenderResult:
         raise RenderError(f"Could not render stems for {project.name!r}: {error}") from error
 
 
-def _render_buffers(project: Project) -> _RenderedProject:
+def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _RenderedProject:
     summary = project.validate()
-    total_frames = summary.bars * project.frames_per_bar
+    song_frames = summary.bars * project.frames_per_bar
+    tail_frames = int(round(tail_seconds * project.sample_rate))
+    total_frames = song_frames + tail_frames
     mix = np.zeros((total_frames, 2), dtype=np.float64)
     track_outputs: dict[str, np.ndarray] = {}
     for track in project.tracks:
@@ -240,14 +297,11 @@ def _render_buffers(project: Project) -> _RenderedProject:
     target = 10.0 ** (-1.0 / 20.0)
     if project.normalize and peak > target:
         mix *= target / peak
-        peak = target
-    mix = np.clip(mix, -1.0, 1.0)
     return _RenderedProject(
         frames=total_frames,
         tracks=track_outputs,
         buses=bus_outputs,
         master=mix,
-        master_peak_dbfs=None if peak == 0.0 else 20.0 * math.log10(peak),
     )
 
 
@@ -528,7 +582,60 @@ def _fit_to(source: np.ndarray, frames: int) -> np.ndarray:
     return output
 
 
-def _write_wav(path: Path, samples: np.ndarray, sample_rate: int) -> None:
+def _export_settings(
+    project: Project,
+    *,
+    bit_depth: BitDepth,
+    channels: OutputChannels,
+    sample_rate: int | None,
+    tail_seconds: float,
+) -> _ExportSettings:
+    if (
+        not isinstance(bit_depth, int)
+        or isinstance(bit_depth, bool)
+        or bit_depth not in {16, 24, 32}
+    ):
+        raise ProjectError("WAV bit_depth must be 16, 24, or 32.")
+    if channels not in {"mono", "stereo"}:
+        raise ProjectError("WAV channels must be 'mono' or 'stereo'.")
+    output_rate = project.sample_rate if sample_rate is None else sample_rate
+    if not isinstance(output_rate, int) or not 8_000 <= output_rate <= 192_000:
+        raise ProjectError("Output sample_rate must be between 8000 and 192000 Hz.")
+    if not math.isfinite(tail_seconds) or not 0.0 <= tail_seconds <= 60.0:
+        raise ProjectError("tail_seconds must be between 0 and 60 seconds.")
+    return _ExportSettings(
+        bit_depth=bit_depth,
+        channels=channels,
+        sample_rate=output_rate,
+        tail_seconds=float(tail_seconds),
+    )
+
+
+def _prepare_export(
+    samples: np.ndarray, source_rate: int, settings: _ExportSettings
+) -> np.ndarray:
+    output = np.asarray(samples, dtype=np.float64)
+    if settings.channels == "mono":
+        output = np.mean(output, axis=1, keepdims=True)
+    if settings.sample_rate != source_rate:
+        output = np.asarray(
+            soxr.resample(output, source_rate, settings.sample_rate, quality="HQ"),
+            dtype=np.float64,
+        )
+        if output.ndim == 1:
+            output = output[:, np.newaxis]
+    if settings.bit_depth != 32:
+        output = np.clip(output, -1.0, 1.0)
+    return output
+
+
+def _write_wav(
+    path: Path,
+    samples: np.ndarray,
+    sample_rate: int,
+    *,
+    bit_depth: BitDepth = 16,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary: Path | None = None
     try:
@@ -540,8 +647,9 @@ def _write_wav(path: Path, samples: np.ndarray, sample_rate: int) -> None:
             np.asarray(samples, dtype=np.float32),
             sample_rate,
             format="WAV",
-            subtype="PCM_16",
+            subtype={16: "PCM_16", 24: "PCM_24", 32: "FLOAT"}[bit_depth],
         )
+        _normalize_wav_metadata(temporary)
         with temporary.open("r+b") as stream:
             stream.flush()
             os.fsync(stream.fileno())
@@ -554,22 +662,46 @@ def _write_wav(path: Path, samples: np.ndarray, sample_rate: int) -> None:
             temporary.unlink(missing_ok=True)
 
 
+def _normalize_wav_metadata(path: Path) -> None:
+    """Remove time-dependent metadata that libsndfile adds to float WAV files."""
+
+    with path.open("r+b") as stream:
+        if stream.read(12)[:4] != b"RIFF":
+            return
+        while True:
+            header = stream.read(8)
+            if len(header) != 8:
+                return
+            chunk_name = header[:4]
+            chunk_size = int.from_bytes(header[4:], "little")
+            chunk_data = stream.tell()
+            if chunk_name == b"PEAK" and chunk_size >= 8:
+                stream.seek(chunk_data + 4)
+                stream.write(b"\0\0\0\0")
+                return
+            stream.seek(chunk_data + chunk_size + (chunk_size % 2))
+
+
 def _write_stem(
     path: Path,
     samples: np.ndarray,
-    sample_rate: int,
+    settings: _ExportSettings,
     *,
     name: str,
     kind: Literal["track", "bus", "master"],
 ) -> StemFile:
-    safe_samples = np.clip(samples, -1.0, 1.0)
-    _write_wav(path, safe_samples, sample_rate)
+    _write_wav(
+        path,
+        samples,
+        settings.sample_rate,
+        bit_depth=settings.bit_depth,
+    )
     return StemFile(
         name=name,
         kind=kind,
         path=path,
         sha256=_sha256(path),
-        peak_dbfs=_peak_dbfs(safe_samples),
+        peak_dbfs=_peak_dbfs(samples),
     )
 
 

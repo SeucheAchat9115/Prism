@@ -69,6 +69,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "15-uniwave-synthesizer.md",
         "16-edit-audio.md",
         "17-render-stems.md",
+        "18-export-quality-and-tails.md",
     )
     for name in expected:
         assert (tutorial / name).is_file()
@@ -90,6 +91,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "14-expressive-midi.md",
         "15-uniwave-synthesizer.md",
         "17-render-stems.md",
+        "18-export-quality-and-tails.md",
     ),
 )
 def test_complete_tutorial_projects_are_readable_and_runnable(
@@ -168,6 +170,10 @@ def test_complete_reference_mentions_every_authoring_feature() -> None:
         ".export_midi(",
         ".render(",
         ".render_stems(",
+        "bit_depth=",
+        "channels=",
+        "sample_rate=48000",
+        "tail_seconds=",
     )
     for token in expected:
         assert token in document
@@ -227,6 +233,7 @@ def test_documentation_site_covers_tutorials_reference_and_deployment() -> None:
     assert "https://seucheachat9115.github.io/Prism/" in readme
     assert "tutorial/README.md" in config
     assert "reference/project.md" in config
+    assert "guides/rendering-and-export.md" in config
     assert "plugins/adding-stock-plugins.md" in config
     assert "mkdocstrings:" in config
     assert "mkdocs build --strict" in workflow

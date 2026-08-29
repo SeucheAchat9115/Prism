@@ -4,6 +4,10 @@ Prism returns immutable result objects after validation, WAV rendering, and
 MIDI export. Printing one gives a friendly status line; its fields can be used
 for reproducibility checks and automation.
 
+`sample_rate`, `channels`, `frames`, and `duration_seconds` describe the
+delivered WAV. `bit_depth` is 16, 24, or 32; 32 means floating point.
+`tail_seconds` records the requested time added after the arrangement.
+
 ## RenderResult
 
 ::: prism.RenderResult
@@ -15,7 +19,7 @@ for reproducibility checks and automation.
 Its `tracks` and `buses` fields contain `StemFile` objects in the same order
 as the channels in `main.py`. `master` is the final file, and `files` returns
 all three groups together. Every file has the result's sample rate, channel
-count, frame count, and duration.
+count, frame count, bit depth, tail length, and duration.
 
 ## StemFile
 
