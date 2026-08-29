@@ -12,5 +12,19 @@
 
 ::: prism.AutomationPoint
 
-Plugin definitions and registry types are contributor internals. See the
+## VST3
+
+::: prism.VST3
+
+`VST3("alias")` can be passed to `Track.midi`, `Track.instrument`,
+`Track.effect`, `Bus.effect`, or `Project.master_effect`. Parameter values are
+normalized from `0.0` to `1.0`. See the
+[external VST3 guide](../guides/external-vst3.md) for registry and inspection
+commands.
+
+## VSTRegistry
+
+::: prism.VSTRegistry
+
+Stock-plugin definitions and their code registry are contributor internals. See the
 [plugin architecture](../plugins/index.md) when developing a new stock plugin.

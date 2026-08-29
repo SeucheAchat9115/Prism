@@ -13,6 +13,11 @@ filter_fx = lead.effect("filter", name="Lead Filter", cutoff_hz=5200)
 lead.effect("delay", delay_beats=0.5, feedback=0.3, mix=0.2)
 ```
 
+Registered VST3 effects use the same ordered chain on tracks, buses, and the
+master. Their parameters use normalized values from `0.0` to `1.0`; discover
+the exact manufacturer-provided names with `prism plugins inspect`. See
+[Use external VST3 plugins](external-vst3.md).
+
 ## Group buses and sends
 
 A bus can be the main output for several tracks or a parallel return receiving

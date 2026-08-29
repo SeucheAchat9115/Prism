@@ -97,7 +97,9 @@ def _music_track(project: Project, track: Track, channel: int, total_ticks: int)
     clip = track.clip
     assert isinstance(clip, DrumClip | MidiClip)
     events: list[tuple[int, int, bytes]] = [(0, -3, _meta_text(0x03, track.name))]
-    if isinstance(clip, MidiClip):
+    if isinstance(clip, MidiClip) and (
+        track.instrument_plugin is None or track.instrument_plugin.vst3 is None
+    ):
         program = STOCK_PLUGINS.get("instrument", clip.instrument).midi_program
         if program is None:
             raise ProjectError(f"Instrument {clip.instrument!r} has no MIDI program.")

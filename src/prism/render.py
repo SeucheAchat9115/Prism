@@ -477,6 +477,20 @@ def _arrange_midi_track(
                             )
                 if not events:
                     continue
+                instrument = track.instrument_plugin
+                if instrument is not None and instrument.vst3 is not None:
+                    from prism.vst_host import render_vst3_instrument
+
+                    rendered = render_vst3_instrument(
+                        project,
+                        instrument,
+                        events,
+                        bends,
+                        modulations,
+                        total_frames,
+                    )
+                    arranged += rendered * db_gain(clip.gain_db)
+                    continue
                 spec = NativeSynthSpec(
                     preset=clip.instrument,
                     sequence=clip.notes,

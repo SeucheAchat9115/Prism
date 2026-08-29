@@ -64,13 +64,15 @@ song.render("renders/song.wav")
 
 | Compose | Design sounds | Produce | Export |
 |---|---|---|---|
-| MIDI, drums, samples, clips, and sections | Native Uniwave synthesizer and extensible stock plugins | Effects, automation, buses, sends, and mixing | WAV masters, aligned stems, and MIDI files |
+| MIDI, drums, samples, clips, and sections | Native Uniwave, stock plugins, and registered VST3 instruments | Stock/VST3 effects, automation, buses, sends, and mixing | WAV masters, aligned stems, and MIDI files |
 
 Every project stays a normal folder that you can open, copy, and back up:
 
 ```text
 projects/my-song-20260829-143000/
 ├── main.py       # The complete song
+├── vst.json      # Optional VST3 registry
+├── plugin-states/ # Optional saved plugin states
 ├── sounds/       # Your samples and recordings
 └── renders/      # WAV, stem, and MIDI output
 ```

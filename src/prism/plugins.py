@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Callable, Literal, Mapping, Sequence
 
 from prism.errors import ProjectError
 from prism.synthesis.types import SynthPatch
+from prism.vst import VST3
 
 PluginKind = Literal["instrument", "effect"]
 AutomationCurve = Literal["linear", "hold"]
@@ -106,7 +107,7 @@ STOCK_PLUGINS = _StockPluginRegistryProxy()
 
 @dataclass(frozen=True, slots=True)
 class Plugin:
-    """A stock instrument or effect in one track's signal chain."""
+    """A stock or external instrument/effect in one signal chain."""
 
     name: str
     track: str
@@ -114,6 +115,7 @@ class Plugin:
     preset: str
     settings: Mapping[str, object]
     automatable: Mapping[str, Parameter]
+    vst3: VST3 | None = None
 
     def __str__(self) -> str:
         return f"{self.track} → {self.name} ({self.preset} {self.kind})"
@@ -221,6 +223,8 @@ def automation_points(
     """Validate producer-authored ``(bar, value)`` automation points."""
 
     parameter = target.automatable.get(parameter_name)
+    if parameter is None and target.vst3 is not None:
+        parameter = Parameter(0.0, 0.0, 1.0)
     if parameter is None:
         available = ", ".join(target.automatable) or "none"
         raise ProjectError(
@@ -246,6 +250,30 @@ def automation_points(
     return tuple(points)
 
 
+def vst3_plugin(
+    specification: VST3,
+    *,
+    name: str,
+    track: str,
+    kind: PluginKind,
+) -> Plugin:
+    """Bind a producer-authored VST3 declaration to a Prism signal chain."""
+
+    parameters = {
+        parameter_name: Parameter(value, 0.0, 1.0)
+        for parameter_name, value in specification.parameters.items()
+    }
+    return Plugin(
+        name=name,
+        track=track,
+        kind=kind,
+        preset=specification.alias,
+        settings=MappingProxyType(dict(specification.parameters)),
+        automatable=MappingProxyType(parameters),
+        vst3=specification,
+    )
+
+
 def _parameter_value(value: float, parameter: Parameter, label: str) -> float:
     resolved = float(value)
     if not math.isfinite(resolved) or not parameter.minimum <= resolved <= parameter.maximum:
@@ -264,4 +292,5 @@ __all__ = [
     "PluginDefinition",
     "PluginRegistry",
     "STOCK_PLUGINS",
+    "vst3_plugin",
 ]

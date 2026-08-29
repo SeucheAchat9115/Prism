@@ -18,9 +18,10 @@ from prism import (
     Project,
     SynthWave,
     Uniwave,
+    VST3,
 )
 ```
 
-The remaining public result, routing, automation, and error types are available
-from the same `prism` import. Internal renderer and registry helpers are not part
+The remaining public result, routing, automation, registry, and error types are
+available from the same `prism` import. Internal renderer helpers are not part
 of the producer-facing compatibility surface.

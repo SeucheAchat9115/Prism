@@ -44,6 +44,8 @@ in your normal music player. Keep the terminal in the repository root.
 | 17 | [Render stems](17-render-stems.md) | Aligned track, bus/return, and master WAV files |
 | 18 | [Export quality and effect tails](18-export-quality-and-tails.md) | Bit depth, mono/stereo, sample rate, and natural endings |
 | 19 | [Find and organize samples](19-find-and-organize-samples.md) | Search folders, short filenames, duplicate detection, and suggestions |
+| 20 | [Build a free VST3 song](20-free-vst3-song.md) | Surge XT, Xfer OTT, plugin state, and automation |
+| 21 | [Use Serum on Windows](21-serum-on-windows.md) | Parameter discovery and reproducible commercial-plugin state |
 
 Levels are independent: every page shows the whole `main.py`, not only a diff.
 You can replace the file at each level or put each level in a separate folder.
@@ -59,6 +61,8 @@ You edit:
 ```text
 projects/tutorial-20260827-143500/
 ├── main.py
+├── vst.json
+├── plugin-states/
 └── sounds/
     └── your samples.wav
 ```
@@ -103,4 +107,5 @@ the Prism version used when that project was created.
 | Track, bus/return, and master stem export | Level 17 |
 | 16/24/32-bit WAV, mono/stereo, output sample rate, and effect tails | Level 18 |
 | Sample folders, short-name lookup, terminal listing, duplicates, and suggestions | Level 19 |
+| VST3 registry, inspection, states, instruments, effects, and automation | Levels 20 and 21 |
 | Exact defaults, ranges, and return values | Level 10 |

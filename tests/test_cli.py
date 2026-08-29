@@ -29,6 +29,8 @@ def test_create_command_builds_a_runnable_plain_folder(
     assert (target / "main.py").is_file()
     assert (target / "sounds").is_dir()
     assert (target / "renders").is_dir()
+    assert (target / "plugin-states").is_dir()
+    assert (target / "vst.json").is_file()
     command_output = capsys.readouterr().out
     assert "Created Prism project" in command_output
     assert 'Run it with: uv run "' in command_output
