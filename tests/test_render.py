@@ -7,7 +7,7 @@ import numpy as np
 import pytest
 import soundfile as sf
 
-from prism import Project, ProjectError, RenderError
+from prism import Project, ProjectError, RenderError, StemFile, StemRenderResult
 
 
 def _mini_song(script: Path) -> Project:
@@ -51,6 +51,75 @@ def test_render_is_non_silent_and_deterministic(project_script: Path) -> None:
     assert sample_rate == 8_000
     assert samples.shape == (96_000, 2)
     assert np.max(np.abs(samples)) > 0.05
+
+
+def test_render_stems_exports_aligned_tracks_buses_and_exact_master(
+    project_script: Path,
+) -> None:
+    song = Project(
+        "Stem Song",
+        prism_version="test",
+        tempo=240,
+        sample_rate=8_000,
+        normalize=False,
+        _script=project_script,
+    )
+    kick = song.track("Kick", gain_db=-4).drum("kick", "x---")
+    lead = song.track("Lead & Main", pan=0.25).midi(
+        "C4 E4 G4 -", instrument="lead", bars=1
+    )
+    drums = song.bus("Drum Group", tracks=[kick], gain_db=-2)
+    drums.effect("compressor", threshold_db=-20, ratio=3)
+    room = song.bus("Room Return", gain_db=-8)
+    room.effect("reverb", mix=1)
+    lead.send(room, gain_db=-12)
+    song.master_effect("gain", gain_db=-1)
+    song.section("Loop", bars=1)
+
+    result = song.render_stems("renders/stems")
+    normal = song.render("renders/song.wav")
+
+    assert isinstance(result, StemRenderResult)
+    assert all(isinstance(item, StemFile) for item in result.files)
+    assert [item.path.name for item in result.tracks] == [
+        "01-kick.wav",
+        "02-lead-main.wav",
+    ]
+    assert [item.path.name for item in result.buses] == [
+        "01-drum-group.wav",
+        "02-room-return.wav",
+    ]
+    assert result.master.path.name == "master.wav"
+    assert result.master.path.read_bytes() == normal.path.read_bytes()
+    assert result.frames == song.frames_per_bar
+    assert result.sample_rate == 8_000
+    assert result.channels == 2
+    assert len(result.files) == 5
+    for item in result.files:
+        samples, rate = sf.read(item.path, dtype="float32", always_2d=True)
+        assert rate == result.sample_rate
+        assert samples.shape == (result.frames, result.channels)
+        assert item.sha256 == hashlib.sha256(item.path.read_bytes()).hexdigest()
+        assert np.max(np.abs(samples)) > 0.0
+
+    stale = result.directory / "tracks" / "99-old-track.wav"
+    stale.write_bytes(b"old")
+    note = result.directory / "tracks" / "keep.txt"
+    note.write_text("mine", encoding="utf-8")
+    rerendered = song.render_stems("renders/stems")
+
+    assert rerendered.master.sha256 == result.master.sha256
+    assert not stale.exists()
+    assert note.read_text(encoding="utf-8") == "mine"
+
+
+def test_render_stems_rejects_unsafe_or_root_output(project_script: Path) -> None:
+    song = _mini_song(project_script)
+
+    with pytest.raises(ProjectError, match="relative"):
+        song.render_stems("../stems")
+    with pytest.raises(ProjectError, match="inside"):
+        song.render_stems(".")
 
 
 def test_project_local_sample_is_loaded_and_resampled(

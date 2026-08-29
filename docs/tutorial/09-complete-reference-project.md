@@ -131,6 +131,7 @@ print(song.validate())
 pprint(song.configuration())
 print(song.export_midi("renders/complete-song.mid"))
 print(song.render("renders/complete-song.wav"))
+print(song.render_stems("renders/stems"))
 ```
 
 Run, inspect, and listen:
@@ -149,6 +150,7 @@ multi-effect chain, effects on a sample track, and several automation tracks.
 It also includes a section-specific clip, drum group bus, shared reverb send,
 bus automation, final master processing, individually positioned MIDI notes,
 pitch bend, modulation, swing, and deterministic humanization.
+The final call also exports aligned track, bus/return, and master stems.
 
 All input and output paths are relative to `main.py`. Prism rejects absolute
 paths, `..` traversal, missing sources, duplicate names, empty tracks, unknown

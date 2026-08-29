@@ -8,6 +8,19 @@ for reproducibility checks and automation.
 
 ::: prism.RenderResult
 
+## StemRenderResult
+
+::: prism.StemRenderResult
+
+Its `tracks` and `buses` fields contain `StemFile` objects in the same order
+as the channels in `main.py`. `master` is the final file, and `files` returns
+all three groups together. Every file has the result's sample rate, channel
+count, frame count, and duration.
+
+## StemFile
+
+::: prism.StemFile
+
 ## MidiResult
 
 ::: prism.MidiResult

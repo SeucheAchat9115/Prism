@@ -25,6 +25,8 @@ def test_public_package_is_small_and_script_first() -> None:
         "RenderResult",
         "Section",
         "Send",
+        "StemFile",
+        "StemRenderResult",
         "SynthWave",
         "Track",
         "Uniwave",
@@ -66,6 +68,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "14-expressive-midi.md",
         "15-uniwave-synthesizer.md",
         "16-edit-audio.md",
+        "17-render-stems.md",
     )
     for name in expected:
         assert (tutorial / name).is_file()
@@ -86,6 +89,7 @@ def test_progressive_tutorial_is_the_only_learning_surface() -> None:
         "13-buses-sends-and-master-effects.md",
         "14-expressive-midi.md",
         "15-uniwave-synthesizer.md",
+        "17-render-stems.md",
     ),
 )
 def test_complete_tutorial_projects_are_readable_and_runnable(
@@ -163,6 +167,7 @@ def test_complete_reference_mentions_every_authoring_feature() -> None:
         "humanize_seed=",
         ".export_midi(",
         ".render(",
+        ".render_stems(",
     )
     for token in expected:
         assert token in document

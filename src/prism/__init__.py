@@ -5,7 +5,7 @@ from prism.midi import MidiResult
 from prism.music import Note
 from prism.plugins import AutomationLane, AutomationPoint, Plugin
 from prism.project import Bus, Project, ProjectSummary, Section, Send, Track
-from prism.render import RenderResult
+from prism.render import RenderResult, StemFile, StemRenderResult
 from prism.synthesis.types import SynthWave, Uniwave
 from prism.version import __version__
 
@@ -24,6 +24,8 @@ __all__ = [
     "RenderResult",
     "Section",
     "Send",
+    "StemFile",
+    "StemRenderResult",
     "SynthWave",
     "Track",
     "Uniwave",

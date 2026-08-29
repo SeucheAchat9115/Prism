@@ -13,6 +13,7 @@
         - automation
         - validate
         - render
+        - render_stems
         - export_midi
         - configuration
 

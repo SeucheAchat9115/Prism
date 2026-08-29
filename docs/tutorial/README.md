@@ -41,6 +41,7 @@ in your normal music player. Keep the terminal in the repository root.
 | 14 | [Expressive MIDI](14-expressive-midi.md) | Free note timing, duration, velocity, controllers, swing, and humanization |
 | 15 | [Design sounds with Uniwave](15-uniwave-synthesizer.md) | Layered oscillators, tuning, envelopes, filtering, drive, noise, and vibrato |
 | 16 | [Edit audio](16-edit-audio.md) | Source regions, fades, reverse, speed, pitch, and musical stretching |
+| 17 | [Render stems](17-render-stems.md) | Aligned track, bus/return, and master WAV files |
 
 Levels are independent: every page shows the whole `main.py`, not only a diff.
 You can replace the file at each level or put each level in a separate folder.
@@ -97,4 +98,5 @@ the Prism version used when that project was created.
 | Default clips, section variations, exact clip positions, and one-time fills | Level 12 |
 | Group buses, post-fader sends, return effects, and master effects | Level 13 |
 | Individual MIDI notes, pitch bend, modulation, swing, and seeded humanization | Level 14 |
+| Track, bus/return, and master stem export | Level 17 |
 | Exact defaults, ranges, and return values | Level 10 |
