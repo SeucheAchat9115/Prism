@@ -34,7 +34,23 @@ uv run prism plugins edit "projects/serum-song-20260829-143000" serum --state "p
 
 Choose the wavetable, modulation routing, and other sound-design details in
 Serum, then close the window. Prism saves details that are not represented by
-ordinary exposed parameters.
+ordinary exposed parameters. While the editor is open, Prism keeps Serum's
+silent processing graph active. This prevents Serum from reporting that the DAW
+has suspended processing. On Windows, Prism also opts the editor worker into
+per-monitor DPI scaling so the window and mouse controls remain correctly sized
+on high-resolution displays.
+
+This window edits state but does not provide audio preview or live MIDI. Serum's
+on-screen keyboard and your computer keyboard will therefore be silent. Close
+the window to save the patch, then render the project below to hear it. For
+low-latency playing during sound design, use Serum in a dedicated live VST host
+and capture the finished patch in Prism afterward.
+
+After the window closes, Prism prints the controls that differ from Serum's
+defaults (or from the previous saved state when editing an existing file), with
+their old and new normalized values. Private changes such as modulation routing
+are reported as a complete-state change even when Serum exposes no matching
+parameter.
 
 ## 4. Use Serum like Uniwave
 

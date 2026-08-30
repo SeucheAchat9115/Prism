@@ -114,8 +114,25 @@ state inside the project:
 uv run prism plugins edit "projects/my-song-20260829-143000" serum --state "plugin-states/serum-bass.state"
 ```
 
+The editor worker processes silence while the window is open, which keeps
+plugins that monitor their DAW connection active. On Windows it also enables
+per-monitor DPI scaling before the plugin UI is created. If an editor still
+looks incorrectly sized, close it, move the terminal to the intended monitor,
+and run the command again; plugin-specific zoom settings may also apply.
+
+This command is a **state editor**, not a live VST host. Prism does not connect
+the editor to an audio device or route live MIDI into it, so a plugin's
+on-screen keyboard and the computer keyboard are not audible here. Close the
+window to save, then run the project's `main.py` to render and hear the sound.
+Use a dedicated live VST host when you need low-latency playing while designing
+a patch; save or export the resulting patch and capture it in Prism afterward.
+
 The plugin window opens. Design the sound, close the window, and Prism saves
-the state file. Refer to it from `VST3(state=...)`. A `.vstpreset` file can
+the state file. The command then lists every exposed parameter whose final
+value differs from the starting value. For a new state file, the starting
+values are the plugin defaults; for an existing file, they are the previously
+saved values. Prism also reports plugin-private state changes even when no
+exposed parameter changed. Refer to the file from `VST3(state=...)`. A `.vstpreset` file can
 instead be loaded with `VST3(preset="plugin-states/name.vstpreset")`; do not
 set both `state` and `preset`.
 
