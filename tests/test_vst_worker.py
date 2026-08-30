@@ -51,6 +51,7 @@ class _FakePlugin:
 
     def open_editor(self) -> None:
         self.editor_opened_while_rendering = self.engine.render_count > 0
+        self.value = 0.7
         return None
 
     def load_midi(self, path: str) -> bool:
@@ -108,6 +109,17 @@ def test_worker_inspects_and_edits_state(tmp_path: Path, fake_daw: None) -> None
     assert inspected["parameters"][0]["name"] == "Depth"
     assert state.read_bytes() == b"state"
     assert edited["state_path"] == str(state)
+    assert edited["baseline"] == "plugin_defaults"
+    assert edited["state_changed"] is True
+    assert edited["parameter_changes"] == [
+        {
+            "index": 0,
+            "name": "Depth",
+            "label": "%",
+            "before": 0.4,
+            "after": 0.7,
+        }
+    ]
 
 
 def test_editor_processing_stops_after_window_closes() -> None:
@@ -200,7 +212,19 @@ def test_host_inspection_edit_and_audio_round_trip(
             return {"parameters": [{"index": 0, "name": "Depth", "value": 0.4}]}
         if action == "edit":
             Path(str(request["state_path"])).write_bytes(b"state")
-            return {}
+            return {
+                "baseline": "plugin_defaults",
+                "state_changed": True,
+                "parameter_changes": [
+                    {
+                        "index": 0,
+                        "name": "Depth",
+                        "label": "%",
+                        "before": 0.4,
+                        "after": 0.6,
+                    }
+                ],
+            }
         frames = int(str(request["frames"]))
         np.save(
             str(request["output_path"]),
@@ -211,8 +235,9 @@ def test_host_inspection_edit_and_audio_round_trip(
     monkeypatch.setattr(vst_host, "_run_worker", fake_worker)
 
     assert vst_host.inspect_vst3(project, "test")[0]["name"] == "Depth"
-    state = vst_host.edit_vst3(project, "test", "plugin-states/test.state")
-    assert state.read_bytes() == b"state"
+    edited = vst_host.edit_vst3(project, "test", "plugin-states/test.state")
+    assert edited.state_path.read_bytes() == b"state"
+    assert edited.parameter_changes[0].name == "Depth"
 
     effect = vst_host.process_vst3_effect(
         project, plugin, np.zeros((20, 2), dtype=np.float64)

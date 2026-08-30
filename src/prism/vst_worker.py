@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import sys
 import threading
 import time
@@ -45,11 +46,19 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
     plugin = engine.make_plugin_processor("prism_vst3", str(request["plugin_path"]))
     if action == "edit":
         state_path = Path(str(request["state_path"]))
-        if state_path.is_file():
+        previous_state = state_path.read_bytes() if state_path.is_file() else None
+        if previous_state is not None:
             _succeeded(plugin.load_state(str(state_path)), "load the VST3 state")
+        before = _parameters(plugin)
         _open_editor_while_processing(engine, plugin)
         _succeeded(plugin.save_state(str(state_path)), "save the VST3 state")
-        return {"state_path": str(state_path)}
+        after = _parameters(plugin)
+        return {
+            "state_path": str(state_path),
+            "baseline": "saved_state" if previous_state is not None else "plugin_defaults",
+            "state_changed": previous_state != state_path.read_bytes(),
+            "parameter_changes": _parameter_changes(before, after),
+        }
     _load_state(plugin, request)
     parameters = _parameters(plugin)
 
@@ -162,6 +171,34 @@ def _load_state(plugin: Any, request: Mapping[str, Any]) -> None:
         _succeeded(plugin.load_state(str(state)), "load the VST3 state")
     elif preset:
         _succeeded(plugin.load_vst3_preset(str(preset)), "load the VST3 preset")
+
+
+def _parameter_changes(
+    before: list[dict[str, object]], after: list[dict[str, object]]
+) -> list[dict[str, object]]:
+    """Describe net exposed-parameter changes made in an editor session."""
+
+    previous = {_description_index(item): item for item in before}
+    changes: list[dict[str, object]] = []
+    for current in after:
+        index = _description_index(current)
+        original = previous.get(index)
+        if original is None:
+            continue
+        old_value = float(str(original["value"]))
+        new_value = float(str(current["value"]))
+        if math.isclose(old_value, new_value, rel_tol=0.0, abs_tol=1e-7):
+            continue
+        changes.append(
+            {
+                "index": index,
+                "name": str(current["name"]),
+                "label": str(current.get("label", "")),
+                "before": old_value,
+                "after": new_value,
+            }
+        )
+    return changes
 
 
 def _parameters(plugin: Any) -> list[dict[str, object]]:

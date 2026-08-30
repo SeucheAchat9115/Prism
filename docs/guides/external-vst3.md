@@ -128,7 +128,11 @@ Use a dedicated live VST host when you need low-latency playing while designing
 a patch; save or export the resulting patch and capture it in Prism afterward.
 
 The plugin window opens. Design the sound, close the window, and Prism saves
-the state file. Refer to it from `VST3(state=...)`. A `.vstpreset` file can
+the state file. The command then lists every exposed parameter whose final
+value differs from the starting value. For a new state file, the starting
+values are the plugin defaults; for an existing file, they are the previously
+saved values. Prism also reports plugin-private state changes even when no
+exposed parameter changed. Refer to the file from `VST3(state=...)`. A `.vstpreset` file can
 instead be loaded with `VST3(preset="plugin-states/name.vstpreset")`; do not
 set both `state` and `preset`.
 

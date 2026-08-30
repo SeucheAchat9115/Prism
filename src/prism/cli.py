@@ -193,8 +193,30 @@ def _plugins_command(namespace: argparse.Namespace) -> int:
             "Opening the plugin state editor (no audio preview or musical typing).\n"
             "Close the plugin window to save its state."
         )
-        path = edit_vst3(project, specification.alias, specification.state or namespace.state)
-        print(f"Saved plugin state: {path.relative_to(root).as_posix()}")
+        result = edit_vst3(project, specification.alias, specification.state or namespace.state)
+        baseline = (
+            "plugin defaults"
+            if result.baseline == "plugin_defaults"
+            else "the previously saved state"
+        )
+        print(f"Compared with {baseline}.")
+        if result.parameter_changes:
+            print(f"Changed exposed parameters ({len(result.parameter_changes)}):")
+            for change in result.parameter_changes:
+                unit = f", unit: {change.label}" if change.label else ""
+                print(
+                    f"  #{change.index}: {change.name}: "
+                    f"{change.before:.6g} -> {change.after:.6g} (normalized{unit})"
+                )
+        elif result.baseline == "plugin_defaults" and result.state_changed:
+            print("Captured plugin defaults; no exposed parameter values changed.")
+        elif result.state_changed:
+            print(
+                "Plugin-private state changed; no exposed parameter values changed."
+            )
+        else:
+            print("No changes detected.")
+        print(f"Saved plugin state: {result.state_path.relative_to(root).as_posix()}")
         return 0
     assert namespace.plugin_command == "inspect"
     parameters = inspect_vst3(project, namespace.alias, state=namespace.state)

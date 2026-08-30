@@ -46,6 +46,12 @@ the window to save the patch, then render the project below to hear it. For
 low-latency playing during sound design, use Serum in a dedicated live VST host
 and capture the finished patch in Prism afterward.
 
+After the window closes, Prism prints the controls that differ from Serum's
+defaults (or from the previous saved state when editing an existing file), with
+their old and new normalized values. Private changes such as modulation routing
+are reported as a complete-state change even when Serum exposes no matching
+parameter.
+
 ## 4. Use Serum like Uniwave
 
 Put the following structure into the project's `main.py`. Replace the example

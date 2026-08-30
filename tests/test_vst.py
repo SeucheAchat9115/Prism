@@ -9,6 +9,7 @@ from prism import VST3, Project, ProjectError
 from prism import cli as prism_cli
 from prism.cli import create_project, main
 from prism.vst import VSTRegistry, hash_vst3, platform_key
+from prism.vst_host import VSTEditResult, VSTParameterChange
 
 
 def _project(tmp_path: Path) -> tuple[Path, Path]:
@@ -153,12 +154,19 @@ def test_plugin_cli_edit_explains_that_it_is_not_a_live_host(
     VSTRegistry(root).add("synth", plugin)
     saved = root / "plugin-states" / "lead.state"
 
-    def fake_edit(project: Project, alias: str, state: str) -> Path:
+    def fake_edit(project: Project, alias: str, state: str) -> VSTEditResult:
         assert alias == "synth"
         assert state == "plugin-states/lead.state"
         saved.parent.mkdir()
         saved.write_bytes(b"state")
-        return saved
+        return VSTEditResult(
+            state_path=saved,
+            baseline="plugin_defaults",
+            state_changed=True,
+            parameter_changes=(
+                VSTParameterChange(0, "Cutoff", "Hz", 0.25, 0.75),
+            ),
+        )
 
     monkeypatch.setattr(prism_cli, "edit_vst3", fake_edit)
 
@@ -175,4 +183,6 @@ def test_plugin_cli_edit_explains_that_it_is_not_a_live_host(
     output = capsys.readouterr().out
     assert "no audio preview or musical typing" in output
     assert "Close the plugin window to save" in output
+    assert "Compared with plugin defaults" in output
+    assert "#0: Cutoff: 0.25 -> 0.75 (normalized, unit: Hz)" in output
     assert "Saved plugin state: plugin-states/lead.state" in output

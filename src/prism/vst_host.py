@@ -6,6 +6,7 @@ import json
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Mapping, Sequence
 
@@ -18,6 +19,27 @@ from prism.plugins import Plugin
 
 if TYPE_CHECKING:
     from prism.project.builder import Project
+
+
+@dataclass(frozen=True)
+class VSTParameterChange:
+    """One exposed VST3 parameter changed during an editor session."""
+
+    index: int
+    name: str
+    label: str
+    before: float
+    after: float
+
+
+@dataclass(frozen=True)
+class VSTEditResult:
+    """Saved state and user-visible net changes from a VST3 editor session."""
+
+    state_path: Path
+    baseline: str
+    state_changed: bool
+    parameter_changes: tuple[VSTParameterChange, ...]
 
 
 def inspect_vst3(
@@ -36,20 +58,48 @@ def inspect_vst3(
     return parameters
 
 
-def edit_vst3(project: Project, alias: str, state: str) -> Path:
+def edit_vst3(project: Project, alias: str, state: str) -> VSTEditResult:
     """Open a plugin editor and persist its state in the project folder."""
 
     path, _entry = project.vsts.resolve(alias)
     state_path = _project_file(project, state, must_exist=False)
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    _run_worker(
+    response = _run_worker(
         {
             "action": "edit",
             "plugin_path": str(path),
             "state_path": str(state_path),
         }
     )
-    return state_path
+    baseline = response.get("baseline")
+    state_changed = response.get("state_changed")
+    raw_changes = response.get("parameter_changes")
+    if baseline not in {"plugin_defaults", "saved_state"}:
+        raise RenderError("The VST3 editor returned an invalid comparison baseline.")
+    if not isinstance(state_changed, bool) or not isinstance(raw_changes, list):
+        raise RenderError("The VST3 editor returned an invalid change summary.")
+    changes: list[VSTParameterChange] = []
+    try:
+        for item in raw_changes:
+            if not isinstance(item, dict):
+                raise TypeError
+            changes.append(
+                VSTParameterChange(
+                    index=int(item["index"]),
+                    name=str(item["name"]),
+                    label=str(item.get("label", "")),
+                    before=float(item["before"]),
+                    after=float(item["after"]),
+                )
+            )
+    except (KeyError, TypeError, ValueError) as error:
+        raise RenderError("The VST3 editor returned invalid parameter changes.") from error
+    return VSTEditResult(
+        state_path=state_path,
+        baseline=str(baseline),
+        state_changed=state_changed,
+        parameter_changes=tuple(changes),
+    )
 
 
 def render_vst3_instrument(
@@ -247,4 +297,11 @@ def _variable_length(value: int) -> bytes:
     return bytes(result)
 
 
-__all__ = ["edit_vst3", "inspect_vst3", "process_vst3_effect", "render_vst3_instrument"]
+__all__ = [
+    "VSTEditResult",
+    "VSTParameterChange",
+    "edit_vst3",
+    "inspect_vst3",
+    "process_vst3_effect",
+    "render_vst3_instrument",
+]
