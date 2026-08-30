@@ -40,6 +40,12 @@ has suspended processing. On Windows, Prism also opts the editor worker into
 per-monitor DPI scaling so the window and mouse controls remain correctly sized
 on high-resolution displays.
 
+This window edits state but does not provide audio preview or live MIDI. Serum's
+on-screen keyboard and your computer keyboard will therefore be silent. Close
+the window to save the patch, then render the project below to hear it. For
+low-latency playing during sound design, use Serum in a dedicated live VST host
+and capture the finished patch in Prism afterward.
+
 ## 4. Use Serum like Uniwave
 
 Put the following structure into the project's `main.py`. Replace the example

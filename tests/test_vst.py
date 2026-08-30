@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from prism import VST3, Project, ProjectError
+from prism import cli as prism_cli
 from prism.cli import create_project, main
 from prism.vst import VSTRegistry, hash_vst3, platform_key
 
@@ -141,3 +142,37 @@ def test_plugin_cli_add_list_and_remove_without_running_main(
 
     assert main(["plugins", "remove", str(root), "synth"]) == 0
     assert VSTRegistry(root).all_entries() == ()
+
+
+def test_plugin_cli_edit_explains_that_it_is_not_a_live_host(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, plugin = _project(tmp_path)
+    VSTRegistry(root).add("synth", plugin)
+    saved = root / "plugin-states" / "lead.state"
+
+    def fake_edit(project: Project, alias: str, state: str) -> Path:
+        assert alias == "synth"
+        assert state == "plugin-states/lead.state"
+        saved.parent.mkdir()
+        saved.write_bytes(b"state")
+        return saved
+
+    monkeypatch.setattr(prism_cli, "edit_vst3", fake_edit)
+
+    assert main(
+        [
+            "plugins",
+            "edit",
+            str(root),
+            "synth",
+            "--state",
+            "plugin-states/lead.state",
+        ]
+    ) == 0
+    output = capsys.readouterr().out
+    assert "no audio preview or musical typing" in output
+    assert "Close the plugin window to save" in output
+    assert "Saved plugin state: plugin-states/lead.state" in output

@@ -48,7 +48,9 @@ uv run prism plugins edit "projects/free-vst-song-20260829-143000" surge --state
 ```
 
 When Surge XT opens, choose or design a lead sound. Close its window to save
-the state into the project.
+the state into the project. This is a state-editing window without audio or
+live MIDI. Render the project in the next step to hear the saved sound; use a
+dedicated live VST host if you need to play while designing it.
 
 ## 4. Replace `main.py`
 

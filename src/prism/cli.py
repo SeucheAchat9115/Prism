@@ -157,7 +157,9 @@ def _parser() -> argparse.ArgumentParser:
     remove.add_argument(
         "--all-platforms", action="store_true", help="remove Windows and Linux entries"
     )
-    edit = plugin_commands.add_parser("edit", help="open the plugin UI and save its state")
+    edit = plugin_commands.add_parser(
+        "edit", help="open the state editor without audio preview and save its state"
+    )
     edit.add_argument("project", help="project folder or main.py")
     edit.add_argument("alias", help="registered VST alias")
     edit.add_argument("--state", required=True, help="relative project state-file path")
@@ -187,6 +189,10 @@ def _plugins_command(namespace: argparse.Namespace) -> int:
     project = Project("VST3 tools", prism_version=__version__, _script=root / "main.py")
     if namespace.plugin_command == "edit":
         specification = VST3(namespace.alias, state=namespace.state)
+        print(
+            "Opening the plugin state editor (no audio preview or musical typing).\n"
+            "Close the plugin window to save its state."
+        )
         path = edit_vst3(project, specification.alias, specification.state or namespace.state)
         print(f"Saved plugin state: {path.relative_to(root).as_posix()}")
         return 0

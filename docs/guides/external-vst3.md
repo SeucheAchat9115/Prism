@@ -120,6 +120,13 @@ per-monitor DPI scaling before the plugin UI is created. If an editor still
 looks incorrectly sized, close it, move the terminal to the intended monitor,
 and run the command again; plugin-specific zoom settings may also apply.
 
+This command is a **state editor**, not a live VST host. Prism does not connect
+the editor to an audio device or route live MIDI into it, so a plugin's
+on-screen keyboard and the computer keyboard are not audible here. Close the
+window to save, then run the project's `main.py` to render and hear the sound.
+Use a dedicated live VST host when you need low-latency playing while designing
+a patch; save or export the resulting patch and capture it in Prism afterward.
+
 The plugin window opens. Design the sound, close the window, and Prism saves
 the state file. Refer to it from `VST3(state=...)`. A `.vstpreset` file can
 instead be loaded with `VST3(preset="plugin-states/name.vstpreset")`; do not
