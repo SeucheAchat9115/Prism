@@ -114,6 +114,12 @@ state inside the project:
 uv run prism plugins edit "projects/my-song-20260829-143000" serum --state "plugin-states/serum-bass.state"
 ```
 
+The editor worker processes silence while the window is open, which keeps
+plugins that monitor their DAW connection active. On Windows it also enables
+per-monitor DPI scaling before the plugin UI is created. If an editor still
+looks incorrectly sized, close it, move the terminal to the intended monitor,
+and run the command again; plugin-specific zoom settings may also apply.
+
 The plugin window opens. Design the sound, close the window, and Prism saves
 the state file. Refer to it from `VST3(state=...)`. A `.vstpreset` file can
 instead be loaded with `VST3(preset="plugin-states/name.vstpreset")`; do not

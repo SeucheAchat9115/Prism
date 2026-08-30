@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -19,6 +20,7 @@ class _FakePlugin:
         self.engine = engine
         self.value = 0.4
         self.automation: np.ndarray | None = None
+        self.editor_opened_while_rendering = False
 
     def get_parameters_description(self) -> list[dict[str, object]]:
         return [{"index": 0, "name": "Depth", "label": "%", "numSteps": 0}]
@@ -48,6 +50,7 @@ class _FakePlugin:
         return True
 
     def open_editor(self) -> None:
+        self.editor_opened_while_rendering = self.engine.render_count > 0
         return None
 
     def load_midi(self, path: str) -> bool:
@@ -69,6 +72,7 @@ class _FakeEngine:
     def __init__(self, sample_rate: int, block_size: int) -> None:
         self.sample_rate = sample_rate
         self.frames = 0
+        self.render_count = 0
         self.plugin = _FakePlugin(self)
 
     def set_bpm(self, tempo: float) -> None:
@@ -84,6 +88,7 @@ class _FakeEngine:
         self.graph = graph
 
     def render(self, duration: float) -> bool:
+        self.render_count += 1
         self.frames = round(duration * self.sample_rate)
         return True
 
@@ -103,6 +108,19 @@ def test_worker_inspects_and_edits_state(tmp_path: Path, fake_daw: None) -> None
     assert inspected["parameters"][0]["name"] == "Depth"
     assert state.read_bytes() == b"state"
     assert edited["state_path"] == str(state)
+
+
+def test_editor_processing_stops_after_window_closes() -> None:
+    engine = _FakeEngine(44_100, 512)
+
+    vst_worker._open_editor_while_processing(engine, engine.plugin)
+
+    assert engine.plugin.editor_opened_while_rendering
+    assert engine.render_count >= 1
+    assert not any(
+        thread.name == "prism-vst3-editor-audio" and thread.is_alive()
+        for thread in threading.enumerate()
+    )
 
 
 @pytest.mark.parametrize("action", ("instrument", "effect"))

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import sys
+import threading
+import time
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -27,6 +29,7 @@ def main(arguments: list[str] | None = None) -> int:
 
 
 def _execute(request: Mapping[str, Any]) -> dict[str, object]:
+    _enable_windows_dpi_awareness()
     try:
         import dawdreamer as daw
     except ImportError as error:
@@ -44,7 +47,7 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
         state_path = Path(str(request["state_path"]))
         if state_path.is_file():
             _succeeded(plugin.load_state(str(state_path)), "load the VST3 state")
-        plugin.open_editor()
+        _open_editor_while_processing(engine, plugin)
         _succeeded(plugin.save_state(str(state_path)), "save the VST3 state")
         return {"state_path": str(state_path)}
     _load_state(plugin, request)
@@ -81,6 +84,75 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
         output = np.pad(output, ((0, frames - output.shape[0]), (0, 0)))
     np.save(str(request["output_path"]), output, allow_pickle=False)
     return {"frames": frames, "latency_samples": latency}
+
+
+def _enable_windows_dpi_awareness() -> None:
+    """Opt the worker into crisp, correctly scaled third-party windows."""
+
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+
+        user32 = ctypes.windll.user32
+        if hasattr(user32, "SetProcessDpiAwarenessContext"):
+            # DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+            if user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
+                return
+        try:
+            shcore = ctypes.windll.shcore
+            if hasattr(shcore, "SetProcessDpiAwareness"):
+                # PROCESS_PER_MONITOR_DPI_AWARE
+                if shcore.SetProcessDpiAwareness(2) in (0, None):
+                    return
+        except (AttributeError, OSError):
+            pass
+        if hasattr(user32, "SetProcessDPIAware"):
+            user32.SetProcessDPIAware()
+    except (AttributeError, OSError, TypeError, ValueError):
+        # DPI setup is best-effort on older Windows versions and Wine.
+        pass
+
+
+def _open_editor_while_processing(engine: Any, plugin: Any) -> None:
+    """Keep the VST active while its blocking editor runs on the UI thread."""
+
+    engine.load_graph([(plugin, [])])
+    stop = threading.Event()
+    started = threading.Event()
+    failure: list[BaseException] = []
+
+    def process_silence() -> None:
+        try:
+            while not stop.is_set():
+                began = time.monotonic()
+                _succeeded(engine.render(0.05), "process the VST3 editor graph")
+                started.set()
+                remaining = 0.05 - (time.monotonic() - began)
+                if remaining > 0:
+                    stop.wait(remaining)
+        except BaseException as error:
+            failure.append(error)
+            started.set()
+
+    thread = threading.Thread(
+        target=process_silence,
+        name="prism-vst3-editor-audio",
+        daemon=True,
+    )
+    thread.start()
+    started.wait(timeout=5.0)
+    try:
+        if failure:
+            raise failure[0]
+        plugin.open_editor()
+    finally:
+        stop.set()
+        thread.join(timeout=5.0)
+    if thread.is_alive():
+        raise RuntimeError("The VST3 editor audio thread did not stop.")
+    if failure:
+        raise failure[0]
 
 
 def _load_state(plugin: Any, request: Mapping[str, Any]) -> None:
