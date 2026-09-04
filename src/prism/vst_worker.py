@@ -98,7 +98,7 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
 def _enable_windows_dpi_awareness() -> None:
     """Opt the worker into crisp, correctly scaled third-party windows."""
 
-    if sys.platform != "win32":
+    if not sys.platform.startswith("win"):
         return
     try:
         import ctypes
