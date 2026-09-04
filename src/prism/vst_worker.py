@@ -95,10 +95,14 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
     return {"frames": frames, "latency_samples": latency}
 
 
+def _is_windows_platform() -> bool:
+    return sys.platform == "win32"
+
+
 def _enable_windows_dpi_awareness() -> None:
     """Opt the worker into crisp, correctly scaled third-party windows."""
 
-    if not sys.platform.startswith("win"):
+    if not _is_windows_platform():
         return
     try:
         import ctypes
