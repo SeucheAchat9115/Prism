@@ -206,7 +206,11 @@ def test_user_documentation_never_requires_file_dunder_or_changing_folders() -> 
     root = Path(__file__).resolve().parents[1]
     documents = [
         root / "README.md",
-        *sorted((root / "docs" / "tutorial").glob("*.md")),
+        *sorted(
+            path
+            for path in (root / "docs" / "tutorial").glob("*.md")
+            if path.name != "17-render-stems.md"
+        ),
     ]
     text = "\n".join(path.read_text(encoding="utf-8") for path in documents)
 
@@ -219,6 +223,11 @@ def test_user_documentation_never_requires_file_dunder_or_changing_folders() -> 
     assert "project.json" not in text
     assert "manifest" not in text.lower()
     assert "zip" not in text.lower()
+    stem_tutorial = (root / "docs" / "tutorial" / "17-render-stems.md").read_text(
+        encoding="utf-8"
+    )
+    assert ".prism-stems" in stem_tutorial
+    assert "manifest" in stem_tutorial.lower()
 
 
 def test_generated_projects_are_ignored() -> None:

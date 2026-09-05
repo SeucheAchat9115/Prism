@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from pathlib import Path
 
 import numpy as np
 import pytest
 import soundfile as sf
 
+import prism.render as render_module
 from prism import Project, ProjectError, RenderError, StemFile, StemRenderResult
 
 
@@ -104,15 +106,28 @@ def test_render_stems_exports_aligned_tracks_buses_and_exact_master(
         assert item.sha256 == hashlib.sha256(item.path.read_bytes()).hexdigest()
         assert np.max(np.abs(samples)) > 0.0
 
-    stale = result.directory / "tracks" / "99-old-track.wav"
-    stale.write_bytes(b"old")
+    unrelated = result.directory / "tracks" / "99-producer-file.wav"
+    unrelated.write_bytes(b"producer-owned")
     note = result.directory / "tracks" / "keep.txt"
     note.write_text("mine", encoding="utf-8")
     rerendered = song.render_stems("renders/stems")
 
     assert rerendered.master.sha256 == result.master.sha256
-    assert not stale.exists()
+    assert unrelated.read_bytes() == b"producer-owned"
     assert note.read_text(encoding="utf-8") == "mine"
+    assert rerendered.generation == result.generation + 1
+
+    manifest_path = project_script.parent / "renders" / "stems" / ".prism-stems" / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["schema_version"] == 1
+    assert manifest["generation"] == rerendered.generation
+    assert {entry["path"] for entry in manifest["files"]} == {
+        "tracks/01-kick.wav",
+        "tracks/02-lead-main.wav",
+        "buses/01-drum-group.wav",
+        "buses/02-room-return.wav",
+        "master.wav",
+    }
 
 
 @pytest.mark.parametrize(
@@ -242,6 +257,157 @@ def test_render_stems_rejects_unsafe_or_root_output(project_script: Path) -> Non
         song.render_stems(".")
 
 
+def test_render_stems_rejects_source_collisions_without_changing_audio(
+    project_script: Path,
+) -> None:
+    source_directory = project_script.parent / "sounds" / "tracks"
+    source_directory.mkdir(parents=True)
+    vocal = source_directory / "01-vocal.wav"
+    original_take = source_directory / "original-take.wav"
+    source_samples = np.linspace(0.25, -0.25, 32, dtype=np.float32)
+    sf.write(vocal, source_samples, 8_000, subtype="PCM_16")
+    sf.write(original_take, source_samples, 8_000, subtype="PCM_16")
+    before_vocal = vocal.read_bytes()
+    before_original_take = original_take.read_bytes()
+
+    song = Project(
+        "Protected Sources", prism_version="test", sample_rate=8_000, _script=project_script
+    )
+    song.track("Vocal").sample("sounds/tracks/01-vocal.wav", bars=1)
+    song.section("Only", bars=1)
+
+    with pytest.raises(ProjectError, match="protected project file"):
+        song.render_stems("sounds")
+    with pytest.raises(ProjectError, match="protected project file"):
+        song.render_stems("sounds/tracks")
+
+    assert vocal.read_bytes() == before_vocal
+    assert original_take.read_bytes() == before_original_take
+
+
+def test_render_stems_rejects_scripts_and_plugin_states_as_output(
+    project_script: Path,
+) -> None:
+    scripts = project_script.parent / "scripts"
+    scripts.mkdir()
+    (scripts / "prepare.py").write_text("# producer helper\n", encoding="utf-8")
+    states = project_script.parent / "plugin-states"
+    states.mkdir()
+    (states / "lead.state").write_bytes(b"plugin state")
+
+    song = _mini_song(project_script)
+    with pytest.raises(ProjectError, match="protected project file"):
+        song.render_stems("scripts")
+    with pytest.raises(ProjectError, match="protected project file"):
+        song.render_stems("plugin-states")
+
+
+def test_render_stems_removes_only_unchanged_owned_files_after_rename_and_removal(
+    project_script: Path,
+) -> None:
+    song = Project(
+        "Changing Stems", tempo=240, prism_version="test", sample_rate=8_000, _script=project_script
+    )
+    renamed = song.track("Original").drum("kick", "x---")
+    song.track("Other").drum("snare", "---- x---")
+    song.section("Only", bars=1)
+
+    first = song.render_stems("renders/stems")
+    old_original = next(item.path for item in first.tracks if item.name == "Original")
+    renamed.name = "Renamed"
+
+    second = song.render_stems("renders/stems")
+    new_renamed = next(item.path for item in second.tracks if item.name == "Renamed")
+    assert new_renamed.is_file()
+    assert not old_original.exists()
+
+    song.tracks.remove(renamed)
+    third = song.render_stems("renders/stems")
+
+    assert all(item.name != "Renamed" for item in third.tracks)
+    assert not new_renamed.exists()
+
+
+def test_render_stems_preserves_modified_generated_and_added_files(
+    project_script: Path,
+) -> None:
+    song = Project(
+        "Preserve Producer Files",
+        tempo=240,
+        prism_version="test",
+        sample_rate=8_000,
+        _script=project_script,
+    )
+    song.track("Kick").drum("kick", "x---")
+    song.section("Only", bars=1)
+
+    first = song.render_stems("renders/stems")
+    modified = first.tracks[0].path
+    modified.write_bytes(b"producer changed this generated file")
+    added = first.directory / "tracks" / "producer-added.wav"
+    added.write_bytes(b"producer added this file")
+
+    second = song.render_stems("renders/stems")
+
+    assert modified.read_bytes() == b"producer changed this generated file"
+    assert added.read_bytes() == b"producer added this file"
+    assert second.tracks[0].path != modified
+    assert second.tracks[0].path.is_file()
+
+
+def test_render_stems_rejects_child_symlink_before_writing(
+    project_script: Path, tmp_path: Path
+) -> None:
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    sentinel = outside / "sentinel.wav"
+    sentinel.write_bytes(b"outside")
+    container = tmp_path / "renders" / "stems"
+    container.mkdir(parents=True)
+    try:
+        (container / "tracks").symlink_to(outside, target_is_directory=True)
+    except (OSError, NotImplementedError) as error:
+        pytest.skip(f"symlinks are unavailable: {error}")
+
+    song = _mini_song(project_script)
+    with pytest.raises(ProjectError, match="symlink"):
+        song.render_stems("renders/stems")
+
+    assert sentinel.read_bytes() == b"outside"
+    assert not (outside / "master.wav").exists()
+
+
+def test_render_stems_failure_keeps_previous_manifest_and_generation(
+    project_script: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    song = _mini_song(project_script)
+    first = song.render_stems("renders/stems")
+    container = project_script.parent / "renders" / "stems"
+    manifest_path = container / ".prism-stems" / "manifest.json"
+    manifest_before = manifest_path.read_bytes()
+    master_before = first.master.path.read_bytes()
+    original_write_stem = render_module._write_stem
+    calls = 0
+
+    def fail_on_second_write(*args: object, **kwargs: object) -> StemFile:
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("simulated middle stem failure")
+        return original_write_stem(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(render_module, "_write_stem", fail_on_second_write)
+    with pytest.raises(RenderError, match="Previous completed generation remains"):
+        song.render_stems("renders/stems")
+
+    assert calls == 2
+    assert manifest_path.read_bytes() == manifest_before
+    assert first.master.path.read_bytes() == master_before
+    generations = container / ".prism-stems" / "generations"
+    assert len([path for path in generations.iterdir() if path.is_dir()]) == 1
+    assert not any(path.name.startswith(".staging-") for path in generations.iterdir())
+
+
 def test_project_local_sample_is_loaded_and_resampled(
     project_script: Path, sample_file: Path
 ) -> None:
@@ -356,6 +522,24 @@ def test_render_rejects_unsafe_or_wrong_output(project_script: Path) -> None:
         song.render("../song.wav")
     with pytest.raises(ProjectError, match=".wav"):
         song.render("renders/song.mp3")
+
+
+def test_render_rejects_symlink_output_before_writing(
+    project_script: Path, tmp_path: Path
+) -> None:
+    outside = tmp_path / "outside.wav"
+    outside.write_bytes(b"outside")
+    renders = tmp_path / "renders"
+    renders.mkdir()
+    try:
+        (renders / "song.wav").symlink_to(outside)
+    except (OSError, NotImplementedError) as error:
+        pytest.skip(f"symlinks are unavailable: {error}")
+
+    with pytest.raises(ProjectError, match="symlink"):
+        _mini_song(project_script).render("renders/song.wav")
+
+    assert outside.read_bytes() == b"outside"
 
 
 def test_render_reports_unsupported_multichannel_source(

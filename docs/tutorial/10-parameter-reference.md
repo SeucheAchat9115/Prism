@@ -444,7 +444,9 @@ stems = song.render_stems(
   peak dBFS, bit depth, and requested tail seconds.
 - `render_stems()` returns one aligned WAV per track and bus plus the final
   master. Its result contains `directory`, audio format and duration fields,
-  ordered `tracks` and `buses`, `master`, and a convenient `files` collection.
+  `generation`, ordered `tracks` and `buses`, `master`, and a convenient
+  `files` collection. `directory` points to the completed versioned generation
+  inside the requested output container.
   Each `StemFile` contains `name`, `kind`, `path`, SHA-256, and peak dBFS.
 
 Both rendering methods accept the same keyword options:
@@ -457,8 +459,11 @@ Both rendering methods accept the same keyword options:
 | `tail_seconds` | `0` | 0–60 seconds |
 
 WAV outputs must end in `.wav`; MIDI outputs must end in `.mid`. Outputs must
-stay inside the project and cannot replace `main.py` or a source sample. Writes
-are atomic. `render_stems()` accepts a relative folder instead of a filename.
+stay inside the project and cannot replace `main.py` or a source sample. A
+single-file WAV uses atomic replacement. Stem WAVs are staged as a generation
+and the ownership record is published afterward; the complete set is not
+claimed to be one multi-file atomic transaction. `render_stems()` accepts a
+relative folder instead of a filename.
 Rendering defaults to stereo PCM-16 WAV files; the quality options above can
 change that delivery format. See [Level 17](17-render-stems.md) for the exact
 signal included in each stem.

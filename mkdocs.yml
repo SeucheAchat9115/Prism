@@ -120,6 +120,8 @@ nav:
   - Plugin development:
       - Architecture: plugins/index.md
       - Add a stock plugin: plugins/adding-stock-plugins.md
+  - Development:
+      - Implementation status: development/implementation-status.md
   - Implementation roadmap:
       - Ordered tasks: development/implementation-tasks.md
       - Agent prompts: development/implementation-prompts.md
