@@ -73,6 +73,7 @@ jobs:
           curl --fail --location --retry 3 \
             --output "$archive" \
             "$SURGE_LINUX_URL"
+          sha256sum "$archive"
           sudo apt-get install -y "$archive"
           test -d "/usr/lib/vst3/Surge XT.vst3"
           test -d "/usr/lib/vst3/Surge XT Effects.vst3"
@@ -87,6 +88,7 @@ jobs:
         run: |
           $installer = Join-Path $env:RUNNER_TEMP 'surge-xt-setup.exe'
           Invoke-WebRequest -Uri $env:SURGE_WINDOWS_URL -OutFile $installer
+          Get-FileHash -Algorithm SHA256 -Path $installer | Format-List
           $arguments = @(
             '/VERYSILENT',
             '/SUPPRESSMSGBOXES',
