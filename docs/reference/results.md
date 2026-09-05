@@ -18,8 +18,10 @@ delivered WAV. `bit_depth` is 16, 24, or 32; 32 means floating point.
 
 Its `tracks` and `buses` fields contain `StemFile` objects in the same order
 as the channels in `main.py`. `master` is the final file, and `files` returns
-all three groups together. Every file has the result's sample rate, channel
-count, frame count, bit depth, tail length, and duration.
+all three groups together. `directory` is the completed versioned generation,
+and `generation` is its manifest generation number. Every file has the
+result's sample rate, channel count, frame count, bit depth, tail length, and
+duration.
 
 ## StemFile
 

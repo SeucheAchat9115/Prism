@@ -1045,12 +1045,14 @@ class Project:
         sample_rate: int | None = None,
         tail_seconds: float = 0.0,
     ) -> StemRenderResult:
-        """Render aligned track, bus, and master WAV files into one folder.
+        """Render aligned track, bus, and master WAV files into a generation.
 
         Track stems contain each track's instrument or audio, effects, gain,
         and pan. Bus stems contain their routed tracks and sends followed by
         the bus effects, gain, and pan. The master is identical to a normal
         :meth:`render` of the same project when given the same export options.
+        The requested folder is a container; the returned result points to a
+        versioned completed generation inside it.
         """
 
         from prism.render import render_stems
@@ -1193,6 +1195,8 @@ class Project:
             raise ProjectError("Output paths must be relative to the project folder.")
         if path.suffix.casefold() != suffix:
             raise ProjectError(f"Output must use the {suffix} extension: {path}")
+        candidate = self.root / path
+        _reject_symlink_path(candidate, self.root, "Output")
         resolved = (self.root / path).resolve(strict=False)
         try:
             resolved.relative_to(self.root)
@@ -1200,14 +1204,16 @@ class Project:
             raise ProjectError("Output paths must stay inside the project folder.") from error
         if resolved == self.script:
             raise ProjectError("An output cannot overwrite the project script.")
-        if resolved in self._sample_files():
-            raise ProjectError("An output cannot overwrite a source sample.")
+        if resolved in self._protected_project_files():
+            raise ProjectError("An output cannot overwrite a protected project file.")
         return resolved
 
     def _output_directory(self, value: str | Path) -> Path:
         path = Path(value)
         if _unsafe_project_path(value):
             raise ProjectError("Output folders must be relative to the project folder.")
+        candidate = self.root / path
+        _reject_symlink_path(candidate, self.root, "Output folder")
         resolved = (self.root / path).resolve(strict=False)
         try:
             resolved.relative_to(self.root)
@@ -1215,8 +1221,11 @@ class Project:
             raise ProjectError("Output folders must stay inside the project folder.") from error
         if resolved == self.root:
             raise ProjectError("Choose an output folder inside the project folder.")
-        if resolved == self.script or resolved in self._sample_files():
-            raise ProjectError("A stem folder cannot replace a project file.")
+        protected = self._protected_project_files()
+        if any(_paths_overlap(resolved, protected_path) for protected_path in protected):
+            raise ProjectError(
+                "A stem output folder cannot contain or replace a protected project file."
+            )
         return resolved
 
     def _sample_files(self) -> set[Path]:
@@ -1225,6 +1234,31 @@ class Project:
             for placement in track.clips:
                 if isinstance(placement.clip, SampleClip | AudioClip):
                     paths.add((self.root / placement.clip.path).resolve(strict=False))
+        return paths
+
+    def _protected_project_files(self) -> set[Path]:
+        """Return project files that no export operation may replace."""
+
+        paths = {self.script, (self.root / "vst.json").resolve(strict=False)}
+        paths.update(self._sample_files())
+        for relative_file in self.samples.files():
+            paths.add((self.root / relative_file).resolve(strict=False))
+
+        for path in self.root.rglob("*.py"):
+            if path.is_file():
+                paths.add(path.resolve(strict=False))
+        state_root = self.root / "plugin-states"
+        if state_root.is_dir():
+            paths.update(
+                path.resolve(strict=False)
+                for path in state_root.rglob("*")
+                if path.is_file()
+            )
+        for plugin in self._external_plugins():
+            assert plugin.vst3 is not None
+            for state_relative in (plugin.vst3.state, plugin.vst3.preset):
+                if state_relative is not None:
+                    paths.add((self.root / state_relative).resolve(strict=False))
         return paths
 
 
@@ -1574,6 +1608,34 @@ def _unsafe_project_path(value: str | Path) -> bool:
         or ".." in posix.parts
         or ".." in windows.parts
     )
+
+
+def _paths_overlap(left: Path, right: Path) -> bool:
+    """Return whether either path is the other path or one of its descendants."""
+
+    return _is_same_or_child(left, right) or _is_same_or_child(right, left)
+
+
+def _is_same_or_child(path: Path, parent: Path) -> bool:
+    try:
+        path.relative_to(parent)
+    except ValueError:
+        return False
+    return True
+
+
+def _reject_symlink_path(path: Path, root: Path, label: str) -> None:
+    """Reject symlink components before resolving a project-local destination."""
+
+    try:
+        relative = path.relative_to(root)
+    except ValueError as error:
+        raise ProjectError(f"{label} must stay inside the project folder.") from error
+    current = root
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            raise ProjectError(f"{label} cannot pass through a symlink: {current}")
 
 
 __all__ = [

@@ -63,8 +63,8 @@ Run the command Prism printed when it created your tutorial project. Listen to
 long at this tempo, but the file continues for another 1.5 seconds so the
 delay and reverb can finish instead of stopping suddenly.
 
-The master is a stereo, 24-bit WAV at 48 kHz. The files under
-`renders/stems/` are stereo 32-bit floating-point WAVs at the same sample rate.
+The master is a stereo, 24-bit WAV at 48 kHz. The completed generation printed
+by `stems` contains stereo 32-bit floating-point WAVs at the same sample rate.
 They also contain the complete tail and all start at the same point.
 
 ## 3. Choose the right bit depth

@@ -79,5 +79,5 @@ Track and bus files can represent two stages of the same sound. For example,
 the Drum track files also feed the Drum Group file, so importing both stages
 and playing them together doubles that material. Choose the stage you want.
 
-Follow [Render stems](../tutorial/17-render-stems.md) for a complete project
-and a tour of the generated folders.
+Follow [Render stems](../tutorial/17-render-stems.md) for a complete project,
+the returned generation path, and a tour of the generated folders.

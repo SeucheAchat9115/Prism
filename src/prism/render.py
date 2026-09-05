@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import math
 import os
 import re
+import shutil
 import tempfile
+import uuid
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Literal
+from pathlib import Path, PurePosixPath
+from typing import Literal, Mapping
 
 import numpy as np
 import soundfile as sf
@@ -82,6 +85,7 @@ class StemRenderResult:
     tracks: tuple[StemFile, ...]
     buses: tuple[StemFile, ...]
     master: StemFile
+    generation: int = 0
 
     @property
     def files(self) -> tuple[StemFile, ...]:
@@ -91,7 +95,10 @@ class StemRenderResult:
 
     def __str__(self) -> str:
         count = len(self.tracks) + len(self.buses) + 1
-        return f"Rendered {count} aligned stem files to {self.directory}"
+        return (
+            f"Rendered {count} aligned stem files to generation {self.generation} "
+            f"at {self.directory}"
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +115,20 @@ class _ExportSettings:
     channels: OutputChannels
     sample_rate: int
     tail_seconds: float
+
+
+@dataclass(frozen=True, slots=True)
+class _StemManifest:
+    """The last successfully published stem generation and its file ownership."""
+
+    generation: int
+    directory: Path
+    files: tuple[tuple[str, str], ...]
+
+
+_STEM_MANIFEST_SCHEMA_VERSION = 1
+_STEM_METADATA_DIRECTORY = ".prism-stems"
+_STEM_MANIFEST_FILENAME = "manifest.json"
 
 
 def render_project(
@@ -164,21 +185,52 @@ def render_stems(
     sample_rate: int | None = None,
     tail_seconds: float = 0.0,
 ) -> StemRenderResult:
-    """Render aligned track, bus/return, and master WAV files."""
+    """Render aligned track, bus/return, and master WAV files.
 
+    The requested folder is a container for versioned generations. A generation
+    is written privately first; its ownership manifest becomes current only after
+    every WAV is complete. ``StemRenderResult.directory`` is therefore the
+    recoverable, completed generation rather than the container itself.
+    """
+
+    directory = project._output_directory(output)
+    settings = _export_settings(
+        project,
+        bit_depth=bit_depth,
+        channels=channels,
+        sample_rate=sample_rate,
+        tail_seconds=tail_seconds,
+    )
+    previous: _StemManifest | None = None
+    staging: Path | None = None
+    staging_created = False
     try:
-        directory = project._output_directory(output)
-        settings = _export_settings(
-            project,
-            bit_depth=bit_depth,
-            channels=channels,
-            sample_rate=sample_rate,
-            tail_seconds=tail_seconds,
-        )
+        protected = project._protected_project_files()
+        _validate_stem_output(project, directory, protected)
+        previous = _read_stem_manifest(project, directory, protected)
         rendered = _render_buffers(project, tail_seconds=settings.tail_seconds)
+
+        metadata = directory / _STEM_METADATA_DIRECTORY
+        generations = metadata / "generations"
+        _make_directory(metadata, project, protected, "Stem metadata directory")
+        _make_directory(generations, project, protected, "Stem generations directory")
+
+        generation_number = 1 if previous is None else previous.generation + 1
+        generation_name = f"generation-{generation_number:06d}-{uuid.uuid4().hex[:12]}"
+        generation = generations / generation_name
+        staging = generations / f".staging-{uuid.uuid4().hex}"
+        _assert_safe_managed_path(project, generation, protected, "Stem generation")
+        _assert_safe_managed_path(project, staging, protected, "Stem staging directory")
+        staging.mkdir()
+        staging_created = True
+
         track_files = tuple(
             _write_stem(
-                directory / "tracks" / _stem_filename(index, name),
+                _safe_stem_destination(
+                    project,
+                    staging / "tracks" / _stem_filename(index, name),
+                    protected,
+                ),
                 _prepare_export(rendered.tracks[name], project.sample_rate, settings),
                 settings,
                 name=name,
@@ -188,7 +240,11 @@ def render_stems(
         )
         bus_files = tuple(
             _write_stem(
-                directory / "buses" / _stem_filename(index, name),
+                _safe_stem_destination(
+                    project,
+                    staging / "buses" / _stem_filename(index, name),
+                    protected,
+                ),
                 _prepare_export(rendered.buses[name], project.sample_rate, settings),
                 settings,
                 name=name,
@@ -198,16 +254,44 @@ def render_stems(
         )
         master_samples = _prepare_export(rendered.master, project.sample_rate, settings)
         master = _write_stem(
-            directory / "master.wav",
+            _safe_stem_destination(project, staging / "master.wav", protected),
             master_samples,
             settings,
             name="Master",
             kind="master",
         )
-        _remove_stale_stems(directory / "tracks", {item.path for item in track_files})
-        _remove_stale_stems(directory / "buses", {item.path for item in bus_files})
+        staged_files = (*track_files, *bus_files, master)
+        manifest = _StemManifest(
+            generation=generation_number,
+            directory=generation,
+            files=tuple(
+                (
+                    item.path.relative_to(staging).as_posix(),
+                    item.sha256,
+                )
+                for item in staged_files
+            ),
+        )
+        staging_root = staging
+        os.replace(staging, generation)
+        staging = None
+        staging_created = False
+        _publish_stem_manifest(project, directory, protected, manifest)
+
+        if previous is not None:
+            _remove_stale_stems(
+                previous.directory,
+                set(),
+                ownership=dict(previous.files),
+                project=project,
+                protected=protected,
+            )
+
+        track_files = tuple(_relocate_stem(item, staging_root, generation) for item in track_files)
+        bus_files = tuple(_relocate_stem(item, staging_root, generation) for item in bus_files)
+        master = _relocate_stem(master, staging_root, generation)
         return StemRenderResult(
-            directory=directory,
+            directory=generation,
             sample_rate=settings.sample_rate,
             channels=1 if settings.channels == "mono" else 2,
             frames=master_samples.shape[0],
@@ -217,11 +301,27 @@ def render_stems(
             tracks=track_files,
             buses=bus_files,
             master=master,
+            generation=generation_number,
         )
-    except (ProjectError, RenderError):
+    except ProjectError:
         raise
+    except RenderError as error:
+        if previous is None:
+            raise
+        raise RenderError(
+            f"{error} Previous completed generation remains at {previous.directory}."
+        ) from error
     except (OSError, RuntimeError, ValueError) as error:
-        raise RenderError(f"Could not render stems for {project.name!r}: {error}") from error
+        previous_path = "none"
+        if previous is not None:
+            previous_path = str(previous.directory)
+        raise RenderError(
+            f"Could not render stems for {project.name!r}: {error}. "
+            f"Previous completed generation remains at {previous_path}."
+        ) from error
+    finally:
+        if staging_created and staging is not None and staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)
 
 
 def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _RenderedProject:
@@ -724,12 +824,235 @@ def _stem_filename(index: int, name: str) -> str:
     return f"{index:02d}-{slug}.wav"
 
 
-def _remove_stale_stems(directory: Path, expected: set[Path]) -> None:
-    if not directory.is_dir():
+def _validate_stem_output(
+    project: Project, directory: Path, protected: set[Path]
+) -> None:
+    """Check the container and legacy stem folders before creating anything."""
+
+    _assert_safe_managed_path(project, directory, protected, "Stem output folder")
+    if directory.exists() and not directory.is_dir():
+        raise ProjectError(f"Stem output folder is not a directory: {directory}")
+    if directory.is_dir():
+        for child in directory.rglob("*"):
+            if child.is_symlink():
+                raise ProjectError(f"Stem output cannot contain a symlink: {child}")
+
+    metadata = directory / _STEM_METADATA_DIRECTORY
+    if metadata.exists() or metadata.is_symlink():
+        _reject_symlink_components(metadata, project.root, "Stem metadata directory")
+        if not metadata.is_dir():
+            raise ProjectError(f"Stem metadata path is not a directory: {metadata}")
+
+
+def _make_directory(
+    path: Path, project: Project, protected: set[Path], label: str
+) -> None:
+    _assert_safe_managed_path(project, path, protected, label)
+    if path.exists():
+        if not path.is_dir():
+            raise ProjectError(f"{label} is not a directory: {path}")
         return
-    for path in directory.iterdir():
-        if path.is_file() and path.suffix.casefold() == ".wav" and path not in expected:
-            path.unlink()
+    path.mkdir(parents=True)
+    _assert_safe_managed_path(project, path, protected, label)
+
+
+def _safe_stem_destination(project: Project, path: Path, protected: set[Path]) -> Path:
+    _assert_safe_managed_path(project, path, protected, "Stem output")
+    return path
+
+
+def _assert_safe_managed_path(
+    project: Project,
+    path: Path,
+    protected: set[Path],
+    label: str,
+) -> Path:
+    """Resolve one managed path without following a project escape symlink."""
+
+    _reject_symlink_components(path, project.root, label)
+    resolved = path.resolve(strict=False)
+    try:
+        resolved.relative_to(project.root)
+    except ValueError as error:
+        raise ProjectError(f"{label} must stay inside the project folder: {path}") from error
+    if resolved in protected:
+        raise ProjectError(f"{label} would overwrite a protected project file: {resolved}")
+    return resolved
+
+
+def _reject_symlink_components(path: Path, root: Path, label: str) -> None:
+    try:
+        relative = path.relative_to(root)
+    except ValueError as error:
+        raise ProjectError(f"{label} must stay inside the project folder: {path}") from error
+    current = root
+    for part in relative.parts:
+        current /= part
+        if current.is_symlink():
+            raise ProjectError(f"{label} cannot pass through a symlink: {current}")
+
+
+def _read_stem_manifest(
+    project: Project, directory: Path, protected: set[Path]
+) -> _StemManifest | None:
+    metadata = directory / _STEM_METADATA_DIRECTORY
+    manifest_path = metadata / _STEM_MANIFEST_FILENAME
+    if not manifest_path.exists() and not manifest_path.is_symlink():
+        return None
+    _assert_safe_managed_path(project, manifest_path, protected, "Stem ownership manifest")
+    if not manifest_path.is_file():
+        raise ProjectError(f"Stem ownership manifest is not a file: {manifest_path}")
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ProjectError(
+            f"Could not read stem ownership manifest {manifest_path}: {error}"
+        ) from error
+    if not isinstance(data, dict) or data.get("schema_version") != _STEM_MANIFEST_SCHEMA_VERSION:
+        raise ProjectError(
+            f"Stem ownership manifest has an unsupported schema: {manifest_path}"
+        )
+
+    generation_value = data.get("generation")
+    if (
+        isinstance(generation_value, bool)
+        or not isinstance(generation_value, int)
+        or generation_value < 1
+    ):
+        raise ProjectError(f"Stem ownership manifest has an invalid generation: {manifest_path}")
+    generation_value = int(generation_value)
+    directory_value = data.get("generation_directory")
+    if not isinstance(directory_value, str):
+        raise ProjectError(f"Stem ownership manifest has no generation directory: {manifest_path}")
+    generation_relative = _manifest_relative(directory_value, "generation directory")
+    if generation_relative.parts[:1] != ("generations",):
+        raise ProjectError(f"Stem generation is outside its managed directory: {manifest_path}")
+    generation = metadata / Path(generation_relative.as_posix())
+    _assert_safe_managed_path(project, generation, protected, "Stem generation")
+    if not generation.is_dir():
+        raise ProjectError(f"Stem generation is missing: {generation}")
+
+    raw_files = data.get("files")
+    if not isinstance(raw_files, list):
+        raise ProjectError(f"Stem ownership manifest has invalid files: {manifest_path}")
+    files: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for raw_file in raw_files:
+        if not isinstance(raw_file, dict):
+            raise ProjectError(
+                f"Stem ownership manifest has an invalid file entry: {manifest_path}"
+            )
+        relative_value = raw_file.get("path")
+        sha256 = raw_file.get("sha256")
+        if not isinstance(relative_value, str) or not isinstance(sha256, str):
+            raise ProjectError(
+                f"Stem ownership manifest has an invalid file entry: {manifest_path}"
+            )
+        relative = _manifest_relative(relative_value, "stem file")
+        if relative.suffix.casefold() != ".wav" or relative.as_posix() in seen:
+            raise ProjectError(
+                f"Stem ownership manifest has a duplicate or invalid file: {manifest_path}"
+            )
+        if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+            raise ProjectError(f"Stem ownership manifest has an invalid checksum: {manifest_path}")
+        candidate = generation / Path(relative.as_posix())
+        _assert_safe_managed_path(project, candidate, protected, "Stem cleanup candidate")
+        seen.add(relative.as_posix())
+        files.append((relative.as_posix(), sha256))
+    return _StemManifest(generation_value, generation, tuple(files))
+
+
+def _manifest_relative(value: str, label: str) -> PurePosixPath:
+    if not value or "\\" in value:
+        raise ProjectError(f"Stem manifest {label} must be a safe relative path: {value!r}")
+    relative = PurePosixPath(value)
+    if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+        raise ProjectError(f"Stem manifest {label} must be a safe relative path: {value!r}")
+    return relative
+
+
+def _publish_stem_manifest(
+    project: Project,
+    directory: Path,
+    protected: set[Path],
+    manifest: _StemManifest,
+) -> None:
+    metadata = directory / _STEM_METADATA_DIRECTORY
+    manifest_path = metadata / _STEM_MANIFEST_FILENAME
+    _assert_safe_managed_path(project, manifest_path, protected, "Stem ownership manifest")
+    _write_json_atomic(manifest_path, _manifest_data(manifest, metadata))
+
+
+def _manifest_data(manifest: _StemManifest, metadata: Path) -> dict[str, object]:
+    return {
+        "schema_version": _STEM_MANIFEST_SCHEMA_VERSION,
+        "generation": manifest.generation,
+        "generation_directory": manifest.directory.relative_to(metadata).as_posix(),
+        "files": [
+            {"path": relative, "sha256": sha256}
+            for relative, sha256 in sorted(manifest.files)
+        ],
+    }
+
+
+def _write_json_atomic(path: Path, data: Mapping[str, object]) -> None:
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temporary.open("w", encoding="utf-8", newline="\n") as stream:
+            json.dump(data, stream, indent=2, sort_keys=True)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def _relocate_stem(item: StemFile, staging: Path, generation: Path) -> StemFile:
+    return StemFile(
+        name=item.name,
+        kind=item.kind,
+        path=generation / item.path.relative_to(staging),
+        sha256=item.sha256,
+        peak_dbfs=item.peak_dbfs,
+    )
+
+
+def _remove_stale_stems(
+    directory: Path,
+    expected: set[Path],
+    *,
+    ownership: Mapping[str, str] | None = None,
+    project: Project | None = None,
+    protected: set[Path] | None = None,
+) -> None:
+    """Remove only unchanged WAVs owned by the previous completed generation."""
+
+    if ownership is None:
+        return
+    protected_paths = set() if protected is None else protected
+    for relative, checksum in ownership.items():
+        candidate = directory / Path(relative)
+        if candidate in expected:
+            continue
+        if project is not None:
+            _assert_safe_managed_path(
+                project,
+                candidate,
+                protected_paths,
+                "Stem cleanup candidate",
+            )
+        if candidate.is_symlink() or not candidate.is_file():
+            continue
+        try:
+            unchanged = _sha256(candidate) == checksum
+        except OSError:
+            continue
+        if unchanged:
+            try:
+                candidate.unlink()
+            except OSError:
+                continue
 
 
 def _peak_dbfs(samples: np.ndarray) -> float | None:
