@@ -16,6 +16,7 @@ from prism.errors import RenderError
 from prism.midi import TICKS_PER_BEAT
 from prism.music import ControlPoint, Note, note_to_midi
 from prism.plugins import Plugin
+from prism.timing import MusicalTiming
 
 if TYPE_CHECKING:
     from prism.project.builder import Project
@@ -115,7 +116,9 @@ def render_vst3_instrument(
     with tempfile.TemporaryDirectory(prefix="prism-vst3-") as temporary:
         root = Path(temporary)
         midi_path = root / "notes.mid"
-        midi_path.write_bytes(_midi_file(project.tempo, notes, pitch_bend, modulation))
+        midi_path.write_bytes(
+            _midi_file(project.timing, notes, pitch_bend, modulation)
+        )
         output_path = root / "output.npy"
         request = _plugin_request(project, plugin)
         request.update(
@@ -252,28 +255,41 @@ def _read_output(path: Path, frames: int) -> np.ndarray:
 
 
 def _midi_file(
-    tempo: float,
+    tempo: float | MusicalTiming,
     notes: Sequence[Note],
     bends: Sequence[ControlPoint],
     modulation: Sequence[ControlPoint],
 ) -> bytes:
+    timing = tempo if isinstance(tempo, MusicalTiming) else MusicalTiming(tempo_bpm=tempo)
     events: list[tuple[int, int, bytes]] = []
-    microseconds = int(round(60_000_000 / tempo))
+    microseconds = timing.microseconds_per_quarter_note
     events.append((0, -3, b"\xff\x51\x03" + microseconds.to_bytes(3, "big")))
     for note in notes:
-        start = round(note.start * TICKS_PER_BEAT)
-        end = round((note.start + note.duration) * TICKS_PER_BEAT)
+        start = timing.quarter_notes_to_ticks(note.start, TICKS_PER_BEAT)
+        end = timing.quarter_notes_to_ticks(
+            note.start + note.duration, TICKS_PER_BEAT
+        )
         number = note_to_midi(note.pitch)
         events.append((start, 1, bytes((0x90, number, note.velocity))))
         events.append((end, 0, bytes((0x80, number, 0))))
     for point in bends:
         value = max(0, min(16_383, round((point.value + 2.0) / 4.0 * 16_383)))
         events.append(
-            (round(point.beat * TICKS_PER_BEAT), -1, bytes((0xE0, value & 0x7F, value >> 7)))
+            (
+                timing.quarter_notes_to_ticks(point.beat, TICKS_PER_BEAT),
+                -1,
+                bytes((0xE0, value & 0x7F, value >> 7)),
+            )
         )
     for point in modulation:
         value = max(0, min(127, round(point.value * 127)))
-        events.append((round(point.beat * TICKS_PER_BEAT), -1, bytes((0xB0, 1, value))))
+        events.append(
+            (
+                timing.quarter_notes_to_ticks(point.beat, TICKS_PER_BEAT),
+                -1,
+                bytes((0xB0, 1, value)),
+            )
+        )
     end_tick = max((tick for tick, _order, _payload in events), default=0)
     events.append((end_tick, 9, b"\xff\x2f\x00"))
     body = bytearray()

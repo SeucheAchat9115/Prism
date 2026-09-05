@@ -129,6 +129,7 @@ nav:
       - Overview: reference/index.md
       - Projects and tracks: reference/project.md
       - Notes and synthesizers: reference/music.md
+      - Musical timing: reference/timing.md
       - Plugins and automation: reference/plugins.md
       - Render and MIDI results: reference/results.md
       - Errors: reference/errors.md

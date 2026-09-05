@@ -35,12 +35,16 @@ notes = [
 lead = song.track("Lead").midi(notes, instrument=Uniwave.lead(), bars=1)
 ```
 
-Positions and durations are measured in beats from the clip's beginning.
+Positions and durations are measured in quarter-note beats from the clip's
+beginning, regardless of the project's written denominator. For example, a
+one-bar 6/8 clip spans three quarter-note beats, so `Note("C4", 2.5, 0.25)`
+starts half a quarter note before the end of that bar.
 
 ## Performance controls
 
-`pitch_bend` supplies `(beat, semitones)` points from -2 to +2 semitones.
-`modulation` supplies `(beat, amount)` points from 0 to 1. `swing` delays every
+`pitch_bend` supplies `(quarter_note, semitones)` points from -2 to +2
+semitones. `modulation` supplies `(quarter_note, amount)` points from 0 to 1.
+`swing` delays every
 second subdivision, while seeded humanization adds repeatable timing and
 velocity variation.
 

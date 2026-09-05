@@ -13,6 +13,7 @@ from prism.synthesis.types import (
     NativeSynthSpec,
     SynthPatch,
 )
+from prism.timing import MusicalTiming
 
 
 def native_instrument_settings(
@@ -28,7 +29,7 @@ def render_native_synth(
     *,
     sample_rate: int,
     tempo_bpm: float,
-    beats_per_bar: int = 4,
+    quarter_notes_per_bar: float = 4.0,
 ) -> np.ndarray:
     """Render one loop-aligned spec to deterministic mono samples."""
 
@@ -36,15 +37,22 @@ def render_native_synth(
         raise ValueError("sample_rate must be positive")
     if not math.isfinite(tempo_bpm) or tempo_bpm <= 0:
         raise ValueError("tempo_bpm must be positive and finite")
-    if beats_per_bar <= 0:
-        raise ValueError("beats_per_bar must be positive")
-    seconds = spec.bars * beats_per_bar * 60.0 / tempo_bpm
+    if not math.isfinite(quarter_notes_per_bar) or quarter_notes_per_bar <= 0:
+        raise ValueError("quarter_notes_per_bar must be positive and finite")
+    timing = MusicalTiming(
+        tempo_bpm=tempo_bpm,
+        sample_rate=sample_rate,
+    )
+    total_quarter_notes = spec.bars * quarter_notes_per_bar
+    seconds = timing.quarter_notes_to_seconds(total_quarter_notes)
     if spec.frame_count is None and seconds > MAX_SYNTH_SECONDS:
         raise ValueError(f"native synth output cannot exceed {MAX_SYNTH_SECONDS:g} seconds")
-    frames = spec.frame_count or max(1, int(round(seconds * sample_rate)))
+    frames = spec.frame_count or max(1, timing.quarter_notes_to_frame(total_quarter_notes))
     definition = STOCK_PLUGINS.get("instrument", spec.preset)
     if definition.synth_processor is not None:
-        rendered = definition.synth_processor(spec, sample_rate, tempo_bpm, beats_per_bar)
+        rendered = definition.synth_processor(
+            spec, sample_rate, tempo_bpm, quarter_notes_per_bar
+        )
         samples = np.asarray(rendered, dtype=np.float64)
         if samples.shape != (frames,):
             raise ValueError(
@@ -63,7 +71,7 @@ def render_native_synth(
                 boundaries,
                 spec,
                 sample_rate,
-                frames_per_beat=sample_rate * 60.0 / tempo_bpm,
+                timing=timing,
             )
     gain = 10.0 ** (spec.gain_db / 20.0)
     samples *= gain
@@ -115,7 +123,7 @@ def _render_melodic(
     spec: NativeSynthSpec,
     sample_rate: int,
     *,
-    frames_per_beat: float,
+    timing: MusicalTiming,
 ) -> None:
     default = STOCK_PLUGINS.get("instrument", spec.preset).synth_patch
     if default is None:
@@ -133,17 +141,17 @@ def _render_melodic(
         amplitude=default.amplitude,
     )
     bend = _control_values(
-        spec.pitch_bend, output.size, frames_per_beat=frames_per_beat, default=0.0
+        spec.pitch_bend, output.size, timing=timing, default=0.0
     )
     modulation = _control_values(
-        spec.modulation, output.size, frames_per_beat=frames_per_beat, default=0.0
+        spec.modulation, output.size, timing=timing, default=0.0
     )
     if spec.note_events:
         events = tuple(
             (
                 note.pitch,
-                int(round(note.start * frames_per_beat)),
-                max(1, int(round(note.duration * frames_per_beat))),
+                timing.quarter_notes_to_frame(note.start),
+                max(1, timing.quarter_notes_to_frame(note.duration)),
                 note.velocity,
             )
             for note in spec.note_events
@@ -216,12 +224,14 @@ def _control_values(
     points: tuple[ControlPoint, ...],
     frames: int,
     *,
-    frames_per_beat: float,
+    timing: MusicalTiming,
     default: float,
 ) -> np.ndarray:
     if not points:
         return np.full(frames, default, dtype=np.float64)
-    positions = [point.beat * frames_per_beat for point in points]
+    positions = [
+        float(timing.quarter_notes_to_frame(point.beat)) for point in points
+    ]
     values = [point.value for point in points]
     if positions[0] > 0.0:
         positions.insert(0, 0.0)

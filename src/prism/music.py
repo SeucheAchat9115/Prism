@@ -16,7 +16,12 @@ _RESTS = {"-", ".", "r", "rest"}
 
 @dataclass(frozen=True, slots=True)
 class Note:
-    """One MIDI note positioned in beats from the beginning of its clip."""
+    """One MIDI note positioned in quarter-note beats from its clip start.
+
+    A quarter-note beat is the canonical internal musical unit.  In a 6/8
+    meter, for example, one bar spans three quarter-note beats, so a six-step
+    notation pattern places its steps every half beat.
+    """
 
     pitch: str
     start: float
@@ -35,7 +40,7 @@ class Note:
 
 @dataclass(frozen=True, slots=True)
 class ControlPoint:
-    """One pitch-bend or modulation value positioned in clip beats."""
+    """One pitch-bend or modulation value positioned in quarter-note beats."""
 
     beat: float
     value: float

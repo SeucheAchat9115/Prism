@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     Processor = Callable[
         [np.ndarray, Mapping[str, "np.ndarray"], int, float], np.ndarray
     ]
-    SynthProcessor = Callable[["NativeSynthSpec", int, float, int], np.ndarray]
+    SynthProcessor = Callable[["NativeSynthSpec", int, float, float], np.ndarray]
 else:
     Processor = Callable[..., object]
     SynthProcessor = Callable[..., object]
@@ -220,7 +220,12 @@ def automation_points(
     target: Plugin,
     parameter_name: str,
 ) -> tuple[AutomationPoint, ...]:
-    """Validate producer-authored ``(bar, value)`` automation points."""
+    """Validate producer-authored ``(bar, value)`` automation points.
+
+    Bar positions are converted to quarter-note beats by the owning project's
+    timing map when the lane is scheduled; this layer only validates the
+    producer-facing bar coordinate and plugin value.
+    """
 
     parameter = target.automatable.get(parameter_name)
     if parameter is None and target.vst3 is not None:

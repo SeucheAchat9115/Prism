@@ -38,8 +38,25 @@ song = Project(
 | `sample_rate` | `44100` | 8000–192000 Hz |
 | `beats_per_bar` | `4` | 1–32 |
 | `beat_unit` | `4` | 1, 2, 4, 8, or 16 |
+| `timing_compatibility` | `"quarter_note_v1"` | `"quarter_note_v1"` or `"legacy_numerator_v0"` |
 | `master_gain_db` | `-3` | -60 through +12 dB |
 | `normalize` | `True` | If needed, lower the final peak to -1 dBFS |
+
+`beats_per_bar` and `beat_unit` are the written numerator and denominator, not
+an instruction to redefine a beat. Prism's internal beat is always one quarter
+note, so a bar contains `beats_per_bar * 4 / beat_unit` quarter notes. The
+resolved value is available as `song.timing.quarter_notes_per_bar`. The
+default `"quarter_note_v1"` timing is used for new and existing projects;
+`"legacy_numerator_v0"` is an explicit migration mode for projects that must
+retain Prism's old behavior of treating the numerator as quarter notes. It is
+never inferred from `prism_version`.
+
+When migrating a non-4/4 project, first use the legacy mode if preserving its
+old duration is more important than changing the arrangement. To adopt
+canonical musical timing, remove that argument and review explicit `Note` and
+controller positions; values that were written as denominator-note steps may
+need to be multiplied by `4 / beat_unit`. Compact step notation is rescaled
+automatically because its steps fill the canonical clip span.
 
 ## `track(...)`
 
@@ -198,8 +215,8 @@ lead.midi(
 )
 ```
 
-`start`, `duration`, and controller positions are measured in beats from the
-clip start. Notes must start and finish inside the clip. Pitch bend and
+`start`, `duration`, and controller positions are measured in quarter-note
+beats from the clip start. Notes must start and finish inside the clip. Pitch bend and
 modulation move linearly between their points in the WAV and are written as
 standard pitch-wheel and modulation-wheel messages in the MIDI file.
 

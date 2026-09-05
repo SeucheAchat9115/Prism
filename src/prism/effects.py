@@ -89,7 +89,8 @@ def parameter_values(
     if lane is None:
         return np.full(frames, base, dtype=np.float64)
     point_frames = np.asarray(
-        [point.bar * project.frames_per_bar for point in lane.points], dtype=np.float64
+        [project.timing.bar_to_frame(point.bar) for point in lane.points],
+        dtype=np.float64,
     )
     point_values = np.asarray([point.value for point in lane.points], dtype=np.float64)
     positions = np.arange(frames, dtype=np.float64)

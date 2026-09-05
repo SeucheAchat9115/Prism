@@ -5,15 +5,19 @@ from typing import Mapping
 import numpy as np
 
 from prism.plugins import Parameter, PluginDefinition
+from prism.timing import MusicalTiming
 
 
 def process(
     samples: np.ndarray, parameters: Mapping[str, np.ndarray], sample_rate: int, tempo: float
 ) -> np.ndarray:
     output = np.zeros_like(samples)
-    frames_per_beat = sample_rate * 60.0 / tempo
+    timing = MusicalTiming(tempo_bpm=tempo, sample_rate=sample_rate)
     delays = np.maximum(
-        1, np.rint(parameters["time_beats"] * frames_per_beat).astype(np.int64)
+        1,
+        np.rint(parameters["time_beats"] * timing.frames_per_quarter_note).astype(
+            np.int64
+        ),
     )
     for index in range(samples.shape[0]):
         source = index - int(delays[index])
