@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from prism import Project, VST3
+from prism import VST3, Project
 from prism.music import Note
 from prism.plugins import vst3_plugin
 from prism.vst import VSTRegistry
