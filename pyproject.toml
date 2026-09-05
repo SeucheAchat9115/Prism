@@ -60,6 +60,11 @@ include = [
     "/.gitignore",
     "/README.md",
     "/LICENSE",
+    "/CONTRIBUTING.md",
+    "/GOVERNANCE.md",
+    "/CODE_OF_CONDUCT.md",
+    "/SECURITY.md",
+    "/CHANGELOG.md",
     "/mkdocs.yml",
     "/pyproject.toml",
     "/uv.lock",
@@ -90,3 +95,4 @@ show_missing = true
 skip_covered = true
 precision = 1
 fail_under = 85.0
+

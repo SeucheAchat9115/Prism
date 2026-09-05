@@ -1,0 +1,17 @@
+name: Bug report
+description: Report a reproducible problem (not a security vulnerability)
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Include a minimal script and expected versus actual behavior. Remove private data.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Prism commit/version, OS, Python version and optional plugin version.
+    validations:
+      required: true

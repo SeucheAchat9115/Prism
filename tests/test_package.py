@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
 import pytest
@@ -270,4 +271,5 @@ def test_documentation_site_covers_tutorials_reference_and_deployment() -> None:
     assert "plugins/adding-stock-plugins.md" in config
     assert "mkdocstrings:" in config
     assert "mkdocs build --strict" in workflow
-    assert "actions/deploy-pages@v4" in workflow
+    assert re.search(r"uses: actions/deploy-pages@[0-9a-f]{40}(?:\s|$)", workflow)
+

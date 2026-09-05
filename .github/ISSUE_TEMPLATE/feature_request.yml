@@ -1,0 +1,16 @@
+name: Feature proposal
+description: Discuss a change before implementation
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and use case
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior and alternatives
+      description: Explain how this preserves readable Python and headless offline rendering.
+    validations:
+      required: true
