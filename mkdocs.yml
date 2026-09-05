@@ -120,6 +120,9 @@ nav:
   - Plugin development:
       - Architecture: plugins/index.md
       - Add a stock plugin: plugins/adding-stock-plugins.md
+  - Implementation roadmap:
+      - Ordered tasks: development/implementation-tasks.md
+      - Agent prompts: development/implementation-prompts.md
   - Python reference:
       - Overview: reference/index.md
       - Projects and tracks: reference/project.md
