@@ -17,7 +17,7 @@ The original audit found working native exports and passing Surge XT smoke tests
 | 23–30 | Performance MIDI, richer routing/arrangement, editing, mastering, synthesis and project sharing |
 | 31–35 | Recording/takes, listening formats, platform qualification and full production acceptance |
 
-Each agent should provide a reviewable commit and exact test evidence. Integration into the next task is deliberate; these prompts do not ask agents to publish releases or automatically merge their work. If you only want the first useful live-editing experience, prompts 1–18 reach background-rendered preview; prompts 19–22 add continuous live processing, and 31–32 add recording/takes.
+Each agent must use the GitHub connector for remote repository communication and finish by opening or updating a pull request containing its changes, with exact test evidence. Integration into the next task is deliberate; these prompts do not ask agents to publish releases or automatically merge their work. If you only want the first useful live-editing experience, prompts 1–18 reach background-rendered preview; prompts 19–22 add continuous live processing, and 31–32 add recording/takes.
 
 <a id="task-01"></a>
 
@@ -27,6 +27,14 @@ Each agent should provide a reviewable commit and exact test evidence. Integrati
 Implementation task 01/35: Protect source audio and make stem exports recoverable
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -74,8 +82,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-02"></a>
@@ -86,6 +101,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 02/35: Unify musical time and correct non-quarter-note meters
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -131,8 +154,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-03"></a>
@@ -143,6 +173,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 03/35: Make VST instrument configuration explicitly track-owned
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -186,8 +224,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-04"></a>
@@ -198,6 +243,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 04/35: Compile arrangement notes and expressive controls once
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -244,8 +297,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-05"></a>
@@ -256,6 +316,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 05/35: Render each VST instrument track through one continuous instance
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -303,8 +371,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-06"></a>
@@ -315,6 +390,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 06/35: Preserve sample and audio releases across arrangement boundaries
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -360,8 +443,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-07"></a>
@@ -372,6 +462,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 07/35: Fix native voice lifetime and remove accidental song-length limits
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -417,8 +515,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-08"></a>
@@ -429,6 +534,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 08/35: Define parameter automation boundaries and canonical targets
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -473,8 +586,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-09"></a>
@@ -485,6 +605,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 09/35: Harden VST workers, cancellation, diagnostics, and state saving
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -529,8 +657,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-10"></a>
@@ -541,6 +676,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 10/35: Strengthen real VST tests and verify latency compensation
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -588,8 +731,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-11"></a>
@@ -600,6 +750,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 11/35: Add explicit export profiles, clipping policy, and dither
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -646,8 +804,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-12"></a>
@@ -658,6 +823,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 12/35: Make stem delivery modes and reconstruction guarantees explicit
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -702,8 +875,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-13"></a>
@@ -714,6 +894,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 13/35: Add project fingerprints, render manifests, and version compatibility
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -759,8 +947,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-14"></a>
@@ -771,6 +966,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 14/35: Create a public project build contract and executable CLI tutorials
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -820,8 +1023,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-15"></a>
@@ -832,6 +1042,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 15/35: Implement range rendering, bounded caches, and optional automatic tails
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -880,8 +1098,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-16"></a>
@@ -892,6 +1117,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 16/35: Add audible playback and transport for rendered audio
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -936,8 +1169,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-17"></a>
@@ -948,6 +1188,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 17/35: Reload edited Python while the previous song keeps playing
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -993,8 +1241,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-18"></a>
@@ -1005,6 +1260,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 18/35: Provide a compact visual transport and live playback inspection
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1047,8 +1310,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-19"></a>
@@ -1059,6 +1329,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 19/35: Introduce stateful processors and a streaming offline renderer
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1107,8 +1385,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-20"></a>
@@ -1119,6 +1404,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 20/35: Move DSP hot paths behind a native processing boundary
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1164,8 +1457,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-21"></a>
@@ -1176,6 +1476,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 21/35: Implement a continuous native VST3 host and device proof
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1221,8 +1529,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-22"></a>
@@ -1233,6 +1548,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 22/35: Integrate the persistent live graph and safe project updates
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1277,8 +1600,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-23"></a>
@@ -1289,6 +1619,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 23/35: Add live MIDI devices, performance controls, and MIDI recording
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1334,8 +1672,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-24"></a>
@@ -1346,6 +1691,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 24/35: Expand routing, sidechains, multi-output plugins, and mixer controls
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1389,8 +1742,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-25"></a>
@@ -1401,6 +1761,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 25/35: Add tempo maps, meter changes, and reusable musical structures
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1445,8 +1813,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-26"></a>
@@ -1457,6 +1832,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 26/35: Implement MIDI import and reliable larger-session interchange
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1500,8 +1883,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-27"></a>
@@ -1512,6 +1902,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 27/35: Implement proper time stretching and non-destructive audio edits
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1557,8 +1955,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-28"></a>
@@ -1569,6 +1974,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 28/35: Add essential mixing processors and trustworthy loudness meters
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1613,8 +2026,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-29"></a>
@@ -1625,6 +2045,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 29/35: Improve native synthesis quality without silently changing old songs
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1667,8 +2095,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-30"></a>
@@ -1679,6 +2114,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 30/35: Add sound browsing, asset repair, freeze, and portable project bundles
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1726,8 +2169,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-31"></a>
@@ -1738,6 +2188,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 31/35: Add audio input, monitoring, and reliable recording
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1782,8 +2240,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-32"></a>
@@ -1794,6 +2259,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 32/35: Add takes, comping, punch recording, and recoverable edit history
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1838,8 +2311,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-33"></a>
@@ -1850,6 +2330,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 33/35: Add lossless and compressed listening export formats
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1893,8 +2381,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-34"></a>
@@ -1905,6 +2400,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 34/35: Expand platform support and simplify clean installation
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1951,8 +2454,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-35"></a>
@@ -1964,6 +2474,14 @@ Implementation task 35/35: Qualify the complete production workflow and publish 
 capability map
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -2017,8 +2535,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 **Audit coverage is explicit.** The source-deletion/overwrite cases map to 1; meter timing to 2; discarded VST settings to 3; controllers to 4; duplicate VST instances to 5; sample tails to 6; release automation and long native songs to 7; automation-before-first-point to 8; worker hangs/state preservation to 9; real-plugin and latency gaps to 10; clipping/dither/normalization to 11; stem overlap to 12; asset/version identity to 13; broken documentation and script-root assumptions to 14; range/caching/auto-tail to 15; missing player/watch/visual feedback to 16–18; memory and real-time architecture to 19–22. All broader producer proposals are assigned to 23–35.

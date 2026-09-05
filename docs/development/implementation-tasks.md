@@ -14,7 +14,18 @@ how to approach it, and the acceptance criteria for each task.
    commit in each prompt is historical evidence, not a branch to reset to.
 4. Recheck the current implementation and existing pull requests before repeating
    work. A task is complete only when its acceptance criteria are verified.
-5. Record completed scope, API decisions, verification, limitations, and the
+5. Use the GitHub connector for all remote repository communication, including reads,
+   branch/commit publication, review feedback, CI checks, and pull requests. Local
+   editing, testing, and local Git operations are allowed; do not contact GitHub
+   through shell Git, `gh`, `curl`, or direct HTTP clients. Report unavailable or
+   blocked connector operations without silently switching transports.
+6. Publish changes through the connector and finally open a PR, or update the
+   existing open PR for that task. Target `main` unless prerequisite work requires
+   an explicitly documented stacked PR. Include the task number, scope,
+   compatibility decisions, exact verification results, and limitations. Check
+   the published diff and CI results, fix failures caused by your changes, and
+   return the PR URL, branch, final commit SHA, and handoff. Do not auto-merge.
+7. Record completed scope, API decisions, verification, limitations, and the
    branch/commit in `docs/development/implementation-status.md`, creating it if
    absent and preserving any existing entries. Pass that record to the next agent.
 
