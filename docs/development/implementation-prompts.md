@@ -1,6 +1,8 @@
 # Implementation prompts
 
-[Ordered task index](implementation-tasks.md)
+[Ordered task index and progress](implementation-tasks.md)
+
+Agents must update the roadmap and implementation-status record in their implementation PR. Step 01 is done; consult the task index before selecting the next unfinished task.
 
 These 35 prompts turn the September 2026 Prism audit into implementation work. Each fenced block is self-contained: copy the entire block for the next agent. They include the repository, historical audit context, dependencies, implementation scope, acceptance criteria and handoff requirements. The agents do not need this conversation or access to the original report.
 
@@ -17,7 +19,7 @@ The original audit found working native exports and passing Surge XT smoke tests
 | 23–30 | Performance MIDI, richer routing/arrangement, editing, mastering, synthesis and project sharing |
 | 31–35 | Recording/takes, listening formats, platform qualification and full production acceptance |
 
-Each agent should provide a reviewable commit and exact test evidence. Integration into the next task is deliberate; these prompts do not ask agents to publish releases or automatically merge their work. If you only want the first useful live-editing experience, prompts 1–18 reach background-rendered preview; prompts 19–22 add continuous live processing, and 31–32 add recording/takes.
+Each agent must use the GitHub connector for remote repository communication and finish by opening or updating a pull request containing its changes, with exact test evidence. Integration into the next task is deliberate; these prompts do not ask agents to publish releases or automatically merge their work. If you only want the first useful live-editing experience, prompts 1–18 reach background-rendered preview; prompts 19–22 add continuous live processing, and 31–32 add recording/takes.
 
 <a id="task-01"></a>
 
@@ -27,6 +29,14 @@ Each agent should provide a reviewable commit and exact test evidence. Integrati
 Implementation task 01/35: Protect source audio and make stem exports recoverable
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -67,6 +77,14 @@ owned stem, modified generated files, child symlinks escaping the project, failu
 stem write, and successful repeated export. Do not run destructive cases against real producer
 recordings. Update the stem tutorial with output-directory ownership semantics.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -74,8 +92,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-02"></a>
@@ -86,6 +111,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 02/35: Unify musical time and correct non-quarter-note meters
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -124,6 +157,14 @@ Acceptance: Audio durations, MIDI meter/end ticks, note placement, and automatio
 drift. Existing ordinary 4/4 projects retain their intended timing. Document migration for
 non-quarter-note projects and test error messages for invalid meter/tempo input.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -131,8 +172,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-03"></a>
@@ -143,6 +191,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 03/35: Make VST instrument configuration explicitly track-owned
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -179,6 +235,14 @@ accepted, and state/preset conflicts are covered. Replacing the instrument produ
 patch throughout the track, with a clear automation policy. Native and external instruments retain a
 coherent public interface. Add a tutorial showing a reusable track-owned VST configuration.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -186,8 +250,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-04"></a>
@@ -198,6 +269,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 04/35: Compile arrangement notes and expressive controls once
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -237,6 +316,14 @@ events exactly on boundaries, and note-off before retrigger. Numeric/event tests
 agreement; use real-plugin tests where available without treating native and third-party timbres as
 equal.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -244,8 +331,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-05"></a>
@@ -256,6 +350,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 05/35: Render each VST instrument track through one continuous instance
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -296,6 +398,14 @@ one long arrangement and inspect render-call count without relying on elapsed ti
 Demonstrate that master and stem export share the same rendered instance within an export
 generation.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -303,8 +413,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-06"></a>
@@ -315,6 +432,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 06/35: Preserve sample and audio releases across arrangement boundaries
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -353,6 +478,14 @@ one-shot audio, source looping, trim/fades, and explicit choke/cut modes. Master
 remain frame-aligned. Future block rendering must be able to reuse the voice schedule rather than
 introducing another placement algorithm.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -360,8 +493,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-07"></a>
@@ -372,6 +512,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 07/35: Fix native voice lifetime and remove accidental song-length limits
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -410,6 +558,14 @@ render-tail truncation policy. A 257-bar native arrangement validates and render
 scheduling test without expensive minutes of DSP. Validate native drum, melodic, and
 external-instrument paths separately.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -417,8 +573,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-08"></a>
@@ -429,6 +592,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 08/35: Define parameter automation boundaries and canonical targets
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -466,6 +637,14 @@ renamed/indexed selectors, duplicate physical targets, and replaced plugin insta
 adapters consume equivalent timing. Document existing-project migration and provide a simple
 volume/filter automation example that can run as a tutorial test.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -473,8 +652,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-09"></a>
@@ -485,6 +671,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 09/35: Harden VST workers, cancellation, diagnostics, and state saving
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -522,6 +716,14 @@ processes, preserving the previous state. Ordinary success, missing host depende
 user-closing the editor still work. Do not claim a fake worker establishes actual plugin
 compatibility.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -529,8 +731,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-10"></a>
@@ -541,6 +750,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 10/35: Strengthen real VST tests and verify latency compensation
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -581,6 +798,14 @@ precedence and cancellation cases. Report exactly which plugin/platform combinat
 Do not use Serum credentials or claim commercial-plugin coverage without a legitimately installed
 test environment.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -588,8 +813,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-11"></a>
@@ -600,6 +832,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 11/35: Add explicit export profiles, clipping policy, and dither
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -639,6 +879,14 @@ rejection, normalization behavior, deterministic dither, low-level quantization 
 resampling overshoot. Update results/API documentation and executable listening/master/stem profile
 examples.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -646,8 +894,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-12"></a>
@@ -658,6 +913,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 12/35: Make stem delivery modes and reconstruction guarantees explicit
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -695,6 +958,14 @@ nonlinear-master test confirms the documented limitation rather than manufacturi
 All files share start, rate, channels and frame count, and preserve the file-safety guarantees from
 task 1.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -702,8 +973,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-13"></a>
@@ -714,6 +992,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 13/35: Add project fingerprints, render manifests, and version compatibility
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -752,6 +1038,14 @@ successful export generation and include checksums. Test schema migration, unsup
 missing assets, and deterministic versus external backend metadata. Document what must accompany a
 project when shared.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -759,8 +1053,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-14"></a>
@@ -771,6 +1072,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 14/35: Create a public project build contract and executable CLI tutorials
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -813,6 +1122,14 @@ entry points. Explicit roots work from a different cwd and a notebook-style call
 missing optional hosts without breaking native projects. CI exercises the corrected guide and
 representative tutorials; packaging and strict docs builds remain healthy.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -820,8 +1137,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-15"></a>
@@ -832,6 +1156,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 15/35: Implement range rendering, bounded caches, and optional automatic tails
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -873,6 +1205,14 @@ and effects. Cache hits preserve outputs; relevant edits invalidate; unrelated e
 hits; eviction bounds disk/memory. Test delayed echoes, long release, empty/silent ranges and
 maximum-tail termination.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -880,8 +1220,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-16"></a>
@@ -892,6 +1239,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 16/35: Add audible playback and transport for rendered audio
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -929,6 +1284,14 @@ negotiation, error recovery and clean shutdown. Add a manual Windows/Linux devic
 report whether it was run. Help text must distinguish rendered-buffer playback from live instrument
 processing.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -936,8 +1299,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-17"></a>
@@ -948,6 +1318,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 17/35: Reload edited Python while the previous song keeps playing
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -986,6 +1364,14 @@ A bad edit leaves previous playback running; shutdown cancels all workers. A tut
 edit-save-hear and explains its build/render delay. This task does not claim that the existing
 state-only VST editor is now audible.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -993,8 +1379,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-18"></a>
@@ -1005,6 +1398,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 18/35: Provide a compact visual transport and live playback inspection
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1040,6 +1441,14 @@ revision consistent. Long songs use bounded display memory. Test transport/UI co
 real visual smoke check. Provide a runnable tutorial with a native project and explain that a visual
 playhead is available even before genuine live synthesis is implemented.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1047,8 +1456,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-19"></a>
@@ -1059,6 +1475,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 19/35: Introduce stateful processors and a streaming offline renderer
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1100,6 +1524,14 @@ continue across blocks. Five-minute/32-track native streaming graphs demonstrate
 memory without brittle wall-clock CI thresholds. Report batch-VST fallback memory separately instead
 of extending that claim to it. Repeated deterministic offline renders remain reproducible.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1107,8 +1539,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-20"></a>
@@ -1119,6 +1558,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 20/35: Move DSP hot paths behind a native processing boundary
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1157,6 +1604,14 @@ growth in the audio processing path after preparation. Build and install checks 
 Windows/Linux. Report measured throughput and worst observed block timing separately from any
 guarantee about end-to-end hardware latency.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1164,8 +1619,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-21"></a>
@@ -1176,6 +1638,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 21/35: Implement a continuous native VST3 host and device proof
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1214,6 +1684,14 @@ controls changes the audible test phrase from the same instance. State exactly w
 hardware/plugin/platform checks were possible. Exported state reopens correctly. Do not label
 repeated offline render calls as completed live hosting.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1221,8 +1699,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-22"></a>
@@ -1233,6 +1718,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 22/35: Integrate the persistent live graph and safe project updates
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1270,6 +1763,14 @@ device removal. Offline and live capture agree within deterministic or documente
 tolerances. Test 64/128/256/512-frame scheduling and deadline failure behavior. Do not equate block
 duration with measured round-trip latency.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1277,8 +1778,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-23"></a>
@@ -1289,6 +1797,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 23/35: Add live MIDI devices, performance controls, and MIDI recording
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1327,6 +1843,14 @@ replay their notes and controllers correctly and export through the common MIDI 
 live playing with a real device where available; report hardware checks separately from virtual
 tests.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1334,8 +1858,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-24"></a>
@@ -1346,6 +1877,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 24/35: Expand routing, sidechains, multi-output plugins, and mixer controls
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1382,6 +1921,14 @@ invalid cycles. Controlled VST fixtures establish sidechain action and separatel
 unsupported plugins fail clearly. Offline/live graphs and stems agree on routing, latency and
 levels. Add producer examples for kick-driven bass ducking and a multi-output instrument.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1389,8 +1936,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-25"></a>
@@ -1401,6 +1955,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 25/35: Add tempo maps, meter changes, and reusable musical structures
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1438,6 +2000,14 @@ onsets agree; provide known fixtures for the later MIDI import task. Reusing one
 sections does not leak edits or stochastic state between instances. Legacy constant-tempo projects
 remain compatible and a complete tutorial demonstrates a reusable verse/chorus arrangement.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1445,8 +2015,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-26"></a>
@@ -1457,6 +2034,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 26/35: Implement MIDI import and reliable larger-session interchange
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1493,6 +2078,14 @@ sustain/aftertouch and empty tracks. Compare imported playback with a known even
 validate serialized files independently. Document exactly which information MIDI interchange cannot
 preserve.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1500,8 +2093,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-27"></a>
@@ -1512,6 +2112,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 27/35: Implement proper time stretching and non-destructive audio edits
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1550,6 +2158,14 @@ coherence, transients, vocals, extreme allowed ratios, and edit order. Slice/cro
 avoid unintended gaps/clicks and leave source hashes unchanged. Provide sound examples and disclose
 quality tradeoffs rather than relying only on frequency tests.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1557,8 +2173,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-28"></a>
@@ -1569,6 +2192,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 28/35: Add essential mixing processors and trustworthy loudness meters
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1606,6 +2237,14 @@ impulses, intersample peaks, oversampling, stereo linking, latency and tails. UI
 export analysis within their documented windowing. Provide practical producer tutorials and
 meaningful defaults without claiming every track should use one universal LUFS target.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1613,8 +2252,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-29"></a>
@@ -1625,6 +2271,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 29/35: Improve native synthesis quality without silently changing old songs
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1660,6 +2314,14 @@ pitch/sample rates. Check gain, DC, finite output, stereo correlation, voice ove
 seeds and automated parameters. Offline/live parity holds in the same quality mode. Publish small
 before/after listening examples and benchmark cost so producers can choose quality deliberately.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1667,8 +2329,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-30"></a>
@@ -1679,6 +2348,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 30/35: Add sound browsing, asset repair, freeze, and portable project bundles
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1719,6 +2396,14 @@ detection and clean-machine reopening are exercised. Source files remain protect
 identity survives relocation, and a bundle with frozen parts can render without its original VST
 installation. Add a producer-friendly sharing checklist tied to actual bundle diagnostics.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1726,8 +2411,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-31"></a>
@@ -1738,6 +2430,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 31/35: Add audio input, monitoring, and reliable recording
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1775,6 +2475,14 @@ hardware capture/monitoring check is performed where available and reported hone
 appear as non-destructive clips with manifests, source protection and no overwrite of prior
 recordings. Provide a first-vocal-recording tutorial.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1782,8 +2490,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-32"></a>
@@ -1794,6 +2509,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 32/35: Add takes, comping, punch recording, and recoverable edit history
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1831,6 +2554,14 @@ Test crash recovery, disk failure, concurrent external Python edits and stale st
 tutorial demonstrates recording three takes, making a comp and reverting edits while retaining every
 original.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1838,8 +2569,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-33"></a>
@@ -1850,6 +2588,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 33/35: Add lossless and compressed listening export formats
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1886,6 +2632,14 @@ metadata and finite non-silent audio. Test missing encoders, unsupported profile
 failed writes and reproducible settings. Existing WAV master/stem tests remain intact. Provide named
 master/stem/listening profiles and document why producers would choose each.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1893,8 +2647,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-34"></a>
@@ -1905,6 +2666,14 @@ not force-push or auto-merge. The next agent must be able to start from this res
 Implementation task 34/35: Expand platform support and simplify clean installation
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -1944,6 +2713,14 @@ the supported matrix. Headless CI and manual hardware evidence are labeled separ
 or distribution access prevents a claim, complete the implementation and available checks but list
 that combination as unqualified rather than advertising it as working.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1951,8 +2728,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 <a id="task-35"></a>
@@ -1964,6 +2748,14 @@ Implementation task 35/35: Qualify the complete production workflow and publish 
 capability map
 
 Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
 Prism is a script-first Python music-production project. Preserve readable Python authoring and a
 lightweight headless offline path while extending production and live workflows.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
@@ -2010,6 +2802,14 @@ offline production, refreshed-buffer preview, genuine live processing and full r
 State exactly which configurations were tested; do not claim DAW parity solely from passing unit
 tests.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -2017,8 +2817,15 @@ extras. Preserve the separate real-VST workflow. Do not weaken gates, delete ass
 mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
 AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
 task number, completed scope, implemented API/compatibility decisions, verification and concrete
-limitations. Commit scoped verified changes and return the branch/commit plus a concise handoff. Do
-not force-push or auto-merge. The next agent must be able to start from this result.
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
 ```
 
 **Audit coverage is explicit.** The source-deletion/overwrite cases map to 1; meter timing to 2; discarded VST settings to 3; controllers to 4; duplicate VST instances to 5; sample tails to 6; release automation and long native songs to 7; automation-before-first-point to 8; worker hangs/state preservation to 9; real-plugin and latency gaps to 10; clipping/dither/normalization to 11; stem overlap to 12; asset/version identity to 13; broken documentation and script-root assumptions to 14; range/caching/auto-tail to 15; missing player/watch/visual feedback to 16–18; memory and real-time architecture to 19–22. All broader producer proposals are assigned to 23–35.
