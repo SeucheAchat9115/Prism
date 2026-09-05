@@ -5,6 +5,7 @@ from pathlib import Path
 
 import numpy as np
 import pytest
+import soundfile as sf
 
 from prism import VST3, Project
 from prism.music import Note
@@ -101,3 +102,26 @@ def test_surge_xt_effect_loads_and_processes_audio(tmp_path: Path) -> None:
     assert output.shape == source.shape
     assert np.isfinite(output).all()
     assert float(np.max(np.abs(output))) > 1e-7
+
+
+def test_surge_xt_project_render_writes_a_non_silent_wav(tmp_path: Path) -> None:
+    instrument = _required_path("PRISM_SURGE_INSTRUMENT_VST3")
+    effect = _required_path("PRISM_SURGE_EFFECT_VST3")
+    project = _project(tmp_path, instrument, effect)
+    track = project.track("Lead").midi(
+        (Note("C4", 0.0, 0.5),),
+        instrument=VST3("surge"),
+        bars=1,
+        repeat=False,
+    )
+    project.section("Only", bars=1, tracks=[track])
+
+    result = project.render("renders/surge-xt.wav", bit_depth=32)
+    samples, sample_rate = sf.read(result.path, dtype="float32", always_2d=True)
+    peak = float(np.max(np.abs(samples)))
+
+    assert result.path.is_file()
+    assert sample_rate == project.sample_rate
+    assert samples.shape == (project.frames_per_bar, 2)
+    assert np.isfinite(samples).all()
+    assert peak > 1e-4, f"Rendered WAV is silent or near-silent (peak={peak:g})."
