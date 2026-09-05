@@ -11,7 +11,12 @@ and export a standard MIDI file.
 - `C3+Eb3+G3` is a chord in one step.
 - Spaces, commas, and `|` separate steps; `|` is only visual grouping.
 
-Every step has equal duration inside the clip's number of bars.
+Every step has equal duration inside the clip's number of bars. Prism defines
+one internal beat as one quarter note. A bar contains
+`beats_per_bar * 4 / beat_unit` of those beats, so one bar of 6/8 spans three
+quarter-note beats and six steps land every half beat. The same quarter-note
+unit is used by explicit `Note` positions and durations and by pitch-bend or
+modulation points.
 
 ## 2. Write the complete `main.py`
 

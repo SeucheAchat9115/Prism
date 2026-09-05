@@ -162,7 +162,7 @@ Create `src/prism/stock_plugins/pluck.py` with its render callback, parameters,
 defaults, and MIDI program:
 
 ```python
-def render(spec, sample_rate, tempo_bpm, beats_per_bar):
+def render(spec, sample_rate, tempo_bpm, quarter_notes_per_bar):
     # Build and return one float64 mono array with the clip's exact frame count.
     # Read note events and controller points from spec.
     ...
@@ -184,8 +184,11 @@ definition = PluginDefinition(
 
 Import `Parameter` and `PluginDefinition` in the module. The callback receives
 the resolved MIDI clip and project timing, and returns its deterministic mono
-audio. Keep any plugin-specific configuration dataclass and serializer in this
-same file unless it is part of Prism's public authoring API.
+audio. `quarter_notes_per_bar` is the canonical number of quarter notes in a
+bar, not the written numerator. Use the shared timing boundary when converting
+that value to seconds or sample frames. Keep any plugin-specific configuration
+dataclass and serializer in this same file unless it is part of Prism's public
+authoring API.
 
 ### 2. Register the module
 

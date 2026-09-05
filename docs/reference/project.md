@@ -6,6 +6,7 @@
     options:
       members:
         - frames_per_bar
+        - quarter_notes_per_bar
         - track
         - bus
         - master_effect
@@ -16,6 +17,11 @@
         - render_stems
         - export_midi
         - configuration
+
+`Project.timing` is the shared constant-tempo conversion boundary used by
+arrangement placement, audio, automation, and MIDI export. See
+[Musical timing](timing.md) for its canonical quarter-note contract and
+non-quarter-note migration mode.
 
 ## Track
 

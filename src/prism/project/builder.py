@@ -36,6 +36,7 @@ from prism.synthesis.types import (
     SynthWaveform,
     Uniwave,
 )
+from prism.timing import CANONICAL_TIMING_VERSION, MusicalTiming, TimeSignature, TimingCompatibility
 from prism.vst import VST3, VSTRegistry
 
 if TYPE_CHECKING:
@@ -422,8 +423,7 @@ class Track:
         resolved_bars = _synth_bars(bars, f"MIDI track {self.name!r}", self._project)
         notation, events = _midi_notes(
             notes,
-            bars=resolved_bars,
-            beats_per_bar=self._project.beats_per_bar,
+            clip_beats=self._project.timing.bars_to_quarter_notes(resolved_bars),
             velocity=velocity,
             gate=gate,
             tempo=self._project.tempo,
@@ -432,7 +432,7 @@ class Track:
             humanize_velocity=humanize_velocity,
             humanize_seed=humanize_seed,
         )
-        clip_beats = resolved_bars * self._project.beats_per_bar
+        clip_beats = self._project.timing.bars_to_quarter_notes(resolved_bars)
         bends = _control_points(
             pitch_bend,
             label="Pitch bend",
@@ -765,6 +765,7 @@ class Project:
         sample_rate: int = 44_100,
         beats_per_bar: int = 4,
         beat_unit: Literal[1, 2, 4, 8, 16] = 4,
+        timing_compatibility: TimingCompatibility = CANONICAL_TIMING_VERSION,
         master_gain_db: float = -3.0,
         normalize: bool = True,
         _script: str | Path | None = None,
@@ -775,18 +776,19 @@ class Project:
         self.vsts = VSTRegistry(self.root)
         self.name = _name(name, "Project")
         self.prism_version = _version(prism_version)
-        if not math.isfinite(tempo) or not 20.0 <= tempo <= 300.0:
-            raise ProjectError("Tempo must be between 20 and 300 BPM.")
-        if not 8_000 <= sample_rate <= 192_000:
-            raise ProjectError("Sample rate must be between 8000 and 192000 Hz.")
-        if not 1 <= beats_per_bar <= 32:
-            raise ProjectError("Beats per bar must be between 1 and 32.")
-        if beat_unit not in {1, 2, 4, 8, 16}:
-            raise ProjectError("Beat unit must be 1, 2, 4, 8, or 16.")
-        self.tempo = float(tempo)
-        self.sample_rate = int(sample_rate)
-        self.beats_per_bar = int(beats_per_bar)
-        self.beat_unit = beat_unit
+        self.timing = MusicalTiming(
+            tempo_bpm=tempo,
+            sample_rate=sample_rate,
+            time_signature=TimeSignature(
+                numerator=beats_per_bar,
+                denominator=beat_unit,
+            ),
+            compatibility=timing_compatibility,
+        )
+        self.tempo = self.timing.tempo_bpm
+        self.sample_rate = self.timing.sample_rate
+        self.beats_per_bar = self.timing.numerator
+        self.beat_unit = self.timing.denominator
         self.master_gain_db = validate_gain(master_gain_db, label="Master gain")
         self.normalize = bool(normalize)
         self.tracks: list[Track] = []
@@ -797,7 +799,15 @@ class Project:
 
     @property
     def frames_per_bar(self) -> int:
-        return int(round(self.sample_rate * self.beats_per_bar * 60.0 / self.tempo))
+        """Return one bar's frame length, rounded at the absolute boundary."""
+
+        return self.timing.bars_to_frames(1)
+
+    @property
+    def quarter_notes_per_bar(self) -> float:
+        """Return the configured bar length in canonical quarter-note beats."""
+
+        return self.timing.quarter_notes_per_bar
 
     def track(
         self,
@@ -1011,7 +1021,7 @@ class Project:
             tracks=len(self.tracks),
             sections=len(self.sections),
             bars=bars,
-            duration_seconds=bars * self.beats_per_bar * 60.0 / self.tempo,
+            duration_seconds=self.timing.bars_to_seconds(bars),
         )
 
     def render(
@@ -1112,6 +1122,8 @@ class Project:
             "tempo": self.tempo,
             "sample_rate": self.sample_rate,
             "time_signature": [self.beats_per_bar, self.beat_unit],
+            "timing_compatibility": self.timing.compatibility,
+            "quarter_notes_per_bar": self.timing.quarter_notes_per_bar,
             "master_gain_db": self.master_gain_db,
             "normalize": self.normalize,
             "sample_folders": self.samples.folders,
@@ -1367,7 +1379,7 @@ def _bars(value: int, label: str) -> int:
 
 def _synth_bars(value: int, label: str, project: Project) -> int:
     bars = _bars(value, label)
-    duration = bars * project.beats_per_bar * 60.0 / project.tempo
+    duration = project.timing.bars_to_seconds(bars)
     if duration > MAX_SYNTH_SECONDS:
         raise ProjectError(
             f"{label} cannot exceed {MAX_SYNTH_SECONDS:g} seconds; use fewer bars."
@@ -1378,8 +1390,7 @@ def _synth_bars(value: int, label: str, project: Project) -> int:
 def _midi_notes(
     value: str | Sequence[str] | Sequence[Note],
     *,
-    bars: int,
-    beats_per_bar: int,
+    clip_beats: float,
     velocity: int,
     gate: float,
     tempo: float,
@@ -1397,7 +1408,6 @@ def _midi_notes(
     if not isinstance(humanize_seed, int) or not 0 <= humanize_seed <= 4_294_967_295:
         raise ProjectError("MIDI humanize_seed must be between 0 and 4294967295.")
 
-    clip_beats = bars * beats_per_bar
     authored: tuple[Note, ...]
     if isinstance(value, str):
         notation = note_steps(value)

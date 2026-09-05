@@ -9,9 +9,11 @@ pitch, add modulation, swing the groove, and humanize it reproducibly.
 Note("C4", start=0.5, duration=0.75, velocity=96)
 ```
 
-All positions and durations are measured in beats from the beginning of the
-clip. This note begins halfway through beat one and lasts three quarters of a
-beat. Unlike compact note strings, notes do not need to sit on equal steps.
+All positions and durations are measured in quarter-note beats from the
+beginning of the clip. This note begins halfway through beat one and lasts
+three quarters of a beat. Unlike compact note strings, notes do not need to sit
+on equal steps, and the unit does not change when the written meter uses eighth
+or half notes.
 
 ## 2. Replace `main.py`
 

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import math
 import os
 import struct
 from dataclasses import dataclass
@@ -13,6 +12,7 @@ from prism.errors import ProjectError, RenderError
 from prism.music import note_to_midi
 from prism.plugins import STOCK_PLUGINS
 from prism.project.builder import ClipPlacement, DrumClip, MidiClip, Project, Track
+from prism.timing import MusicalTiming
 
 TICKS_PER_BEAT = 480
 @dataclass(frozen=True, slots=True)
@@ -39,8 +39,8 @@ def export_midi(project: Project, output: str | Path) -> MidiResult:
     ]
     if not music_tracks:
         raise ProjectError("The project has no built-in drum or MIDI tracks to export.")
-    total_ticks = sum(section.bars for section in project.sections)
-    total_ticks *= project.beats_per_bar * TICKS_PER_BEAT
+    total_bars = sum(section.bars for section in project.sections)
+    total_ticks = project.timing.bars_to_ticks(total_bars, TICKS_PER_BEAT)
     chunks = [_conductor_track(project, total_ticks)]
     melodic_index = 0
     for track in music_tracks:
@@ -68,8 +68,9 @@ def export_midi(project: Project, output: str | Path) -> MidiResult:
 
 
 def _conductor_track(project: Project, total_ticks: int) -> bytes:
-    tempo = int(round(60_000_000 / project.tempo))
-    denominator_power = int(math.log2(project.beat_unit))
+    timing = project.timing
+    tempo = timing.microseconds_per_quarter_note
+    denominator_power = timing.denominator_power
     events = [
         (0, -3, _meta_text(0x03, project.name)),
         (0, -2, b"\xff\x51\x03" + tempo.to_bytes(3, "big")),
@@ -81,7 +82,7 @@ def _conductor_track(project: Project, total_ticks: int) -> bytes:
                     0xFF,
                     0x58,
                     0x04,
-                    project.beats_per_bar,
+                    timing.numerator,
                     denominator_power,
                     24,
                     8,
@@ -104,9 +105,14 @@ def _music_track(project: Project, track: Track, channel: int, total_ticks: int)
         if program is None:
             raise ProjectError(f"Instrument {clip.instrument!r} has no MIDI program.")
         events.append((0, -2, bytes([0xC0 | channel, program])))
-    section_start = 0
+    timing = project.timing
+    section_start_bar = 0.0
     for section in project.sections:
-        section_ticks = section.bars * project.beats_per_bar * TICKS_PER_BEAT
+        section_start = timing.bars_to_ticks(section_start_bar, TICKS_PER_BEAT)
+        section_end = timing.bars_to_ticks(
+            section_start_bar + section.bars, TICKS_PER_BEAT
+        )
+        section_ticks = section_end - section_start
         active = (
             {item.name for item in project.tracks}
             if section.tracks is None
@@ -120,9 +126,10 @@ def _music_track(project: Project, track: Track, channel: int, total_ticks: int)
                     channel,
                     section_start,
                     section_ticks,
-                    project.beats_per_bar,
+                    section_start_bar,
+                    timing,
                 )
-        section_start += section_ticks
+        section_start_bar += section.bars
     events.append((total_ticks, 9, b"\xff\x2f\x00"))
     return _chunk(events)
 
@@ -133,13 +140,17 @@ def _section_events(
     channel: int,
     section_start: int,
     section_ticks: int,
-    beats_per_bar: int,
+    section_start_bar: float,
+    timing: MusicalTiming,
 ) -> None:
     clip = placement.clip
     if not isinstance(clip, DrumClip | MidiClip):
         return
-    clip_ticks = clip.bars * TICKS_PER_BEAT * beats_per_bar
-    placement_start = round(placement.start_bar * beats_per_bar * TICKS_PER_BEAT)
+    clip_ticks = timing.bars_to_ticks(clip.bars, TICKS_PER_BEAT)
+    placement_start = (
+        timing.bars_to_ticks(section_start_bar + placement.start_bar, TICKS_PER_BEAT)
+        - timing.bars_to_ticks(section_start_bar, TICKS_PER_BEAT)
+    )
     cycle = placement_start
     section_end = section_start + section_ticks
     while cycle < section_ticks:
@@ -169,6 +180,7 @@ def _section_events(
                 channel=channel,
                 cycle_start=section_start + cycle,
                 section_end=section_end,
+                timing=timing,
             )
         cycle += clip_ticks
         if not placement.repeat:
@@ -182,21 +194,24 @@ def _midi_expression_events(
     channel: int,
     cycle_start: int,
     section_end: int,
+    timing: MusicalTiming,
 ) -> None:
     for point in clip.pitch_bend:
-        tick = cycle_start + round(point.beat * TICKS_PER_BEAT)
+        tick = cycle_start + timing.quarter_notes_to_ticks(point.beat, TICKS_PER_BEAT)
         if tick < section_end:
             events.append((tick, -1, _pitch_bend_message(channel, point.value)))
     for point in clip.modulation:
-        tick = cycle_start + round(point.beat * TICKS_PER_BEAT)
+        tick = cycle_start + timing.quarter_notes_to_ticks(point.beat, TICKS_PER_BEAT)
         if tick < section_end:
             amount = min(127, max(0, round(point.value * 127.0)))
             events.append((tick, -1, bytes([0xB0 | channel, 1, amount])))
     for note in clip.events:
-        start = cycle_start + round(note.start * TICKS_PER_BEAT)
+        start = cycle_start + timing.quarter_notes_to_ticks(note.start, TICKS_PER_BEAT)
         if start >= section_end:
             continue
-        duration = max(1, round(note.duration * TICKS_PER_BEAT))
+        duration = max(
+            1, timing.quarter_notes_to_ticks(note.duration, TICKS_PER_BEAT)
+        )
         end = min(section_end, start + duration)
         midi_note = note_to_midi(note.pitch)
         events.append((start, 1, bytes([0x90 | channel, midi_note, note.velocity])))

@@ -326,8 +326,9 @@ def render_stems(
 
 def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _RenderedProject:
     summary = project.validate()
-    song_frames = summary.bars * project.frames_per_bar
-    tail_frames = int(round(tail_seconds * project.sample_rate))
+    timing = project.timing
+    song_frames = timing.bar_to_frame(summary.bars)
+    tail_frames = timing.seconds_to_frames(tail_seconds)
     total_frames = song_frames + tail_frames
     mix = np.zeros((total_frames, 2), dtype=np.float64)
     track_outputs: dict[str, np.ndarray] = {}
@@ -343,9 +344,11 @@ def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _Rendered
                 for placement in track.clips
             }
             arranged = np.zeros((total_frames, 2), dtype=np.float64)
-            cursor = 0
+            cursor_bar = 0.0
             for section in project.sections:
-                frames = section.bars * project.frames_per_bar
+                section_start = timing.bar_to_frame(cursor_bar)
+                section_end = timing.bar_to_frame(cursor_bar + section.bars)
+                frames = section_end - section_start
                 active = (
                     {item.name for item in project.tracks}
                     if section.tracks is None
@@ -353,7 +356,10 @@ def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _Rendered
                 )
                 if track.name in active:
                     for placement in track.clips_for(section):
-                        offset = int(round(placement.start_bar * project.frames_per_bar))
+                        offset = (
+                            timing.bar_to_frame(cursor_bar + placement.start_bar)
+                            - section_start
+                        )
                         available = frames - offset
                         if available <= 0:
                             continue
@@ -363,9 +369,9 @@ def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _Rendered
                             if placement.repeat
                             else _fit_to(source, available)
                         )
-                        start = cursor + offset
+                        start = section_start + offset
                         arranged[start : start + available] += placed
-                cursor += frames
+                cursor_bar += section.bars
         processed = process_track_plugins(project, track, arranged)
         track_outputs[track.name] = _mix_channel(
             processed, gain_db=track.gain_db, pan=track.pan
@@ -406,9 +412,10 @@ def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _Rendered
 
 
 def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
+    timing = project.timing
     if isinstance(clip, SampleClip):
         source = _prepare_audio(project, clip)
-        frames = clip.bars * project.frames_per_bar
+        frames = timing.bars_to_frames(clip.bars)
         output = np.zeros((frames, 2), dtype=np.float64)
         boundaries = np.rint(np.linspace(0, frames, len(clip.pattern) + 1)).astype(np.int64)
         source = source * db_gain(clip.gain_db)
@@ -422,7 +429,7 @@ def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
     if isinstance(clip, AudioClip):
         source = _prepare_audio(project, clip)
         source *= db_gain(clip.gain_db)
-        frames = clip.bars * project.frames_per_bar
+        frames = timing.bars_to_frames(clip.bars)
         return _loop_to(source, frames) if clip.loop else _fit_to(source, frames)
     if isinstance(clip, DrumClip):
         spec = NativeSynthSpec(
@@ -462,11 +469,11 @@ def _prepare_audio(project: Project, clip: SampleClip | AudioClip) -> np.ndarray
     """Apply deterministic source selection and playback edits to an audio file."""
 
     source = _read_audio(project.root / clip.path, project.sample_rate)
-    start = int(round(clip.start_seconds * project.sample_rate))
+    start = project.timing.seconds_to_frames(clip.start_seconds)
     end = (
         source.shape[0]
         if clip.end_seconds is None
-        else int(round(clip.end_seconds * project.sample_rate))
+        else project.timing.seconds_to_frames(clip.end_seconds)
     )
     if start >= source.shape[0]:
         raise RenderError(
@@ -481,7 +488,7 @@ def _prepare_audio(project: Project, clip: SampleClip | AudioClip) -> np.ndarray
     if not math.isclose(speed, 1.0):
         source = _time_resize(source, max(1, int(round(source.shape[0] / speed))))
     if clip.stretch_bars is not None:
-        target_frames = max(1, int(round(clip.stretch_bars * project.frames_per_bar)))
+        target_frames = max(1, project.timing.bars_to_frames(clip.stretch_bars))
         source = _time_resize(source, target_frames)
     if clip.fade_in_ms > 0.0:
         fade_frames = min(
@@ -523,6 +530,7 @@ def _arrange_midi_track(
     """Render MIDI placements as global events so synth automation follows arrangement time."""
 
     arranged = np.zeros((total_frames, 2), dtype=np.float64)
+    timing = project.timing
     automation = _synth_automation(project, track, total_frames)
     cursor_bar = 0.0
     for section in project.sections:
@@ -532,21 +540,23 @@ def _arrange_midi_track(
                 clip = placement.clip
                 assert isinstance(clip, MidiClip)
                 start_bar = cursor_bar + placement.start_bar
-                available_beats = (
+                available_beats = timing.bars_to_quarter_notes(
                     section.bars - placement.start_bar
-                ) * project.beats_per_bar
+                )
                 if available_beats <= 0:
                     continue
                 events: list[Note] = []
                 bends: list[ControlPoint] = []
                 modulations: list[ControlPoint] = []
+                clip_beats = timing.bars_to_quarter_notes(clip.bars)
                 repeats = (
-                    max(1, math.ceil(available_beats / (clip.bars * project.beats_per_bar)))
+                    max(1, math.ceil(available_beats / clip_beats))
                     if placement.repeat
                     else 1
                 )
+                start_beats = timing.bars_to_quarter_notes(start_bar)
                 for repeat_index in range(repeats):
-                    repeat_beats = repeat_index * clip.bars * project.beats_per_bar
+                    repeat_beats = repeat_index * clip_beats
                     for note in clip.events:
                         start = repeat_beats + note.start
                         if start < available_beats:
@@ -554,7 +564,7 @@ def _arrange_midi_track(
                             events.append(
                                 Note(
                                     note.pitch,
-                                    start=start_bar * project.beats_per_bar + start,
+                                    start=start_beats + start,
                                     duration=duration,
                                     velocity=note.velocity,
                                 )
@@ -563,7 +573,7 @@ def _arrange_midi_track(
                         if repeat_beats + point.beat <= available_beats:
                             bends.append(
                                 ControlPoint(
-                                    start_bar * project.beats_per_bar + repeat_beats + point.beat,
+                                    start_beats + repeat_beats + point.beat,
                                     point.value,
                                 )
                             )
@@ -571,7 +581,7 @@ def _arrange_midi_track(
                         if repeat_beats + point.beat <= available_beats:
                             modulations.append(
                                 ControlPoint(
-                                    start_bar * project.beats_per_bar + repeat_beats + point.beat,
+                                    start_beats + repeat_beats + point.beat,
                                     point.value,
                                 )
                             )
@@ -644,7 +654,7 @@ def _synth_audio(project: Project, spec: NativeSynthSpec) -> np.ndarray:
         spec,
         sample_rate=project.sample_rate,
         tempo_bpm=project.tempo,
-        beats_per_bar=project.beats_per_bar,
+        quarter_notes_per_bar=project.timing.quarter_notes_per_bar,
     )
     return np.repeat(samples[:, np.newaxis], 2, axis=1) / math.sqrt(2.0)
 

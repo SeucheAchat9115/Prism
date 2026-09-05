@@ -10,7 +10,7 @@ lead = song.track("Lead", gain_db=-7, pan=0.15).midi(
     instrument=Uniwave.lead(),
 )
 filter_fx = lead.effect("filter", name="Lead Filter", cutoff_hz=5200)
-lead.effect("delay", delay_beats=0.5, feedback=0.3, mix=0.2)
+lead.effect("delay", time_beats=0.5, feedback=0.3, mix=0.2)
 ```
 
 Registered VST3 effects use the same ordered chain on tracks, buses, and the
@@ -55,7 +55,9 @@ song.automation(
 
 Point positions are absolute song bars. A `linear` curve moves continuously;
 `hold` keeps the previous value until the next point. Prism validates each
-value against the plugin's registered parameter range.
+value against the plugin's registered parameter range. Bars are converted
+through the project's canonical timing map, so automation agrees with audio
+and MIDI in meters such as 6/8 and 7/8 and does not drift after long sequences.
 
 See [Plugins and automation](../tutorial/11-plugins-and-automation.md) and
 [Buses, sends, and master effects](../tutorial/13-buses-sends-and-master-effects.md)

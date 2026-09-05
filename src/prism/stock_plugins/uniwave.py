@@ -9,6 +9,7 @@ from prism.music import ControlPoint, Note, note_frequency
 from prism.plugins import Parameter, PluginDefinition
 from prism.stock_plugins.gain import db_envelope
 from prism.synthesis.types import NativeSynthSpec, SynthWave, Uniwave
+from prism.timing import MusicalTiming
 
 
 def settings(sound: Uniwave) -> dict[str, object]:
@@ -39,26 +40,26 @@ def render(
     spec: NativeSynthSpec,
     sample_rate: int,
     tempo_bpm: float,
-    beats_per_bar: int,
+    quarter_notes_per_bar: float,
 ) -> np.ndarray:
     """Render Uniwave oscillators, envelopes, controllers, filter, and drive."""
 
     sound = spec.uniwave or Uniwave()
     automation = spec.automation or {}
-    seconds = spec.bars * beats_per_bar * 60.0 / tempo_bpm
-    frames = spec.frame_count or max(1, int(round(seconds * sample_rate)))
-    frames_per_beat = sample_rate * 60.0 / tempo_bpm
+    timing = MusicalTiming(tempo_bpm=tempo_bpm, sample_rate=sample_rate)
+    total_quarter_notes = spec.bars * quarter_notes_per_bar
+    frames = spec.frame_count or max(1, timing.quarter_notes_to_frame(total_quarter_notes))
     output = np.zeros(frames, dtype=np.float64)
-    bends = _control_values(spec.pitch_bend, frames, frames_per_beat)
-    modulation = _control_values(spec.modulation, frames, frames_per_beat)
-    events = spec.note_events or _step_events(spec, beats_per_bar)
+    bends = _control_values(spec.pitch_bend, frames, timing)
+    modulation = _control_values(spec.modulation, frames, timing)
+    events = spec.note_events or _step_events(spec, quarter_notes_per_bar)
     wave_level = max(1.0, sum(wave.level for wave in sound.waves))
 
     for event_index, note in enumerate(events):
-        start = int(round(note.start * frames_per_beat))
+        start = timing.quarter_notes_to_frame(note.start)
         if start >= frames:
             continue
-        note_frames = max(1, int(round(note.duration * frames_per_beat)))
+        note_frames = max(1, timing.quarter_notes_to_frame(note.duration))
         release = max(0, int(round(sound.release_ms * sample_rate / 1_000.0)))
         voice_frames = min(frames - start, note_frames + release)
         vibrato_rate = _automated(
@@ -129,8 +130,8 @@ def _automated(
     return np.asarray(values[start : start + frames], dtype=np.float64)
 
 
-def _step_events(spec: NativeSynthSpec, beats_per_bar: int) -> tuple[Note, ...]:
-    clip_beats = spec.bars * beats_per_bar
+def _step_events(spec: NativeSynthSpec, quarter_notes_per_bar: float) -> tuple[Note, ...]:
+    clip_beats = spec.bars * quarter_notes_per_bar
     step = clip_beats / len(spec.sequence)
     gate = 0.8 if spec.gate is None else spec.gate
     return tuple(
@@ -142,11 +143,13 @@ def _step_events(spec: NativeSynthSpec, beats_per_bar: int) -> tuple[Note, ...]:
 
 
 def _control_values(
-    points: tuple[ControlPoint, ...], frames: int, frames_per_beat: float
+    points: tuple[ControlPoint, ...], frames: int, timing: MusicalTiming
 ) -> np.ndarray:
     if not points:
         return np.zeros(frames, dtype=np.float64)
-    positions = [point.beat * frames_per_beat for point in points]
+    positions = [
+        float(timing.quarter_notes_to_frame(point.beat)) for point in points
+    ]
     values = [point.value for point in points]
     if positions[0] > 0.0:
         positions.insert(0, 0.0)
