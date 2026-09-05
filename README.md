@@ -91,3 +91,20 @@ for bug fixes, VST reliability, exports, live playback, and production features.
 Each task links to a complete implementation-agent prompt with dependencies,
 acceptance criteria, and handoff instructions. These pages describe planned work;
 check the implementation status and linked pull requests for delivered features.
+
+
+## Project status and contributing
+
+Prism is **alpha software** (`0.2.0.dev0`): APIs and project compatibility may change.
+Windows and Linux with Python 3.12 are the currently tested platforms.
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) to start, [GOVERNANCE.md](GOVERNANCE.md)
+for how decisions are made, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community
+expectations. Maximilian Menke (@SeucheAchat9115) is the lead maintainer.
+
+Songs are executable Python and VST plugins are native code. Only run projects and
+plugins you trust; the VST worker is not a security sandbox. See
+[SECURITY.md](SECURITY.md) for reporting vulnerabilities and known trust boundaries.
+
+Prism is licensed under [GPL-3.0-only](LICENSE). See the [changelog](CHANGELOG.md)
+and [maintainer checklist](docs/development/maintainer-checklist.md) for release preparation.
