@@ -1,0 +1,107 @@
+name: VST3 integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: ["**"]
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SURGE_WINDOWS_URL: https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-win64-1.3.4-setup.exe
+  SURGE_LINUX_URL: https://github.com/surge-synthesizer/releases-xt/releases/download/1.3.4/surge-xt-linux-x64-1.3.4.deb
+
+jobs:
+  vst3:
+    name: Real VST3 (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+        with:
+          enable-cache: true
+
+      - name: Install Python 3.12
+        run: uv python install 3.12
+
+      - name: Install Linux runtime libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            curl \
+            libsndfile1 \
+            libcairo2 \
+            libfontconfig1 \
+            libfreetype6 \
+            libx11-6 \
+            libxcb-cursor0 \
+            libxcb-xkb1 \
+            libxcb1 \
+            libxkbcommon-x11-0 \
+            libxkbcommon0 \
+            xdg-utils \
+            xclip
+
+      - name: Install the locked VST3 environment
+        run: uv sync --locked --extra dev --extra vst3
+
+      - name: Install Surge XT on Linux
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          archive="$RUNNER_TEMP/surge-xt.deb"
+          curl --fail --location --retry 3 \
+            --output "$archive" \
+            "$SURGE_LINUX_URL"
+          sudo apt-get install -y "$archive"
+          test -d "/usr/lib/vst3/Surge XT.vst3"
+          test -d "/usr/lib/vst3/Surge XT Effects.vst3"
+          {
+            echo "PRISM_SURGE_INSTRUMENT_VST3=/usr/lib/vst3/Surge XT.vst3"
+            echo "PRISM_SURGE_EFFECT_VST3=/usr/lib/vst3/Surge XT Effects.vst3"
+          } >> "$GITHUB_ENV"
+
+      - name: Install Surge XT on Windows
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $installer = Join-Path $env:RUNNER_TEMP 'surge-xt-setup.exe'
+          Invoke-WebRequest -Uri $env:SURGE_WINDOWS_URL -OutFile $installer
+          $arguments = @(
+            '/VERYSILENT',
+            '/SUPPRESSMSGBOXES',
+            '/NORESTART',
+            '/SP-'
+          )
+          $process = Start-Process -FilePath $installer -ArgumentList $arguments -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+            throw "Surge XT installer exited with code $($process.ExitCode)."
+          }
+          $roots = @(
+            (Join-Path $env:CommonProgramFiles 'VST3'),
+            (Join-Path $env:ProgramFiles 'VST3')
+          )
+          $instrument = Get-ChildItem -Path $roots -Directory -Filter 'Surge XT.vst3' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          $effect = Get-ChildItem -Path $roots -Directory -Filter 'Surge XT Effects.vst3' -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($null -eq $instrument -or $null -eq $effect) {
+            throw 'Could not locate the installed Surge XT VST3 bundles.'
+          }
+          "PRISM_SURGE_INSTRUMENT_VST3=$($instrument.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "PRISM_SURGE_EFFECT_VST3=$($effect.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Run real VST3 smoke tests
+        run: uv run pytest tests/test_real_vst.py -q
