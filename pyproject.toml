@@ -21,7 +21,7 @@ prism = "prism.cli:main"
 [project.optional-dependencies]
 dev = [
     "mypy>=1.14,<2",
-    "pytest>=8.3,<9",
+    "pytest>=9.1.1,<10",
     "pytest-cov>=6,<8",
     "ruff>=0.9,<1",
 ]
