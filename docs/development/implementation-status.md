@@ -66,7 +66,11 @@ Status: implemented on the task branch; verification is recorded below.
 
 ## Task 02/35 — unify musical time and correct non-quarter-note meters
 
-Status: implementation complete locally; PR and hosted CI are pending.
+Status: Done; [PR #16](https://github.com/SeucheAchat9115/Prism/pull/16) is open and
+hosted CI is pending.
+
+Implementation branch: `task-02/unify-musical-time`  
+Implementation commit: `5b2629f4d855ca5c7ae9470fdf722b6d8be2545c`
 
 ### Completed scope
 
