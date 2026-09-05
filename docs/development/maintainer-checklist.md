@@ -94,13 +94,12 @@ rules UI to confirm Main quality has no bypass actors. This is the readiness gat
 - Shared song scripts and native plugins must be trusted; subprocess isolation is
   not a sandbox. A hung VST worker currently has no operation deadline. This remains
   a runtime-hardening task; do not offer an untrusted rendering service.
-- Surge 1.3.4 release metadata provides no SHA-256 digests, and the GitHub connector
-  used for this PR cannot download binary installers. Installer verification is
-  therefore not claimed by this PR. Before treating VST CI as a hardened supply
-  chain, download the exact installers on a trusted machine, verify their origin,
-  calculate SHA-256 (Get-FileHash on Windows, sha256sum on Linux), and add reviewed
-  expected hashes plus verification before installation in vst-ci.yml. A locally
-  calculated hash pins bytes; it does not by itself authenticate the publisher.
+- Surge 1.3.4 installers are pinned by SHA-256 before installation. Their upstream
+  release metadata has no SHA-256 digest; the pins were observed from the fixed
+  publisher URLs in [CI run 33977585860](https://github.com/SeucheAchat9115/Prism/actions/runs/33977585860).
+  This records downloaded bytes, not an independent publisher signature. When
+  upgrading, review the upstream release and update URLs and hashes together in
+  a PR. Never replace expected hashes automatically from the download being checked.
 - No complete repository-history secret scan or dependency vulnerability audit is
   claimed. Review security alerts and rotate any exposed credential rather than
   merely deleting it from the latest source.

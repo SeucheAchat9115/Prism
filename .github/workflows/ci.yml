@@ -54,6 +54,5 @@ jobs:
       - name: Run lint checks
         run: uv run ruff check .
 
-
       - name: Build release distributions
         run: uv build

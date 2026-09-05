@@ -28,6 +28,7 @@ the process. Do not expose Prism as an untrusted upload/render service.
 
 Never provide secrets to fork PR workflows or run them on a personal workstation
 runner. Review workflow and dependency changes before approving execution. The
-Surge 1.3.4 CI installers currently lack pinned SHA-256 verification; see the
-[maintainer checklist](docs/development/maintainer-checklist.md) for the remaining
-supply-chain hardening step. Lockfiles and passing tests are not vulnerability audits.
+Surge 1.3.4 CI installers are verified against reviewed SHA-256 pins before execution.
+Pins detect changed bytes; they do not certify that upstream code is safe. See the
+[maintainer checklist](docs/development/maintainer-checklist.md) for updating them.
+Lockfiles and passing tests are not vulnerability audits.
