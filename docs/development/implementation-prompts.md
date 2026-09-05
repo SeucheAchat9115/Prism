@@ -1,6 +1,8 @@
 # Implementation prompts
 
-[Ordered task index](implementation-tasks.md)
+[Ordered task index and progress](implementation-tasks.md)
+
+Agents must update the roadmap and implementation-status record in their implementation PR. Step 01 is done; consult the task index before selecting the next unfinished task.
 
 These 35 prompts turn the September 2026 Prism audit into implementation work. Each fenced block is self-contained: copy the entire block for the next agent. They include the repository, historical audit context, dependencies, implementation scope, acceptance criteria and handoff requirements. The agents do not need this conversation or access to the original report.
 
@@ -75,6 +77,14 @@ owned stem, modified generated files, child symlinks escaping the project, failu
 stem write, and successful repeated export. Do not run destructive cases against real producer
 recordings. Update the stem tutorial with output-directory ownership semantics.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -147,6 +157,14 @@ Acceptance: Audio durations, MIDI meter/end ticks, note placement, and automatio
 drift. Existing ordinary 4/4 projects retain their intended timing. Document migration for
 non-quarter-note projects and test error messages for invalid meter/tempo input.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -216,6 +234,14 @@ Acceptance: Conflicting 0.2/0.8 declarations fail before rendering, identical de
 accepted, and state/preset conflicts are covered. Replacing the instrument produces the requested
 patch throughout the track, with a clear automation policy. Native and external instruments retain a
 coherent public interface. Add a tutorial showing a reusable track-owned VST configuration.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -289,6 +315,14 @@ audio, VST event input, and exported MIDI. Test modulation, overlapping notes, r
 events exactly on boundaries, and note-off before retrigger. Numeric/event tests should establish
 agreement; use real-plugin tests where available without treating native and third-party timbres as
 equal.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -364,6 +398,14 @@ one long arrangement and inspect render-call count without relying on elapsed ti
 Demonstrate that master and stem export share the same rendered instance within an export
 generation.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -435,6 +477,14 @@ sufficient export tail. Test overlap between repeated hits, transition to an ina
 one-shot audio, source looping, trim/fades, and explicit choke/cut modes. Master and all stems
 remain frame-aligned. Future block rendering must be able to reuse the voice schedule rather than
 introducing another placement algorithm.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -508,6 +558,14 @@ render-tail truncation policy. A 257-bar native arrangement validates and render
 scheduling test without expensive minutes of DSP. Validate native drum, melodic, and
 external-instrument paths separately.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -579,6 +637,14 @@ renamed/indexed selectors, duplicate physical targets, and replaced plugin insta
 adapters consume equivalent timing. Document existing-project migration and provide a simple
 volume/filter automation example that can run as a tutorial test.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -649,6 +715,14 @@ audio, flood logs, and fail mid-save. Tests establish prompt cancellation and cl
 processes, preserving the previous state. Ordinary success, missing host dependencies, and
 user-closing the editor still work. Do not claim a fake worker establishes actual plugin
 compatibility.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -724,6 +798,14 @@ precedence and cancellation cases. Report exactly which plugin/platform combinat
 Do not use Serum credentials or claim commercial-plugin coverage without a legitimately installed
 test environment.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -797,6 +879,14 @@ rejection, normalization behavior, deterministic dither, low-level quantization 
 resampling overshoot. Update results/API documentation and executable listening/master/stem profile
 examples.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -867,6 +957,14 @@ ungrouped tracks, groups, sends/returns, mute, gain/pan, effect tails and normal
 nonlinear-master test confirms the documented limitation rather than manufacturing a false equality.
 All files share start, rate, channels and frame count, and preserve the file-safety guarantees from
 task 1.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -939,6 +1037,14 @@ otherwise identical project preserves portable identity. Manifest outputs corres
 successful export generation and include checksums. Test schema migration, unsupported versions,
 missing assets, and deterministic versus external backend metadata. Document what must accompany a
 project when shared.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -1016,6 +1122,14 @@ entry points. Explicit roots work from a different cwd and a notebook-style call
 missing optional hosts without breaking native projects. CI exercises the corrected guide and
 representative tutorials; packaging and strict docs builds remain healthy.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1091,6 +1205,14 @@ and effects. Cache hits preserve outputs; relevant edits invalidate; unrelated e
 hits; eviction bounds disk/memory. Test delayed echoes, long release, empty/silent ranges and
 maximum-tail termination.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1161,6 +1283,14 @@ device. Headless tests verify cursor/sample agreement, stop/seek/loop boundaries
 negotiation, error recovery and clean shutdown. Add a manual Windows/Linux device checklist and
 report whether it was run. Help text must distinguish rendered-buffer playback from live instrument
 processing.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -1234,6 +1364,14 @@ A bad edit leaves previous playback running; shutdown cancels all workers. A tut
 edit-save-hear and explains its build/render delay. This task does not claim that the existing
 state-only VST editor is now audible.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1302,6 +1440,14 @@ Acceptance: Scrubbing, looping, pausing and source changes keep sound, playhead,
 revision consistent. Long songs use bounded display memory. Test transport/UI contracts and run a
 real visual smoke check. Provide a runnable tutorial with a native project and explain that a visual
 playhead is available even before genuine live synthesis is implemented.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -1378,6 +1524,14 @@ continue across blocks. Five-minute/32-track native streaming graphs demonstrate
 memory without brittle wall-clock CI thresholds. Report batch-VST fallback memory separately instead
 of extending that claim to it. Repeated deterministic offline renders remain reproducible.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1449,6 +1603,14 @@ sizes. Instrumented tests establish no Python callback/GIL work, filesystem acce
 growth in the audio processing path after preparation. Build and install checks pass on
 Windows/Linux. Report measured throughput and worst observed block timing separately from any
 guarantee about end-to-end hardware latency.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -1522,6 +1684,14 @@ controls changes the audible test phrase from the same instance. State exactly w
 hardware/plugin/platform checks were possible. Exported state reopens correctly. Do not label
 repeated offline render calls as completed live hosting.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1592,6 +1762,14 @@ edits, and updates knobs audibly. Test repeated stop/seek/loop, long tails, plug
 device removal. Offline and live capture agree within deterministic or documented external-plugin
 tolerances. Test 64/128/256/512-frame scheduling and deadline failure behavior. Do not equate block
 duration with measured round-trip latency.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -1665,6 +1843,14 @@ replay their notes and controllers correctly and export through the common MIDI 
 live playing with a real device where available; report hardware checks separately from virtual
 tests.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1734,6 +1920,14 @@ Acceptance: Test nested groups, pre/post sends, group mute/solo, return solo-saf
 invalid cycles. Controlled VST fixtures establish sidechain action and separately routed outputs;
 unsupported plugins fail clearly. Offline/live graphs and stems agree on routing, latency and
 levels. Add producer examples for kick-driven bass ducking and a multi-output instrument.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -1806,6 +2000,14 @@ onsets agree; provide known fixtures for the later MIDI import task. Reusing one
 sections does not leak edits or stochastic state between instances. Legacy constant-tempo projects
 remain compatible and a complete tutorial demonstrates a reusable verse/chorus arrangement.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -1875,6 +2077,14 @@ declared MIDI quantization. Test more than 15 melodic tracks, percussion channel
 sustain/aftertouch and empty tracks. Compare imported playback with a known event timeline and
 validate serialized files independently. Document exactly which information MIDI interchange cannot
 preserve.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -1948,6 +2158,14 @@ coherence, transients, vocals, extreme allowed ratios, and edit order. Slice/cro
 avoid unintended gaps/clicks and leave source hashes unchanged. Provide sound examples and disclose
 quality tradeoffs rather than relying only on frequency tests.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -2019,6 +2237,14 @@ impulses, intersample peaks, oversampling, stereo linking, latency and tails. UI
 export analysis within their documented windowing. Provide practical producer tutorials and
 meaningful defaults without claiming every track should use one universal LUFS target.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -2087,6 +2313,14 @@ Acceptance: Spectral tests compare unwanted aliases with a band-limited referenc
 pitch/sample rates. Check gain, DC, finite output, stereo correlation, voice overlap, deterministic
 seeds and automated parameters. Offline/live parity holds in the same quality mode. Publish small
 before/after listening examples and benchmark cost so producers can choose quality deliberately.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -2162,6 +2396,14 @@ detection and clean-machine reopening are exercised. Source files remain protect
 identity survives relocation, and a bundle with frozen parts can render without its original VST
 installation. Add a producer-friendly sharing checklist tied to actual bundle diagnostics.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -2232,6 +2474,14 @@ long-recording continuity. Fault tests cover slow disk, buffer overrun and devic
 hardware capture/monitoring check is performed where available and reported honestly. Captured files
 appear as non-destructive clips with manifests, source protection and no overwrite of prior
 recordings. Provide a first-vocal-recording tutorial.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -2304,6 +2554,14 @@ Test crash recovery, disk failure, concurrent external Python edits and stale st
 tutorial demonstrates recording three takes, making a comp and reverting edits while retaining every
 original.
 
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
 include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
@@ -2373,6 +2631,14 @@ Acceptance: Independently decode generated files and verify codec, duration acco
 metadata and finite non-silent audio. Test missing encoders, unsupported profiles, cancellation,
 failed writes and reproducible settings. Existing WAV master/stem tests remain intact. Provide named
 master/stem/listening profiles and document why producers would choose each.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -2446,6 +2712,14 @@ platform. Real VST fixture/Surge, editor lifecycle, playback and state round-tri
 the supported matrix. Headless CI and manual hardware evidence are labeled separately. If hardware
 or distribution access prevents a claim, complete the implementation and available checks but list
 that combination as unqualified rather than advertising it as working.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
@@ -2527,6 +2801,14 @@ concrete reproduction, impact and owner-ready follow-up. The final report distin
 offline production, refreshed-buffer preview, genuine live processing and full recording workflows.
 State exactly which configurations were tested; do not claim DAW parity solely from passing unit
 tests.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
 
 Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
 relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
