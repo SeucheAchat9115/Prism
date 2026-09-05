@@ -83,3 +83,11 @@ The **[complete Prism documentation](https://seucheachat9115.github.io/Prism/)**
 contains installation help, a beginner-friendly tutorial path, feature guides,
 plugin-development instructions, troubleshooting, and the full Python
 reference.
+
+## Contributing to the production roadmap
+
+Start with the [ordered implementation tasks](docs/development/implementation-tasks.md)
+for bug fixes, VST reliability, exports, live playback, and production features.
+Each task links to a complete implementation-agent prompt with dependencies,
+acceptance criteria, and handoff instructions. These pages describe planned work;
+check the implementation status and linked pull requests for delivered features.
