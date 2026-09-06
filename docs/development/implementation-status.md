@@ -75,10 +75,11 @@ Implementation commit: `d76cd96a08ccc2aa4b73c92a3485dc3e1024063d`
 
 ## Task 12/35 — make stem delivery modes and reconstruction guarantees explicit
 
-Status: Done; PR pending. Done describes implementation completion, not
+Status: Done; [PR #38](https://github.com/SeucheAchat9115/Prism/pull/38) open. Done describes implementation completion, not
 pull-request merge state.
 
 Implementation branch: `task-12/stem-delivery-modes`
+Implementation commit: `9f6e20f278af62c28c53a5fc95a54c530be72e38`
 
 ### Completed scope
 
