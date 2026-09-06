@@ -5,7 +5,7 @@ from typing import Mapping
 
 import numpy as np
 
-from prism.music import ControlPoint, Note, note_frequency
+from prism.music import ControlPoint, Note, control_values, db_gain, note_frequency
 from prism.plugins import Parameter, PluginDefinition
 from prism.stock_plugins.gain import db_envelope
 from prism.synthesis.types import NativeSynthSpec, SynthWave, Uniwave
@@ -106,8 +106,9 @@ def render(
             automation=automation,
             start=start,
         )
+        note_gain = db_gain(spec.note_gains_db[event_index]) if spec.note_gains_db else 1.0
         output[start : start + voice_frames] += (
-            0.38 * (note.velocity / 100.0) * voice * envelope
+            0.38 * (note.velocity / 100.0) * note_gain * voice * envelope
         )
 
     cutoff = _automated(automation, "cutoff_hz", sound.cutoff_hz, 0, frames)
@@ -145,17 +146,8 @@ def _step_events(spec: NativeSynthSpec, quarter_notes_per_bar: float) -> tuple[N
 def _control_values(
     points: tuple[ControlPoint, ...], frames: int, timing: MusicalTiming
 ) -> np.ndarray:
-    if not points:
-        return np.zeros(frames, dtype=np.float64)
-    positions = [
-        float(timing.quarter_notes_to_frame(point.beat)) for point in points
-    ]
-    values = [point.value for point in points]
-    if positions[0] > 0.0:
-        positions.insert(0, 0.0)
-        values.insert(0, 0.0)
     return np.asarray(
-        np.interp(np.arange(frames, dtype=np.float64), positions, values),
+        control_values(points, frames, timing=timing, default=0.0),
         dtype=np.float64,
     )
 

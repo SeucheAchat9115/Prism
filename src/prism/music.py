@@ -6,8 +6,16 @@ import math
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Literal
 
 from prism.errors import ProjectError
+
+if TYPE_CHECKING:
+    from prism.timing import TimingMap
+
+
+ControlCurve = Literal["linear", "hold"]
+ControllerBoundaryMode = Literal["reset", "retain", "legacy"]
 
 _NOTE = re.compile(r"^(?P<letter>[A-Ga-g])(?P<accidental>[#b]?)(?P<octave>-?\d{1,2})$")
 _SEMITONES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
@@ -40,10 +48,68 @@ class Note:
 
 @dataclass(frozen=True, slots=True)
 class ControlPoint:
-    """One pitch-bend or modulation value positioned in quarter-note beats."""
+    """One controller value positioned in quarter-note beats.
+
+    ``curve`` describes the interval starting at this point. ``linear``
+    interpolates until the next point; ``hold`` keeps this value until the next
+    point. Keeping the mode on the point makes the compiled event stream
+    unambiguous for both audio rendering and discrete MIDI export.
+    """
 
     beat: float
     value: float
+    curve: ControlCurve = "linear"
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.beat) or self.beat < 0.0:
+            raise ProjectError("Controller positions must be finite and zero or greater.")
+        if not math.isfinite(self.value):
+            raise ProjectError("Controller values must be finite.")
+        if self.curve not in {"linear", "hold"}:
+            raise ProjectError("Controller curves must be 'linear' or 'hold'.")
+
+
+def control_values(
+    points: Sequence[ControlPoint],
+    frames: int,
+    *,
+    timing: TimingMap,
+    default: float,
+) -> object:
+    """Sample controller points at audio frames using their declared curves.
+
+    The return type is intentionally kept out of the public music model's
+    annotations so importing notation helpers does not import NumPy. Callers
+    receive a one-dimensional ``numpy.ndarray``.
+    """
+
+    import numpy as np
+
+    if frames < 0:
+        raise ValueError("Controller frame count must not be negative.")
+    if not points:
+        return np.full(frames, default, dtype=np.float64)
+    positions = [timing.quarter_notes_to_frame(point.beat) for point in points]
+    result = np.full(frames, default, dtype=np.float64)
+    for index, point in enumerate(points):
+        start = max(0, positions[index])
+        if start >= frames:
+            continue
+        stop = frames if index + 1 == len(points) else min(frames, positions[index + 1])
+        if stop <= start:
+            continue
+        if point.curve == "linear" and index + 1 < len(points):
+            next_position = positions[index + 1]
+            if next_position > positions[index]:
+                fraction = (
+                    np.arange(start, stop, dtype=np.float64) - positions[index]
+                ) / (next_position - positions[index])
+                result[start:stop] = point.value + fraction * (
+                    points[index + 1].value - point.value
+                )
+                continue
+        result[start:stop] = point.value
+    return result
 
 
 def rhythm_steps(pattern: str | Sequence[str]) -> tuple[str, ...]:

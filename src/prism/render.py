@@ -18,6 +18,7 @@ import numpy as np
 import soundfile as sf
 import soxr
 
+from prism.arrangement import compile_track_events
 from prism.effects import (
     has_automation,
     parameter_values,
@@ -25,7 +26,7 @@ from prism.effects import (
     process_track_plugins,
 )
 from prism.errors import ProjectError, RenderError
-from prism.music import ControlPoint, Note, db_gain
+from prism.music import Note, db_gain
 from prism.project.builder import (
     AudioClip,
     DrumClip,
@@ -527,106 +528,80 @@ def _time_resize(source: np.ndarray, frames: int) -> np.ndarray:
 def _arrange_midi_track(
     project: Project, track: Track, total_frames: int, total_bars: int
 ) -> np.ndarray:
-    """Render MIDI placements as global events so synth automation follows arrangement time."""
+    """Render one track from the same compiled stream used by MIDI export.
 
+    Native instruments consume the complete stream in one pass. VST3 placement
+    renders remain scoped until task 05 so this task does not change instance
+    lifetime or clip-gain semantics; each scoped render is still derived from
+    the one track compilation.
+    """
+
+    stream = compile_track_events(
+        project,
+        track,
+        total_bars=total_bars,
+        total_frames=total_frames,
+    )
     arranged = np.zeros((total_frames, 2), dtype=np.float64)
-    timing = project.timing
-    automation = _synth_automation(project, track, total_frames)
-    cursor_bar = 0.0
-    for section in project.sections:
-        active = section.tracks is None or track.name in section.tracks
-        if active:
-            for placement in track.clips_for(section):
-                clip = placement.clip
-                assert isinstance(clip, MidiClip)
-                start_bar = cursor_bar + placement.start_bar
-                available_beats = timing.bars_to_quarter_notes(
-                    section.bars - placement.start_bar
-                )
-                if available_beats <= 0:
-                    continue
-                events: list[Note] = []
-                bends: list[ControlPoint] = []
-                modulations: list[ControlPoint] = []
-                clip_beats = timing.bars_to_quarter_notes(clip.bars)
-                repeats = (
-                    max(1, math.ceil(available_beats / clip_beats))
-                    if placement.repeat
-                    else 1
-                )
-                start_beats = timing.bars_to_quarter_notes(start_bar)
-                for repeat_index in range(repeats):
-                    repeat_beats = repeat_index * clip_beats
-                    for note in clip.events:
-                        start = repeat_beats + note.start
-                        if start < available_beats:
-                            duration = min(note.duration, available_beats - start)
-                            events.append(
-                                Note(
-                                    note.pitch,
-                                    start=start_beats + start,
-                                    duration=duration,
-                                    velocity=note.velocity,
-                                )
-                            )
-                    for point in clip.pitch_bend:
-                        if repeat_beats + point.beat <= available_beats:
-                            bends.append(
-                                ControlPoint(
-                                    start_beats + repeat_beats + point.beat,
-                                    point.value,
-                                )
-                            )
-                    for point in clip.modulation:
-                        if repeat_beats + point.beat <= available_beats:
-                            modulations.append(
-                                ControlPoint(
-                                    start_beats + repeat_beats + point.beat,
-                                    point.value,
-                                )
-                            )
-                if not events:
-                    continue
-                instrument = track.instrument_plugin
-                if instrument is not None and instrument.vst3 is not None:
-                    from prism.vst_host import render_vst3_instrument
+    clip = track.clip
+    assert isinstance(clip, MidiClip)
+    instrument = track.instrument_plugin
+    if instrument is not None and instrument.vst3 is not None:
+        from prism.vst_host import render_vst3_instrument
 
-                    rendered = render_vst3_instrument(
-                        project,
-                        instrument,
-                        events,
-                        bends,
-                        modulations,
-                        total_frames,
-                    )
-                    arranged += rendered * db_gain(clip.gain_db)
-                    continue
-                spec = NativeSynthSpec(
-                    preset=clip.instrument,
-                    sequence=clip.notes,
-                    note_events=tuple(events),
-                    pitch_bend=tuple(bends),
-                    modulation=tuple(modulations),
-                    uniwave=clip.uniwave,
-                    automation=automation,
-                    automation_base_gain_db=(
-                        _automation_base_gain(track)
-                        if automation
-                        else None
-                    ),
-                    frame_count=total_frames,
-                    bars=total_bars,
-                    waveform=clip.waveform,
-                    attack_ms=clip.attack_ms,
-                    decay_ms=clip.decay_ms,
-                    sustain_level=clip.sustain,
-                    release_ms=clip.release_ms,
-                    cutoff_hz=clip.cutoff_hz,
-                    gate=clip.gate,
-                    gain_db=clip.gain_db,
-                )
-                arranged += _synth_audio(project, spec)
-        cursor_bar += section.bars
+        for boundary in stream.boundaries:
+            segment = stream.for_boundary(boundary, timing=project.timing)
+            if not segment.notes:
+                continue
+            rendered = render_vst3_instrument(
+                project,
+                instrument,
+                segment,
+                total_frames,
+            )
+            arranged += rendered * db_gain(boundary.gain_db)
+        return arranged
+
+    automation = _synth_automation(project, track, total_frames)
+    notes = tuple(
+        Note(
+            note.pitch,
+            start=note.on_beat,
+            duration=max(1e-12, note.off_beat - note.on_beat),
+            velocity=note.velocity,
+        )
+        for note in stream.notes
+        if note.pitch is not None
+    )
+    note_gains = tuple(note.gain_db for note in stream.notes if note.pitch is not None)
+    if not notes:
+        return arranged
+    spec = NativeSynthSpec(
+        preset=clip.instrument,
+        sequence=clip.notes,
+        note_events=notes,
+        note_gains_db=note_gains,
+        pitch_bend=stream.controller_points("pitch_bend"),
+        modulation=stream.controller_points("modulation"),
+        uniwave=clip.uniwave,
+        automation=automation,
+        automation_base_gain_db=_automation_base_gain(track) if automation else None,
+        frame_count=total_frames,
+        bars=total_bars,
+        waveform=clip.waveform,
+        attack_ms=clip.attack_ms,
+        decay_ms=clip.decay_ms,
+        sustain_level=clip.sustain,
+        release_ms=clip.release_ms,
+        cutoff_hz=(
+            20_000.0
+            if has_automation(project, track.instrument_plugin, "cutoff_hz")
+            else clip.cutoff_hz
+        ),
+        gate=clip.gate,
+        gain_db=0.0,
+    )
+    arranged += _synth_audio(project, spec)
     return arranged
 
 

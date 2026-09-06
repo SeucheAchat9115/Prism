@@ -8,13 +8,18 @@ import struct
 from dataclasses import dataclass
 from pathlib import Path
 
+from prism.arrangement import (
+    MIDI_MODULATION_STEPS,
+    MIDI_PITCH_BEND_STEPS,
+    compile_track_events,
+)
 from prism.errors import ProjectError, RenderError
-from prism.music import note_to_midi
 from prism.plugins import STOCK_PLUGINS
-from prism.project.builder import ClipPlacement, DrumClip, MidiClip, Project, Track
-from prism.timing import MusicalTiming
+from prism.project.builder import DrumClip, MidiClip, Project, Track
 
 TICKS_PER_BEAT = 480
+
+
 @dataclass(frozen=True, slots=True)
 class MidiResult:
     """Facts about a completed standard MIDI file."""
@@ -105,121 +110,47 @@ def _music_track(project: Project, track: Track, channel: int, total_ticks: int)
         if program is None:
             raise ProjectError(f"Instrument {clip.instrument!r} has no MIDI program.")
         events.append((0, -2, bytes([0xC0 | channel, program])))
-    timing = project.timing
-    section_start_bar = 0.0
-    for section in project.sections:
-        section_start = timing.bars_to_ticks(section_start_bar, TICKS_PER_BEAT)
-        section_end = timing.bars_to_ticks(
-            section_start_bar + section.bars, TICKS_PER_BEAT
-        )
-        section_ticks = section_end - section_start
-        active = (
-            {item.name for item in project.tracks}
-            if section.tracks is None
-            else set(section.tracks)
-        )
-        if not track.muted and track.name in active:
-            for placement in track.clips_for(section):
-                _section_events(
-                    events,
-                    placement,
+    total_bars = sum(section.bars for section in project.sections)
+    stream = compile_track_events(
+        project,
+        track,
+        total_bars=total_bars,
+        total_frames=project.timing.bars_to_frame(total_bars),
+    )
+    if not track.muted:
+        for event in stream.events:
+            if event.kind not in {"note_on", "note_off"}:
+                continue
+            assert event.midi_note is not None
+            tick = project.timing.quarter_notes_to_ticks(event.beat, TICKS_PER_BEAT)
+            velocity = event.velocity if event.velocity is not None else 0
+            status = 0x90 if event.kind == "note_on" else 0x80
+            order = 0 if event.kind == "note_off" else 5
+            events.append((tick, order, bytes([status | channel, event.midi_note, velocity])))
+        for controller in stream.midi_controller_events(TICKS_PER_BEAT):
+            if controller.controller == "pitch_bend":
+                payload = _pitch_bend_message(
                     channel,
-                    section_start,
-                    section_ticks,
-                    section_start_bar,
-                    timing,
+                    controller.value,
+                    controller.pitch_bend_range,
                 )
-        section_start_bar += section.bars
+                order = 3
+            else:
+                amount = min(MIDI_MODULATION_STEPS, max(0, round(controller.value * 127.0)))
+                payload = bytes([0xB0 | channel, 1, amount])
+                order = 4
+            events.append((controller.tick, order, payload))
     events.append((total_ticks, 9, b"\xff\x2f\x00"))
     return _chunk(events)
 
 
-def _section_events(
-    events: list[tuple[int, int, bytes]],
-    placement: ClipPlacement,
-    channel: int,
-    section_start: int,
-    section_ticks: int,
-    section_start_bar: float,
-    timing: MusicalTiming,
-) -> None:
-    clip = placement.clip
-    if not isinstance(clip, DrumClip | MidiClip):
-        return
-    clip_ticks = timing.bars_to_ticks(clip.bars, TICKS_PER_BEAT)
-    placement_start = (
-        timing.bars_to_ticks(section_start_bar + placement.start_bar, TICKS_PER_BEAT)
-        - timing.bars_to_ticks(section_start_bar, TICKS_PER_BEAT)
+def _pitch_bend_message(channel: int, semitones: float, bend_range: float = 2.0) -> bytes:
+    if bend_range <= 0.0:
+        raise RenderError("MIDI pitch-bend range must be positive.")
+    value = min(
+        MIDI_PITCH_BEND_STEPS,
+        max(0, round(8_192 + semitones * 8_191 / bend_range)),
     )
-    cycle = placement_start
-    section_end = section_start + section_ticks
-    while cycle < section_ticks:
-        if isinstance(clip, DrumClip):
-            boundaries = [
-                round(index * clip_ticks / len(clip.pattern))
-                for index in range(len(clip.pattern) + 1)
-            ]
-            for index, token in enumerate(clip.pattern):
-                if token == "-":
-                    continue
-                start = section_start + cycle + boundaries[index]
-                if start >= section_end:
-                    continue
-                step_ticks = max(1, boundaries[index + 1] - boundaries[index])
-                drum_note = STOCK_PLUGINS.get("instrument", clip.preset).drum_note
-                if drum_note is None:
-                    raise ProjectError(f"Percussion instrument {clip.preset!r} has no MIDI note.")
-                duration = min(120, step_ticks)
-                end = min(section_end, start + duration)
-                events.append((start, 1, bytes([0x90 | channel, drum_note, 100])))
-                events.append((end, 0, bytes([0x80 | channel, drum_note, 0])))
-        else:
-            _midi_expression_events(
-                events,
-                clip,
-                channel=channel,
-                cycle_start=section_start + cycle,
-                section_end=section_end,
-                timing=timing,
-            )
-        cycle += clip_ticks
-        if not placement.repeat:
-            break
-
-
-def _midi_expression_events(
-    events: list[tuple[int, int, bytes]],
-    clip: MidiClip,
-    *,
-    channel: int,
-    cycle_start: int,
-    section_end: int,
-    timing: MusicalTiming,
-) -> None:
-    for point in clip.pitch_bend:
-        tick = cycle_start + timing.quarter_notes_to_ticks(point.beat, TICKS_PER_BEAT)
-        if tick < section_end:
-            events.append((tick, -1, _pitch_bend_message(channel, point.value)))
-    for point in clip.modulation:
-        tick = cycle_start + timing.quarter_notes_to_ticks(point.beat, TICKS_PER_BEAT)
-        if tick < section_end:
-            amount = min(127, max(0, round(point.value * 127.0)))
-            events.append((tick, -1, bytes([0xB0 | channel, 1, amount])))
-    for note in clip.events:
-        start = cycle_start + timing.quarter_notes_to_ticks(note.start, TICKS_PER_BEAT)
-        if start >= section_end:
-            continue
-        duration = max(
-            1, timing.quarter_notes_to_ticks(note.duration, TICKS_PER_BEAT)
-        )
-        end = min(section_end, start + duration)
-        midi_note = note_to_midi(note.pitch)
-        events.append((start, 1, bytes([0x90 | channel, midi_note, note.velocity])))
-        events.append((end, 0, bytes([0x80 | channel, midi_note, 0])))
-
-
-def _pitch_bend_message(channel: int, semitones: float) -> bytes:
-    value = min(16_383, max(0, round(8_192 + semitones * 8_191 / 2.0)))
     return bytes([0xE0 | channel, value & 0x7F, (value >> 7) & 0x7F])
 
 
