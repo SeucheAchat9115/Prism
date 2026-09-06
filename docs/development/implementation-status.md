@@ -54,10 +54,10 @@ Implementation commit: `e24842bde50a67fa7c4cb070ac4fc6f8ee952c95`
 - `uv run --extra dev mypy src/prism`: passed; 35 source files checked.
 - `uv run --extra dev ruff check .`: passed.
 - `uv run --extra docs mkdocs build --strict`: passed in the reconstructed
-  checkout after supplying a temporary placeholder for the unchanged binary
-  logo; the published Documentation workflow must verify the full repository
-  asset.
-- The separate real-VST workflow is unchanged; offline tests and mocks do not
+  checkout; hosted Documentation workflow **#112** also passed on the full
+  repository asset set.
+- Hosted CI **#145**, VST3 integration **#83**, and CodeQL **#68** passed. The
+  separate real-VST workflow remains unchanged; offline tests and mocks do not
   establish third-party/plugin qualification.
 
 ### Concrete limitations
