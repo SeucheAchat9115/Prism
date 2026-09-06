@@ -1,7 +1,9 @@
 # Level 6 — work safely with a coding agent
 
-Goal: let an agent support production without turning the project into opaque
-software.
+Goal: direct an external coding agent to make musical edits while you keep control
+of the song. This tutorial uses today's Python-and-render workflow. The integrated
+proposal, preview selection and undo tools are planned in
+[roadmap tasks A01–A05](../development/implementation-tasks.md).
 
 ## What an agent should edit
 
@@ -24,6 +26,34 @@ frameworks, helper classes, absolute paths, network calls, or hidden state.
 Create an Intro, Verse, Chorus, and Outro using my existing track variables.
 Show me the arrangement before running the project script.
 ```
+
+## Guide an iteration with musical intent
+
+These prompts are for your external coding agent, not commands understood by
+Prism itself:
+
+```text
+I like the bassline, but change its notes to be more euphoric. First explain
+your interpretation of that direction. Preserve the rhythm, velocities, bass
+sound, drums and arrangement. Save the original main.py and plugin states,
+then create two alternative Python versions and render each to a different
+WAV filename. Tell me which pitches changed. I will listen and choose.
+```
+
+```text
+Build a synth lead which fits the bassline. Inspect the existing notes and
+harmony first; if the harmony is uncertain, state your assumption. Keep the
+bass unchanged. Use an editable native synth sound, explain the melody and
+register, and render the lead in the mix so I can judge how they work together.
+```
+
+Today, keep separate source copies or use version control to restore a previous
+choice; a new WAV filename alone does not preserve the old source or plugin state.
+After choosing, ask the agent to apply that version to the working song. Validate
+and render again, then listen. Technical checks can catch silence, invalid notes
+or changed timing; they cannot decide whether a melody feels euphoric.
+Automatic preservation checks, candidate comparison and recoverable revisions
+will arrive through the agentic milestone.
 
 ## A complete agent-friendly `main.py`
 

@@ -2,31 +2,34 @@
 
 [Ordered task index and progress](implementation-tasks.md)
 
-Agents must update the roadmap and implementation-status record in their implementation PR. Step 01 is done; consult the task index before selecting the next unfinished task.
+Agents must update the roadmap and implementation-status record in their implementation PR. Steps 01 and 02 are done; consult the task index before selecting the next unfinished task.
 
-These 35 prompts turn the September 2026 Prism audit into implementation work. Each fenced block is self-contained: copy the entire block for the next agent. They include the repository, historical audit context, dependencies, implementation scope, acceptance criteria and handoff requirements. The agents do not need this conversation or access to the original report.
+These 40 prompts combine the September 2026 audit with the human-guided agentic production milestone. Each fenced block is self-contained: copy the entire block for the next agent. They include the repository, historical audit context, dependencies, implementation scope, acceptance criteria and handoff requirements. The agents do not need this conversation or access to the original report.
 
-Run them in numerical order. Give the next agent the entire numbered block plus the previous agent's branch/commit and handoff. Integrate or explicitly pass forward that completed work before starting the next; do not start every agent from an unchanged main branch. An ordinary task may require several focused commits. Prompt numbers define delivery stages, not estimates of equal effort. Especially for the audio engine and recording work, completion means the acceptance criteria work end to end.
+Follow this delivery order: 01–14 → A01–A03 → 15–18 → A04–A05 → 19–35. Task IDs are stable references, not a numerical execution order. Give the next agent the entire numbered block plus the previous agent's branch/commit and handoff. Integrate or explicitly pass forward that completed work before starting the next; do not start every agent from an unchanged main branch. An ordinary task may require several focused commits. Task IDs do not estimate effort. Especially for the audio engine and recording work, completion means the acceptance criteria work end to end.
 
 The original audit found working native exports and passing Surge XT smoke tests on Windows/Linux, but did not establish Serum compatibility or live hardware latency. The prompts preserve that distinction and require agents to recheck current code. Fixes that change existing sound/timing need explicit compatibility and migration decisions. Technical API names proposed below are illustrative unless preceding tasks have established them; subsequent agents should reuse the implemented names.
 
 | Prompts | Intended result |
 | --- | --- |
 | 1–10 | Safe files, correct musical timing/voices, reliable VST instances and stronger plugin verification |
-| 11–15 | Clear exports/stems, reproducibility, build/CLI contract and efficient preview preparation |
+| 11–14 | Clear exports/stems, reproducibility and build/CLI contract |
+| A01–A03 | Musical inspection, scoped reversible edits and composition operations |
+| 15 | Efficient range previews and caches |
 | 16–18 | Audible playback, Python edit-save-hear, and a visual transport |
+| A04–A05 | Candidate audition, human selection and qualified external-agent workflow |
 | 19–22 | Stateful streaming, native DSP, continuous VST hosting and a live song graph |
 | 23–30 | Performance MIDI, richer routing/arrangement, editing, mastering, synthesis and project sharing |
 | 31–35 | Recording/takes, listening formats, platform qualification and full production acceptance |
 
-Each agent must use the GitHub connector for remote repository communication and finish by opening or updating a pull request containing its changes, with exact test evidence. Integration into the next task is deliberate; these prompts do not ask agents to publish releases or automatically merge their work. If you only want the first useful live-editing experience, prompts 1–18 reach background-rendered preview; prompts 19–22 add continuous live processing, and 31–32 add recording/takes.
+Each agent must use the GitHub connector for remote repository communication and finish by opening or updating a pull request containing its changes, with exact test evidence. Integration into the next task is deliberate; these prompts do not ask agents to publish releases or automatically merge their work. If you only want the first useful live-editing experience, tasks through 18 in delivery order reach background-rendered preview; A04–A05 qualify agentic production before continuous live processing; prompts 19–22 add continuous live processing, and 31–32 add recording/takes.
 
 <a id="task-01"></a>
 
 ## 01. Protect source audio and make stem exports recoverable
 
 ```text
-Implementation task 01/35: Protect source audio and make stem exports recoverable
+Implementation task 01: Protect source audio and make stem exports recoverable
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -37,15 +40,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -108,7 +115,7 @@ able to start from this result.
 ## 02. Unify musical time and correct non-quarter-note meters
 
 ```text
-Implementation task 02/35: Unify musical time and correct non-quarter-note meters
+Implementation task 02: Unify musical time and correct non-quarter-note meters
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -119,15 +126,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -188,7 +199,7 @@ able to start from this result.
 ## 03. Make VST instrument configuration explicitly track-owned
 
 ```text
-Implementation task 03/35: Make VST instrument configuration explicitly track-owned
+Implementation task 03: Make VST instrument configuration explicitly track-owned
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -199,15 +210,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -266,7 +281,7 @@ able to start from this result.
 ## 04. Compile arrangement notes and expressive controls once
 
 ```text
-Implementation task 04/35: Compile arrangement notes and expressive controls once
+Implementation task 04: Compile arrangement notes and expressive controls once
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -277,15 +292,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -347,7 +366,7 @@ able to start from this result.
 ## 05. Render each VST instrument track through one continuous instance
 
 ```text
-Implementation task 05/35: Render each VST instrument track through one continuous instance
+Implementation task 05: Render each VST instrument track through one continuous instance
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -358,15 +377,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -429,7 +452,7 @@ able to start from this result.
 ## 06. Preserve sample and audio releases across arrangement boundaries
 
 ```text
-Implementation task 06/35: Preserve sample and audio releases across arrangement boundaries
+Implementation task 06: Preserve sample and audio releases across arrangement boundaries
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -440,15 +463,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -509,7 +536,7 @@ able to start from this result.
 ## 07. Fix native voice lifetime and remove accidental song-length limits
 
 ```text
-Implementation task 07/35: Fix native voice lifetime and remove accidental song-length limits
+Implementation task 07: Fix native voice lifetime and remove accidental song-length limits
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -520,15 +547,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -589,7 +620,7 @@ able to start from this result.
 ## 08. Define parameter automation boundaries and canonical targets
 
 ```text
-Implementation task 08/35: Define parameter automation boundaries and canonical targets
+Implementation task 08: Define parameter automation boundaries and canonical targets
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -600,15 +631,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -668,7 +703,7 @@ able to start from this result.
 ## 09. Harden VST workers, cancellation, diagnostics, and state saving
 
 ```text
-Implementation task 09/35: Harden VST workers, cancellation, diagnostics, and state saving
+Implementation task 09: Harden VST workers, cancellation, diagnostics, and state saving
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -679,15 +714,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -747,7 +786,7 @@ able to start from this result.
 ## 10. Strengthen real VST tests and verify latency compensation
 
 ```text
-Implementation task 10/35: Strengthen real VST tests and verify latency compensation
+Implementation task 10: Strengthen real VST tests and verify latency compensation
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -758,15 +797,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -829,7 +872,7 @@ able to start from this result.
 ## 11. Add explicit export profiles, clipping policy, and dither
 
 ```text
-Implementation task 11/35: Add explicit export profiles, clipping policy, and dither
+Implementation task 11: Add explicit export profiles, clipping policy, and dither
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -840,15 +883,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -910,7 +957,7 @@ able to start from this result.
 ## 12. Make stem delivery modes and reconstruction guarantees explicit
 
 ```text
-Implementation task 12/35: Make stem delivery modes and reconstruction guarantees explicit
+Implementation task 12: Make stem delivery modes and reconstruction guarantees explicit
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -921,15 +968,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -989,7 +1040,7 @@ able to start from this result.
 ## 13. Add project fingerprints, render manifests, and version compatibility
 
 ```text
-Implementation task 13/35: Add project fingerprints, render manifests, and version compatibility
+Implementation task 13: Add project fingerprints, render manifests, and version compatibility
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1000,15 +1051,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -1069,7 +1124,7 @@ able to start from this result.
 ## 14. Create a public project build contract and executable CLI tutorials
 
 ```text
-Implementation task 14/35: Create a public project build contract and executable CLI tutorials
+Implementation task 14: Create a public project build contract and executable CLI tutorials
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1080,15 +1135,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -1122,6 +1181,271 @@ entry points. Explicit roots work from a different cwd and a notebook-style call
 missing optional hosts without breaking native projects. CI exercises the corrected guide and
 representative tutorials; packaging and strict docs builds remain healthy.
 
+Integration with agentic production: The build contract must support inspect/validate/render as
+separate operations with structured results. A01 will extend discovery and A02 will own persisted
+edits; avoid inventing a competing source representation here.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
+Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
+relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
+include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
+extras. Preserve the separate real-VST workflow. Do not weaken gates, delete assertions, or equate
+mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
+AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
+task number, completed scope, implemented API/compatibility decisions, verification and concrete
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
+```
+
+<a id="task-a01"></a>
+
+## A01. Expose musical context and a versioned agent tool contract
+
+```text
+Implementation task A01: Expose musical context and a versioned agent tool contract
+
+Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
+Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
+not the branch to reset to. Work from the latest integrated implementation that contains the
+required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
+audited defect is already fixed. Source paths below refer to the baseline and may have moved.
+Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
+use a dedicated branch/worktree, and make routine design decisions from the repository and these
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+its supplied branch/commit or report the precise dependency rather than inventing an incompatible
+substitute.
+
+Required preceding tasks: 04, 08, 13, 14. All earlier integrated changes must remain present.
+Where to start: Project.configuration(), the public build contract, compiled events, plugin
+parameter inspection, CLI diagnostics, and docs/tutorial/06-work-with-an-agent.md.
+
+Context and why: An agent must identify the intended bassline, section and instrument before
+editing. Display names alone are ambiguous and a configuration dump is not an editing protocol.
+
+Add stable project, track, clip-definition, clip-instance, section and plugin identities that
+survive rename and reload. Define migration for existing Python projects and deterministic identity
+assignment; keep readable names alongside IDs. Expose bounded, versioned inspection of arrangement,
+notes/controllers, routing, available instruments/presets/parameters, assets and render capability.
+Allow selection by ID, musical role, section and quarter-note range; report ambiguous names rather
+than silently choosing. Musical context includes declared key/scale/chords, register and rhythmic
+summaries. Inferred harmony must carry uncertainty and provenance, never masquerade as authored fact.
+
+Define a provider-neutral operation/result/error schema with capability discovery and a public
+Python API plus machine-readable CLI access. Include revision IDs and selected ranges in results.
+Do not require an LLM service, network connection or audio device for core operations. Building
+Python is execution; reuse task 14's explicit build boundary and metadata-only diagnostics.
+
+Acceptance: A headless fixture with duplicate names, renamed tracks, repeated clips and missing
+optional plugins returns bounded useful context and unambiguous selections. IDs survive save/reload;
+unsupported schema versions and stale/unknown IDs return structured errors. Legacy projects still
+render. Document which fields describe known musical intent and which are inferred.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
+Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
+relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
+include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
+extras. Preserve the separate real-VST workflow. Do not weaken gates, delete assertions, or equate
+mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
+AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
+task number, completed scope, implemented API/compatibility decisions, verification and concrete
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
+```
+
+<a id="task-a02"></a>
+
+## A02. Implement scoped edits, source persistence and recoverable revisions
+
+```text
+Implementation task A02: Implement scoped edits, source persistence and recoverable revisions
+
+Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
+Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
+not the branch to reset to. Work from the latest integrated implementation that contains the
+required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
+audited defect is already fixed. Source paths below refer to the baseline and may have moved.
+Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
+use a dedicated branch/worktree, and make routine design decisions from the repository and these
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+its supplied branch/commit or report the precise dependency rather than inventing an incompatible
+substitute.
+
+Required preceding tasks: A01. All earlier integrated changes must remain present.
+Where to start: A01 identities and tool schemas, task 13 fingerprints/manifests, task 14 build
+contract, project builders and source-file protection.
+
+Context and why: "Keep the bass rhythm and sound; change only its notes" must be enforceable.
+Humans also need to restore a previous choice before recording/takes are available.
+
+Implement inspect/dry-run/apply operations for replacing selected notes, adding a track/clip,
+changing instrument parameters and applying explicit transforms. Each proposal includes a base
+revision, target identities/range and preservation constraints for unselected material, rhythm,
+instrument state, routing or automation. Validate a candidate before publication and return a
+musical diff plus source diff. Reject stale revisions, conflicting writes and violated constraints.
+
+Keep readable Python as the authoritative authoring source. Define and implement a supported
+source-editing contract: preserve comments and unrelated source, update supported constructs
+surgically, and refuse unsupported dynamic constructs with an actionable explanation. Do not
+pretend arbitrary Python can be losslessly regenerated from Project.configuration(). Unsupported
+projects remain runnable through the original workflow. No second independently editable song
+representation may silently diverge from main.py.
+
+Persist revision snapshots of source, asset references, plugin states and seeds, with checksums,
+atomic publication and recovery after interruption. Provide undo/redo, restart recovery and an
+explicit policy for external file edits, concurrent requests and unavailable asset versions.
+Reapplying a request ID must not duplicate a track. Do not overwrite source audio or delete assets
+referenced by history. Report storage use and make history cleanup explicit.
+
+Acceptance: Change pitches while preserving onsets, durations, velocities and instrument state;
+unselected source and musical data remain unchanged. Add a lead, undo, redo, restart and reproduce
+the accepted native render. Test stale revisions, repeated requests, unsupported Python, interrupted
+writes and external edits. VST reproducibility uses declared plugin tolerances, not an unconditional
+bit-identical claim. Add a tutorial for reviewing a proposal and restoring the previous revision.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
+Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
+relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
+include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
+extras. Preserve the separate real-VST workflow. Do not weaken gates, delete assertions, or equate
+mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
+AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
+task number, completed scope, implemented API/compatibility decisions, verification and concrete
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
+```
+
+<a id="task-a03"></a>
+
+## A03. Add reusable musical patterns and constrained composition helpers
+
+```text
+Implementation task A03: Add reusable musical patterns and constrained composition helpers
+
+Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
+Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
+not the branch to reset to. Work from the latest integrated implementation that contains the
+required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
+audited defect is already fixed. Source paths below refer to the baseline and may have moved.
+Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
+use a dedicated branch/worktree, and make routine design decisions from the repository and these
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+its supplied branch/commit or report the precise dependency rather than inventing an incompatible
+substitute.
+
+Required preceding tasks: A02, 04. All earlier integrated changes must remain present.
+Where to start: prism.music, compiled note events, A01 musical context and stable identities,
+A02 scoped edits, native instrument presets and public plugin parameter metadata.
+
+Context and why: Agents need reusable musical operations to vary a bassline or compose a lead
+without rebuilding project structure. Basic composition must not depend on the live engine.
+
+Add finite reusable pattern definitions and separate instances using A01 identities. Implement
+scale degrees/modes, chord construction/inversions, transposition, register limits, velocity scaling,
+reversal, concatenation, stacking, rhythmic scaling, Euclidean rhythms and seeded probabilistic
+variation. Compile to the existing canonical quarter-note event model. Specify repeat boundaries,
+overlapping notes, seed scope and how editing an instance differs from editing a shared definition.
+Keep stochastic output deterministic for a fixed seed and revision; no mutable state may leak
+between instances. Lazy/infinite patterns and a new language are outside this milestone.
+
+Expose constrained candidate-building primitives for a melody against declared harmony and a
+bass rhythm, including preserved onsets and selectable register. Expose sound-design choices
+through existing native presets and inspected plugin parameters with valid ranges; do not assume
+every VST supports the same controls. Optional role/timbre tags supplement actual capabilities.
+
+The external agent interprets "euphoric" and proposes alternatives; no objective mood score or
+mandatory built-in model is required. Distinguish hard constraints from suggestions such as avoiding
+rhythmic clashes. A bassline alone may not uniquely determine harmony.
+
+Acceptance: Golden event fixtures verify transformations and constraint preservation, seeded
+reproduction and independent repeated instances. Demonstrate two bass pitch variations preserving
+rhythm/sound and a higher-register lead with an editable synth patch, rendered using native sounds.
+Declared harmonic restrictions are checked; musical quality remains a listening decision.
+Document these composition APIs separately from later tempo maps and continuous live players.
+
 Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
 PR as your implementation. Keep its status and PR/evidence link synchronized with
 docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
@@ -1153,7 +1477,7 @@ able to start from this result.
 ## 15. Implement range rendering, bounded caches, and optional automatic tails
 
 ```text
-Implementation task 15/35: Implement range rendering, bounded caches, and optional automatic tails
+Implementation task 15: Implement range rendering, bounded caches, and optional automatic tails
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1164,15 +1488,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -1236,7 +1564,7 @@ able to start from this result.
 ## 16. Add audible playback and transport for rendered audio
 
 ```text
-Implementation task 16/35: Add audible playback and transport for rendered audio
+Implementation task 16: Add audible playback and transport for rendered audio
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1247,15 +1575,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -1315,7 +1647,7 @@ able to start from this result.
 ## 17. Reload edited Python while the previous song keeps playing
 
 ```text
-Implementation task 17/35: Reload edited Python while the previous song keeps playing
+Implementation task 17: Reload edited Python while the previous song keeps playing
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1326,19 +1658,23 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
-Required preceding tasks: 13, 14, 15, 16. All earlier integrated changes must remain present.
+Required preceding tasks: 13, 14, 15, 16, A02. All earlier integrated changes must remain present.
 Where to start: build contract, cache and playback/transport modules from tasks 13-16;
 src/prism/cli.py; project source/asset dependency tracking.
 
@@ -1363,6 +1699,10 @@ consecutive saves, obsolete builds completing late, state/sample edits, and watc
 A bad edit leaves previous playback running; shutdown cancels all workers. A tutorial demonstrates
 edit-save-hear and explains its build/render delay. This task does not claim that the existing
 state-only VST editor is now audible.
+
+Integration with A02: Route accepted Python reloads through the existing revision/conflict
+contract. Keep failed builds out of accepted history and show the last valid audible revision.
+An external source edit must invalidate stale proposals without destroying their recoverable data.
 
 Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
 PR as your implementation. Keep its status and PR/evidence link synchronized with
@@ -1395,7 +1735,7 @@ able to start from this result.
 ## 18. Provide a compact visual transport and live playback inspection
 
 ```text
-Implementation task 18/35: Provide a compact visual transport and live playback inspection
+Implementation task 18: Provide a compact visual transport and live playback inspection
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1406,19 +1746,23 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
-Required preceding tasks: 16, 17. All earlier integrated changes must remain present.
+Required preceding tasks: 16, 17, A02. All earlier integrated changes must remain present.
 Where to start: transport/watch state and event APIs; new local companion UI; CLI launcher and
 packaging; documentation.
 
@@ -1440,6 +1784,192 @@ Acceptance: Scrubbing, looping, pausing and source changes keep sound, playhead,
 revision consistent. Long songs use bounded display memory. Test transport/UI contracts and run a
 real visual smoke check. Provide a runnable tutorial with a native project and explain that a visual
 playhead is available even before genuine live synthesis is implemented.
+
+Integration with A02: Use the shared stable identities and revision store for display/selection.
+Keep the transport UI extensible for A04 candidate comparisons; do not build a second edit history.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
+Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
+relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
+include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
+extras. Preserve the separate real-VST workflow. Do not weaken gates, delete assertions, or equate
+mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
+AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
+task number, completed scope, implemented API/compatibility decisions, verification and concrete
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
+```
+
+<a id="task-a04"></a>
+
+## A04. Deliver candidate previews, comparison and human selection
+
+```text
+Implementation task A04: Deliver candidate previews, comparison and human selection
+
+Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
+Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
+not the branch to reset to. Work from the latest integrated implementation that contains the
+required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
+audited defect is already fixed. Source paths below refer to the baseline and may have moved.
+Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
+use a dedicated branch/worktree, and make routine design decisions from the repository and these
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+its supplied branch/commit or report the precise dependency rather than inventing an incompatible
+substitute.
+
+Required preceding tasks: A03, 15, 16, 17, 18. All earlier integrated changes must remain present.
+Where to start: A02 revision store, task 15 range renderer/cache, tasks 16–18 preview transport
+and UI, export profiles, native rendering and VST cancellation/diagnostics.
+
+Context and why: Prompt-guided iteration requires hearing alternatives in the same musical context
+and knowing which source revision is audible.
+
+Implement candidate generation records tied to the parent revision, requested edit, seed, instrument
+state and constraints. Render the same bounded passage for each candidate, in the mix and optionally
+soloed, with consistent preview/export settings and effect preroll/tails. Reuse dependency-aware
+caches without returning audio for an obsolete revision. Support cancellation and bounded candidate,
+duration and storage budgets. Report render latency on a documented reference fixture; measure the
+baseline and set a justified regression budget instead of promising universal real-time rendering.
+
+Provide comparison, select/accept, reject and restore through both the agent API and compact human
+UI. Candidate creation and audition must not replace the accepted project. Apply a selection only
+against its matching base revision; expose candidate ID, audible revision and rendering status.
+Keep authorization for acceptance explicit in the workflow; an agent may apply a choice already
+directed by the user without asking again. Preserve manual Python editing and headless preview files.
+
+Return validation/preservation results, non-finite samples, silence, peaks/clipping and available
+level diagnostics with the audio artifacts. Comparison gain is documented and non-destructive;
+full trustworthy loudness mastering remains task 28. Never claim a technical metric proves
+"euphoria" or musical fit, or that an agent heard audio when it only inspected diagnostics.
+
+Acceptance: Compare two variations of one passage, accept one, reject another and restore the
+original after restart. Test stale candidates, cancellation, failed renders, cache invalidation,
+unequal levels, solo/mix context and revision/playhead consistency. Demonstrate the flow without
+audio hardware through exported preview files and separately verify audible UI playback.
+
+Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
+PR as your implementation. Keep its status and PR/evidence link synchronized with
+docs/development/implementation-status.md. Use Planned, In progress, Blocked, or Done as appropriate.
+Mark Done only when the task's acceptance criteria are satisfied; record pending checks or blockers
+honestly. Done describes implementation completion, not PR merge state. Preserve other tasks'
+statuses, numbering and dependencies. Before the final handoff, add the actual PR URL to both
+records through a follow-up commit if necessary.
+
+Verification and handoff: Add focused behavioral/regression tests for the described risks. Run
+relevant tests plus the repository's required CI/type/lint/docs gates; at the audit baseline these
+include pytest --cov, mypy src/prism, ruff check ., and mkdocs build --strict in the appropriate uv
+extras. Preserve the separate real-VST workflow. Do not weaken gates, delete assertions, or equate
+mocks with hardware/plugin qualification. Update the guide and runnable tutorial as required by
+AGENTS.md. Read and update docs/development/implementation-status.md (create it if absent) with this
+task number, completed scope, implemented API/compatibility decisions, verification and concrete
+limitations. Use the GitHub connector to publish scoped verified changes on a dedicated branch and
+finally open a pull request containing your changes. If an open PR already covers this task, update
+that PR instead of creating a duplicate. Target main unless the supplied prerequisite work requires
+an explicitly documented stacked PR. Include the task number, problem, implemented behavior,
+compatibility decisions, exact verification results and remaining limitations in the PR description.
+Check the published diff and CI results; fix failures caused by your changes and report pending or
+blocked checks accurately. Return the PR URL, branch, final commit SHA and a concise handoff. A local
+commit alone is not the final deliverable. Do not force-push or auto-merge. The next agent must be
+able to start from this result.
+```
+
+<a id="task-a05"></a>
+
+## A05. Qualify human-guided agentic music production end to end
+
+```text
+Implementation task A05: Qualify human-guided agentic music production end to end
+
+Repository: https://github.com/SeucheAchat9115/Prism
+Repository workflow: Use the GitHub connector for all remote repository communication: reading
+repository files, branches, pull requests, review feedback and CI results, and publishing commits,
+branches and pull requests. Local file editing, builds, tests and local Git operations are allowed;
+do not use shell git fetch/pull/push/clone, gh, curl or direct HTTP clients to contact GitHub.
+Discover the connector tools available in your session. If connector access is unavailable or an
+operation is blocked, preserve the local work and report the exact blocker; do not silently switch
+to another remote transport.
+
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
+Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
+not the branch to reset to. Work from the latest integrated implementation that contains the
+required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
+audited defect is already fixed. Source paths below refer to the baseline and may have moved.
+Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
+use a dedicated branch/worktree, and make routine design decisions from the repository and these
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+its supplied branch/commit or report the precise dependency rather than inventing an incompatible
+substitute.
+
+Required preceding tasks: A04. All earlier integrated changes must remain present.
+Where to start: A01–A04 public operations, agent tutorial, preview UI, fixtures and CI.
+
+Context and why: Engine features alone do not establish the product goal. The milestone must
+exercise a real agent's tool use and a human's musical choice before live-engine expansion.
+
+Ship a runnable external-agent integration example using the versioned tool contract and a thin
+MCP adapter exposing discovery, inspect, propose, validate, preview, compare, accept and undo.
+Keep the adapter optional; Python/CLI operations work without MCP or a model provider. Document
+installation, project-root scope, operation permissions, structured errors and execution boundaries.
+Do not turn agent-provided text into unrestricted shell execution. Reuse the editing implementation,
+rather than creating adapter-specific state or semantics.
+
+Use a supplied native-sound project to exercise these exact briefs:
+1. "I like the bassline, but change the notes to be more euphoric." Preserve rhythm, instrument,
+   drums and arrangement; explain the interpretation and offer two pitch alternatives.
+2. "Build a synth lead which fits the bassline." Preserve the bass, use known or explicitly proposed
+   harmony, create an editable lead sound, and audition it in the mix.
+
+For each: inspect, propose, check constraints, render comparable previews, take a human selection,
+persist the accepted source, undo, reopen and reproduce. Include a follow-up correction ("keep
+the sound, use the other melody") and an ambiguous-reference case. Store example tool transcripts,
+musical/source diffs and artifact manifests without credentials or private data.
+
+Portable CI uses deterministic scripted tool interactions and verifies preservation, non-silence,
+revisions, rollback and error paths; do not call this evidence of LLM musical reasoning. Also run
+and record one actual external-agent session (provider/model/version and date) and human listening
+review. Keep provider-dependent runs optional in CI. If access or listening review is unavailable,
+report the exact blocker and leave this milestone incomplete instead of inventing results.
+Real-VST qualification remains separate from the native baseline.
+
+Acceptance: Both briefs complete through the public adapter and human selection, with reviewable
+source and reproducible accepted native audio. Publish measured preview timings, observed agent
+failures, supported source constructs and honest capability limits. The capability map separates
+today's assisted Python workflow, this delivered agent milestone, and later continuous live audio.
+Do not publish a release automatically.
 
 Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
 PR as your implementation. Keep its status and PR/evidence link synchronized with
@@ -1472,7 +2002,7 @@ able to start from this result.
 ## 19. Introduce stateful processors and a streaming offline renderer
 
 ```text
-Implementation task 19/35: Introduce stateful processors and a streaming offline renderer
+Implementation task 19: Introduce stateful processors and a streaming offline renderer
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1483,15 +2013,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -1555,7 +2089,7 @@ able to start from this result.
 ## 20. Move DSP hot paths behind a native processing boundary
 
 ```text
-Implementation task 20/35: Move DSP hot paths behind a native processing boundary
+Implementation task 20: Move DSP hot paths behind a native processing boundary
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1566,15 +2100,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -1635,7 +2173,7 @@ able to start from this result.
 ## 21. Implement a continuous native VST3 host and device proof
 
 ```text
-Implementation task 21/35: Implement a continuous native VST3 host and device proof
+Implementation task 21: Implement a continuous native VST3 host and device proof
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1646,15 +2184,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -1715,7 +2257,7 @@ able to start from this result.
 ## 22. Integrate the persistent live graph and safe project updates
 
 ```text
-Implementation task 22/35: Integrate the persistent live graph and safe project updates
+Implementation task 22: Integrate the persistent live graph and safe project updates
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1726,19 +2268,23 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
-Required preceding tasks: 17, 18, 19, 20, 21. All earlier integrated changes must remain present.
+Required preceding tasks: 17, 18, 19, 20, 21, A04. All earlier integrated changes must remain present.
 Where to start: compiled model, native processors, persistent VST host, transport and companion UI
 from preceding tasks.
 
@@ -1762,6 +2308,9 @@ edits, and updates knobs audibly. Test repeated stop/seek/loop, long tails, plug
 device removal. Offline and live capture agree within deterministic or documented external-plugin
 tolerances. Test 64/128/256/512-frame scheduling and deadline failure behavior. Do not equate block
 duration with measured round-trip latency.
+
+Integration with A02/A04: Apply validated accepted revisions at safe live boundaries. Candidate
+audition and accepted song state remain distinct; preserve rollback and stale-revision checks.
 
 Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
 PR as your implementation. Keep its status and PR/evidence link synchronized with
@@ -1794,7 +2343,7 @@ able to start from this result.
 ## 23. Add live MIDI devices, performance controls, and MIDI recording
 
 ```text
-Implementation task 23/35: Add live MIDI devices, performance controls, and MIDI recording
+Implementation task 23: Add live MIDI devices, performance controls, and MIDI recording
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1805,15 +2354,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -1874,7 +2427,7 @@ able to start from this result.
 ## 24. Expand routing, sidechains, multi-output plugins, and mixer controls
 
 ```text
-Implementation task 24/35: Expand routing, sidechains, multi-output plugins, and mixer controls
+Implementation task 24: Expand routing, sidechains, multi-output plugins, and mixer controls
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1885,15 +2438,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -1952,7 +2509,7 @@ able to start from this result.
 ## 25. Add tempo maps, meter changes, and reusable musical structures
 
 ```text
-Implementation task 25/35: Add tempo maps, meter changes, and reusable musical structures
+Implementation task 25: Add tempo maps, meter changes, and reusable musical structures
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -1963,19 +2520,23 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
-Required preceding tasks: 2, 4, 14, 19, 22. All earlier integrated changes must remain present.
+Required preceding tasks: 2, 4, 14, 19, 22, A03. All earlier integrated changes must remain present.
 Where to start: shared timing and compiled arrangement modules; Project/Section/Clip authoring APIs;
 MIDI exporter; native/VST transport context.
 
@@ -1999,6 +2560,10 @@ round-trip time conversion within defined tolerances. Exported MIDI tempo events
 onsets agree; provide known fixtures for the later MIDI import task. Reusing one pattern in several
 sections does not leak edits or stochastic state between instances. Legacy constant-tempo projects
 remain compatible and a complete tutorial demonstrates a reusable verse/chorus arrangement.
+
+Integration with A03: Reuse the already delivered pattern definitions, identities, transforms and
+seed semantics. This task extends them for tempo/meter maps, arrangement markers and live timing;
+do not reimplement basic theory or create incompatible pattern instances.
 
 Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
 PR as your implementation. Keep its status and PR/evidence link synchronized with
@@ -2031,7 +2596,7 @@ able to start from this result.
 ## 26. Implement MIDI import and reliable larger-session interchange
 
 ```text
-Implementation task 26/35: Implement MIDI import and reliable larger-session interchange
+Implementation task 26: Implement MIDI import and reliable larger-session interchange
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -2042,15 +2607,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -2109,7 +2678,7 @@ able to start from this result.
 ## 27. Implement proper time stretching and non-destructive audio edits
 
 ```text
-Implementation task 27/35: Implement proper time stretching and non-destructive audio edits
+Implementation task 27: Implement proper time stretching and non-destructive audio edits
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -2120,15 +2689,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -2189,7 +2762,7 @@ able to start from this result.
 ## 28. Add essential mixing processors and trustworthy loudness meters
 
 ```text
-Implementation task 28/35: Add essential mixing processors and trustworthy loudness meters
+Implementation task 28: Add essential mixing processors and trustworthy loudness meters
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -2200,15 +2773,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -2268,7 +2845,7 @@ able to start from this result.
 ## 29. Improve native synthesis quality without silently changing old songs
 
 ```text
-Implementation task 29/35: Improve native synthesis quality without silently changing old songs
+Implementation task 29: Improve native synthesis quality without silently changing old songs
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -2279,15 +2856,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -2345,7 +2926,7 @@ able to start from this result.
 ## 30. Add sound browsing, asset repair, freeze, and portable project bundles
 
 ```text
-Implementation task 30/35: Add sound browsing, asset repair, freeze, and portable project bundles
+Implementation task 30: Add sound browsing, asset repair, freeze, and portable project bundles
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -2356,15 +2937,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -2427,7 +3012,7 @@ able to start from this result.
 ## 31. Add audio input, monitoring, and reliable recording
 
 ```text
-Implementation task 31/35: Add audio input, monitoring, and reliable recording
+Implementation task 31: Add audio input, monitoring, and reliable recording
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -2438,15 +3023,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -2506,7 +3095,7 @@ able to start from this result.
 ## 32. Add takes, comping, punch recording, and recoverable edit history
 
 ```text
-Implementation task 32/35: Add takes, comping, punch recording, and recoverable edit history
+Implementation task 32: Add takes, comping, punch recording, and recoverable edit history
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -2517,19 +3106,23 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
-Required preceding tasks: 18, 27, 30, 31. All earlier integrated changes must remain present.
+Required preceding tasks: 18, 27, 30, 31, A02. All earlier integrated changes must remain present.
 Where to start: recording lifecycle and clip edit models; companion timeline UI;
 project/version/state persistence; safe asset management.
 
@@ -2553,6 +3146,10 @@ no accidental gaps, duplicates or clicks; undo/redo reproduces previous sound an
 Test crash recovery, disk failure, concurrent external Python edits and stale state conflicts. A
 tutorial demonstrates recording three takes, making a comp and reverting edits while retaining every
 original.
+
+Integration with A02: Extend the existing revision/snapshot/undo system to takes, comping and
+recording assets. Do not postpone general project undo until this task or introduce a second
+history. Preserve accepted candidate revisions and source-edit conflict behavior.
 
 Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
 PR as your implementation. Keep its status and PR/evidence link synchronized with
@@ -2585,7 +3182,7 @@ able to start from this result.
 ## 33. Add lossless and compressed listening export formats
 
 ```text
-Implementation task 33/35: Add lossless and compressed listening export formats
+Implementation task 33: Add lossless and compressed listening export formats
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -2596,15 +3193,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -2663,7 +3264,7 @@ able to start from this result.
 ## 34. Expand platform support and simplify clean installation
 
 ```text
-Implementation task 34/35: Expand platform support and simplify clean installation
+Implementation task 34: Expand platform support and simplify clean installation
 
 Repository: https://github.com/SeucheAchat9115/Prism
 Repository workflow: Use the GitHub connector for all remote repository communication: reading
@@ -2674,15 +3275,19 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
@@ -2744,7 +3349,7 @@ able to start from this result.
 ## 35. Qualify the complete production workflow and publish an accurate capability map
 
 ```text
-Implementation task 35/35: Qualify the complete production workflow and publish an accurate
+Implementation task 35: Qualify the complete production workflow and publish an accurate
 capability map
 
 Repository: https://github.com/SeucheAchat9115/Prism
@@ -2756,20 +3361,24 @@ Discover the connector tools available in your session. If connector access is u
 operation is blocked, preserve the local work and report the exact blocker; do not silently switch
 to another remote transport.
 
-Prism is a script-first Python music-production project. Preserve readable Python authoring and a
-lightweight headless offline path while extending production and live workflows.
+Prism's goal is human-guided agentic music production: a person describes musical intent,
+an external agent inspects and edits the song, and the person auditions and chooses the result.
+Preserve readable Python as the authoring source and a lightweight headless offline path.
+Deliver targeted edits, musical constraints and reversible choices before expanding live processing.
+Subjective musical quality remains a human listening decision; do not equate diagnostics with taste.
 Audit baseline: 434f538242009e373b62da74c5d527b6bd9120eb, 2026-09-05. This is historical evidence,
 not the branch to reset to. Work from the latest integrated implementation that contains the
 required preceding tasks. Read AGENTS.md and inspect current code before editing; recheck whether an
 audited defect is already fixed. Source paths below refer to the baseline and may have moved.
 Implement this task completely, with code rather than only a plan or stubs. Preserve unrelated work,
 use a dedicated branch/worktree, and make routine design decisions from the repository and these
-requirements. Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
+requirements. Follow the delivery order in docs/development/implementation-tasks.md, including A01–A05.
+Do not implement later tasks opportunistically. If a prerequisite is absent, resolve
 its supplied branch/commit or report the precise dependency rather than inventing an incompatible
 substitute.
 
 Required preceding tasks: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34. All earlier integrated changes must remain
+22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, A05. All earlier integrated changes must remain
 present.
 Where to start: all implemented APIs; AGENTS.md; README and docs/tutorial; tests and CI workflows;
 project/export/host manifests; installation artifacts.
@@ -2801,6 +3410,10 @@ concrete reproduction, impact and owner-ready follow-up. The final report distin
 offline production, refreshed-buffer preview, genuine live processing and full recording workflows.
 State exactly which configurations were tested; do not claim DAW parity solely from passing unit
 tests.
+
+Integration with A05: Rerun both human-guided agent briefs against the integrated production
+engine, including candidate selection and undo. Preserve the distinction between scripted tool
+tests, an actual external-agent session and human listening evidence. Reuse A05's capability map.
 
 Roadmap maintenance: Update this task's row in docs/development/implementation-tasks.md in the same
 PR as your implementation. Keep its status and PR/evidence link synchronized with

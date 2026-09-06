@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "prism"
 version = "0.2.0.dev0"
-description = "A script-first Python music package for reproducible songs and renders."
+description = "A Python music-production toolkit built for human-guided agentic music production."
 readme = "README.md"
 license = { text = "GPL-3.0-only" }
 requires-python = ">=3.12,<3.13"

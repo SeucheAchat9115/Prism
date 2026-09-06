@@ -2,13 +2,30 @@
 
 ![A beam of light passing through the Prism logo and becoming colorful music](assets/prism-logo.jpg){ .prism-hero-logo }
 
-# Make music that stays reproducible
+# Music production guided by you, built for agents
 
-**Write music as Python. Render it reproducibly.**
+**Describe the music. Guide the agent. Keep control of the song.**
 
-Prism puts your tempo, notes, sounds, effects, arrangement, and exports in one
-readable `main.py` file. Change the song, run it again, and listen—without
-building an application or learning a software framework.
+Prism is a Python music-production toolkit being built for **human-guided agentic
+music production**. You describe the musical direction; an agent uses Prism to
+compose, design sounds and edit the song while you listen and decide what to keep.
+Every musical decision remains visible in a readable, reproducible Python project.
+
+The goal is an iterative workflow: "I like the bassline, but change the notes to
+be more euphoric" or "Build a synth lead which fits the bassline." The agent should
+preserve what you like, propose targeted alternatives, render them for comparison
+and let you accept a choice or restore the previous version.
+
+**Available today:** an external coding agent can edit `main.py`, validate the
+project and render WAV, stems and MIDI using Prism's public Python API. Tempo,
+notes, samples, instruments, effects, automation and arrangement live together in
+the project. You run the script and listen to its output.
+
+**Planned:** structured agent operations, constrained musical edits, recoverable
+revisions and an integrated audition/selection loop. Prism does not currently
+include a built-in conversational agent or continuous live playback. The first
+agentic milestone uses rendered previews; persistent live processing and recording
+follow later. The headless Python workflow remains supported.
 
 [Create your first song](getting-started/first-song.md){ .md-button .md-button--primary }
 [Follow the tutorials](tutorial/README.md){ .md-button }
@@ -96,6 +113,14 @@ is just a normal folder, so it remains easy to understand, copy, and back up.
     deterministic results.
 
 </div>
+
+## Follow the product direction
+
+The [implementation roadmap](development/implementation-tasks.md) puts scoped
+agent edits, musical transformations and human selection before continuous live
+processing. Its [implementation prompts](development/implementation-prompts.md)
+provide dependencies and acceptance criteria for contributors. Planned work is
+not an available capability.
 
 ## Choose where to go next
 

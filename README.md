@@ -1,7 +1,7 @@
 <div align="center">
   <img src="docs/assets/prism-logo.jpg" alt="A beam of light passing through the Prism logo and becoming colorful music" width="900">
   <h1>Prism</h1>
-  <p><strong>Write music as Python. Render it reproducibly.</strong></p>
+  <p><strong>Music production guided by you, built for agents.</strong></p>
   <p>
     <a href="https://github.com/SeucheAchat9115/Prism/actions/workflows/ci.yml"><img src="https://github.com/SeucheAchat9115/Prism/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
     <a href="https://seucheachat9115.github.io/Prism/"><img src="https://img.shields.io/badge/docs-open-7c4dff" alt="Open the documentation"></a>
@@ -14,10 +14,26 @@
   </p>
 </div>
 
-Prism is a music-production toolbox for people who want every part of a song to
-remain visible and reproducible. Tempo, notes, samples, instruments, effects,
-automation, arrangement, and export settings live together in one readable
-`main.py` file. Change the file, run it again, and listen to the new render.
+Prism is a Python music-production toolkit being built for **human-guided agentic
+music production**. You describe the musical direction; an agent uses Prism to
+compose, design sounds and edit the song while you listen and decide what to keep.
+Every musical decision remains visible in a readable, reproducible Python project.
+
+The goal is an iterative workflow: "I like the bassline, but change the notes to
+be more euphoric" or "Build a synth lead which fits the bassline." The agent should
+preserve what you like, propose targeted alternatives, render them for comparison
+and let you accept a choice or restore the previous version.
+
+**Available today:** an external coding agent can edit `main.py`, validate the
+project and render WAV, stems and MIDI using Prism's public Python API. Tempo,
+notes, samples, instruments, effects, automation and arrangement live together in
+the project. You run the script and listen to its output.
+
+**Planned:** structured agent operations, constrained musical edits, recoverable
+revisions and an integrated audition/selection loop. Prism does not currently
+include a built-in conversational agent or continuous live playback. The first
+agentic milestone uses rendered previews; persistent live processing and recording
+follow later. The headless Python workflow remains supported.
 
 ## Make your first sound
 
@@ -87,7 +103,9 @@ reference.
 ## Contributing to the production roadmap
 
 Start with the [ordered implementation tasks](docs/development/implementation-tasks.md)
-for bug fixes, VST reliability, exports, live playback, and production features.
+for reliable rendering, agent editing and musical operations, human audition and
+selection, then live playback and broader production features. Follow the stated
+delivery order, including inserted tasks A01–A05; the original task IDs stay stable.
 Each task links to a complete implementation-agent prompt with dependencies,
 acceptance criteria, and handoff instructions. These pages describe planned work;
 check the implementation status and linked pull requests for delivered features.
