@@ -210,9 +210,12 @@ The final status-only follow-up is tracked in the PR commit history.
 
 ## Task 04/35 — compile arrangement notes and expressive controls once
 
-Status: In progress; PR pending. Done describes implementation completion, not
-PR merge state. The task is being verified on branch
-`task-04/compiled-arrangement-events`.
+Status: Done; [PR #30](https://github.com/SeucheAchat9115/Prism/pull/30) is open.
+Done describes implementation completion, not PR merge state. The final PR head
+and hosted checks remain separate from the implementation decision.
+
+Implementation branch: `task-04/compiled-arrangement-events`
+Implementation commit: `2b8909c68924b37a0558c6b64e86e13bb4d9e2b0`
 
 ### Completed scope
 
@@ -261,12 +264,20 @@ PR merge state. The task is being verified on branch
 
 ### Verification
 
-- Focused regressions cover stable identities, scoped/repeated placements,
-  exact-boundary events, same-pitch note-off-before-retrigger ordering,
-  linear/hold sampling, reset/retain policy, declared bend range, native
-  bent-then-unbent behavior, and compiled VST MIDI reset input.
-- Full required local gates and exact counts will be recorded after the final
-  implementation pass. Real-VST qualification remains the separate workflow.
+- Focused arrangement regressions: **5 passed** in
+  `tests/test_arrangement.py`, covering modulation, curves, overlaps, exact
+  boundaries, repeated/scoped clips, controller chase/reset, native reset
+  behavior, and VST/export expression agreement.
+- `uv run --extra dev pytest --cov --cov-report=term-missing`: **196 passed,
+  3 skipped**, total coverage **87.82%**. The skips are the existing real-VST
+  qualification tests without their plugin environment.
+- `uv run --extra dev mypy src/prism`: passed; 35 source files checked.
+- `uv run --extra dev ruff check .`: passed.
+- `uv run --extra docs mkdocs build --strict`: passed after restoring the
+  unchanged `docs/assets/prism-logo.jpg` already present on current `main` in
+  the local task-03 seed; that base asset is not part of this PR.
+- The separate real-VST workflow remains unchanged and is still the path for
+  third-party/plugin qualification.
 
 ### Concrete limitations
 
@@ -277,3 +288,5 @@ PR merge state. The task is being verified on branch
   infer or force a vendor-specific range mechanism.
 - VST placement renders still instantiate/process per concrete placement;
   continuous state across the whole track is intentionally task 05.
+- Standard MIDI channel note messages do not carry Prism's stable per-note IDs;
+  a receiving device may apply its own same-pitch voice-stealing policy.
