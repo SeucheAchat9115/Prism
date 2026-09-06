@@ -1050,8 +1050,9 @@ class Bus:
 class Project:
     """A complete song described by the producer's ``main.py`` file.
 
-    Prism locates the running script automatically. Relative sample and output
-    paths are resolved inside that script's project folder.
+    Prism locates the running script automatically for ordinary main.py
+    execution. Notebook and tooling callers can pass project_root explicitly;
+    relative sample and output paths are resolved inside that folder.
     """
 
     def __init__(
@@ -1070,9 +1071,10 @@ class Project:
         master_gain_db: float = -3.0,
         normalize: bool = True,
         vst_backend: VSTBackendConfig | None = None,
+        project_root: str | Path | None = None,
         _script: str | Path | None = None,
     ) -> None:
-        self.script = _project_script(_script)
+        self.script = _project_script(_script, project_root)
         self.root = self.script.parent
         self.samples = SampleLibrary(self.root)
         self.vsts = VSTRegistry(self.root)
@@ -1827,9 +1829,23 @@ def _automation_compatibility(value: str) -> AutomationCompatibility:
         ) from error
 
 
-def _project_script(value: str | Path | None) -> Path:
+def _project_script(
+    value: str | Path | None,
+    project_root: str | Path | None = None,
+) -> Path:
+    explicit_root = (
+        None if project_root is None else _explicit_project_root(project_root)
+    )
     if value is not None:
-        return Path(value).resolve(strict=False)
+        requested = Path(value).expanduser().resolve(strict=False)
+        script = requested / "main.py" if requested.is_dir() else requested
+        if explicit_root is not None and script.parent != explicit_root:
+            raise ProjectError(
+                "The explicit project_root does not match the supplied project script."
+            )
+        return script
+    if explicit_root is not None:
+        return explicit_root / "main.py"
     frame = inspect.currentframe()
     try:
         constructor = None if frame is None else frame.f_back
@@ -1838,8 +1854,19 @@ def _project_script(value: str | Path | None) -> Path:
     finally:
         del frame
     if filename is None or filename.startswith("<"):
-        raise ProjectError("Create and run a main.py file so Prism can locate the project folder.")
+        raise ProjectError(
+            "Pass project_root=... when constructing a Project outside a main.py file."
+        )
     return Path(filename).resolve(strict=False)
+
+
+def _explicit_project_root(value: str | Path) -> Path:
+    requested = Path(value).expanduser().resolve(strict=False)
+    if requested.name.casefold() == "main.py":
+        return requested.parent
+    if requested.suffix.casefold() == ".py":
+        raise ProjectError("Pass a project folder or its main.py file.")
+    return requested
 
 
 def _bars(value: int, label: str) -> int:

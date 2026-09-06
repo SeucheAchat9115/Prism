@@ -13,6 +13,17 @@ from prism.midi import MidiResult
 from prism.music import ControlPoint, Note  # noqa: F401
 from prism.plugins import AutomationLane, AutomationPoint, OutputGainLane, Plugin
 from prism.project import Bus, Project, ProjectSummary, Section, Send, Track
+from prism.build import (
+    BuildInspection,
+    build,
+    build_contract_info,
+    build_project,
+    doctor_project,
+    inspect_project,
+    render_project,
+    resolve_project_root,
+    validate_project,
+)
 from prism.render import (
     ExportDiagnostics,
     ExportProfile,
@@ -29,7 +40,12 @@ from prism.vst import VST3, VSTBackendConfig, VSTRegistry
 __all__ = [
     "AutomationLane",
     "AutomationPoint",
+    "BuildInspection",
     "Bus",
+    "build",
+    "build_contract_info",
+    "build_project",
+    "doctor_project",
     "ExportDiagnostics",
     "ExportProfile",
     "FingerprintedFile",
@@ -37,6 +53,7 @@ __all__ = [
     "Note",
     "OutputGainLane",
     "Plugin",
+    "inspect_project",
     "PrismError",
     "Project",
     "ProjectError",
@@ -44,6 +61,8 @@ __all__ = [
     "ProjectFingerprint",
     "RenderError",
     "RenderResult",
+    "render_project",
+    "resolve_project_root",
     "SampleLibrary",
     "Section",
     "Send",
@@ -53,6 +72,7 @@ __all__ = [
     "SynthWave",
     "Track",
     "Uniwave",
+    "validate_project",
     "VST3",
     "VSTBackendConfig",
     "VSTRegistry",
