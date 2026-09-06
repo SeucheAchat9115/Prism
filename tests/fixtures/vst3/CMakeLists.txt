@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25.0)
 
-project(prism-vst3-fixtures LANGUAGES CXX)
+project(prism-vst3-fixtures VERSION 0.1.0 LANGUAGES CXX)
 
 if(NOT DEFINED PRISM_VST3_SDK_ROOT)
     message(FATAL_ERROR "PRISM_VST3_SDK_ROOT must point to the pinned VST3 SDK checkout")
