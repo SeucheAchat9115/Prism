@@ -421,6 +421,18 @@ def _dependency_diagnostics() -> dict[str, object]:
 
 
 def _plugin_diagnostics(root: Path) -> dict[str, object]:
+    host = _installed_distribution("dawdreamer")
+    if not (root / "vst.json").is_file():
+        return {
+            "status": "ok",
+            "registered": 0,
+            "entries": [],
+            "host": host,
+            "message": (
+                "No vst.json found; native rendering does not require "
+                "the optional VST host."
+            ),
+        }
     try:
         entries = VSTRegistry(root).all_entries()
     except (OSError, PrismError) as error:
@@ -443,7 +455,6 @@ def _plugin_diagnostics(root: Path) -> dict[str, object]:
                 "sha256": entry.sha256,
             }
         )
-    host = _installed_distribution("dawdreamer")
     if not entries:
         return {
             "status": "ok",
