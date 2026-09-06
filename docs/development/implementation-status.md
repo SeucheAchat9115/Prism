@@ -11,10 +11,10 @@ The task suffix /35 in historical entries refers to the original audit plan.
 
 ## Task 13/35 — add project fingerprints, render manifests, and version compatibility
 
-Status: Done; PR pending. Done describes implementation completion, not pull-request merge state.
+Status: Done; [PR #39](https://github.com/SeucheAchat9115/Prism/pull/39) open. Done describes implementation completion, not pull-request merge state.
 
 Implementation branch: `task-13/project-fingerprints`
-Implementation commit: pending publication
+Implementation commit: `5a81b8a647f9376dd1b85b920916ef15403101c8`
 
 ### Completed scope
 
