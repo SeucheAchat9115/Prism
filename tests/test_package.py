@@ -30,6 +30,7 @@ def test_public_package_is_small_and_script_first() -> None:
         "SampleLibrary",
         "Section",
         "Send",
+        "StemDeliveryContract",
         "StemFile",
         "StemRenderResult",
         "SynthWave",
