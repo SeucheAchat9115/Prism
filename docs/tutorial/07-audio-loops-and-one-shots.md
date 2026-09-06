@@ -46,11 +46,19 @@ Run the command Prism printed for your timestamped tutorial project.
 
 Open `renders/song.wav` inside the project folder.
 
-`loop=True` repeats or trims the complete source to the declared clip length.
-`loop=False` plays it once and pads the remaining clip with silence. The clip
-itself loops again when a section is longer than its `bars=` value. Prism
-accepts mono or stereo WAV/AIFF files and resamples them to the project sample
-rate automatically.
+`loop=True` repeats or trims the complete source inside this placement.
+`loop=False` plays the source once. The separate placement option
+`repeat=True` repeats the placement when its active section is longer than its
+`bars=` value; `loop=False, repeat=False` therefore gives one one-shot at one
+timeline position. A natural one-shot can release past its placement or
+section boundary when the export has enough tail. Use
+`release_policy="cut"` when the arrangement should deliberately stop it at
+that boundary.
+
+Prism accepts mono or stereo WAV/AIFF files and resamples them to the project
+sample rate automatically. A track can become inactive in the next section
+without cutting a natural release; use `audio_release_policy="cut"` on the
+project or `release_policy="cut"` on the placement for an intentional cut.
 
 Checkpoint: the vocal begins again only when its two-bar part cycles, while the
 percussion source fills its complete two-bar part.

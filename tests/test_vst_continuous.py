@@ -137,7 +137,7 @@ def test_vst_clip_gain_migration_requires_one_shared_gain_domain(
     assert lane.points[-1].value == -3.0
     assert song.validate().bars == 2
     configuration = song.configuration()
-    assert configuration["schema_version"] == 10
+    assert configuration["schema_version"] == 11
     assert configuration["tracks"][0]["output_gain"]["name"] == "Lead shared gain"  # type: ignore[index]
 
 

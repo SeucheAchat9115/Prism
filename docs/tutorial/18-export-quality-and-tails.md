@@ -94,9 +94,11 @@ longer audible in mono, so stereo is the normal choice for masters and stems.
 ## 5. Set a useful tail
 
 `tail_seconds=0` keeps the file exactly as long as the arranged sections. Add
-enough time for the slowest release, delay, or reverb in your song. A value
-between one and five seconds is a practical starting point; Prism accepts up
-to 60 seconds.
+enough time for the slowest release, delay, reverb, or late sample/audio voice
+in your song. Tail time is allocated before source voices are scheduled, so a
+source is not discarded at the arrangement boundary and then expected to
+reappear in the tail. A value between one and five seconds is a practical
+starting point; Prism accepts up to 60 seconds.
 
 Checkpoint: you can now choose delivery quality separately from the sample
 rate used while building the song, and your effects can finish naturally.

@@ -123,7 +123,7 @@ def test_external_plugins_share_tracks_effects_and_automation(tmp_path: Path) ->
     assert summary.tracks == 1
     assert track.instrument_plugin is not None
     assert track.instrument_plugin.vst3 is serum
-    assert configuration["schema_version"] == 10
+    assert configuration["schema_version"] == 11
     assert configuration["tracks"][0]["instrument"]["format"] == "vst3"
     assert configuration["tracks"][0]["effects"][0]["external"]["alias"] == "ott"
     assert all("path" not in item for item in configuration["vst3"])

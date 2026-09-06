@@ -41,6 +41,19 @@ def _mini_song(script: Path) -> Project:
     return song
 
 
+def _write_stereo_source(script: Path, name: str, frames: int, value: float = 0.2) -> Path:
+    sounds = script.parent / "sounds"
+    sounds.mkdir(exist_ok=True)
+    path = sounds / name
+    sf.write(
+        path,
+        np.full((frames, 2), value, dtype=np.float32),
+        8_000,
+        subtype="PCM_16",
+    )
+    return path
+
+
 def test_render_is_non_silent_and_deterministic(project_script: Path) -> None:
     song = _mini_song(project_script)
 
@@ -483,6 +496,217 @@ def test_audio_one_shot_pads_without_looping(project_script: Path, sample_file: 
 
     assert np.max(np.abs(samples[:800])) > 0.1
     assert np.max(np.abs(samples[1_000:])) == 0.0
+
+
+def test_late_sample_trigger_keeps_release_in_export_tail(project_script: Path) -> None:
+    _write_stereo_source(project_script, "late.wav", 8_000, value=0.25)
+    song = Project(
+        "Late Sample",
+        prism_version="test",
+        tempo=120,
+        sample_rate=8_000,
+        master_gain_db=0,
+        normalize=False,
+        _script=project_script,
+    )
+    song.track("Late").sample("sounds/late.wav", "---x", bars=1, repeat=False)
+    song.section("Only", bars=1)
+
+    result = song.render("renders/late.wav", tail_seconds=1.0)
+    samples, _ = sf.read(result.path, dtype="float64", always_2d=True)
+
+    assert result.frames == 24_000
+    assert np.max(np.abs(samples[12_000:16_000])) > 0.1
+    assert np.max(np.abs(samples[16_000:20_000])) > 0.1
+
+
+def test_natural_one_shot_crosses_an_inactive_section_but_cut_does_not(
+    project_script: Path,
+) -> None:
+    _write_stereo_source(project_script, "long-shot.wav", 20_000, value=0.25)
+
+    def render(policy: str, output: str) -> np.ndarray:
+        song = Project(
+            f"{policy} release",
+            prism_version="test",
+            tempo=120,
+            sample_rate=8_000,
+            master_gain_db=0,
+            normalize=False,
+            audio_release_policy=policy,  # type: ignore[arg-type]
+            _script=project_script,
+        )
+        track = song.track("Shot").audio(
+            "sounds/long-shot.wav",
+            bars=1,
+            loop=False,
+            repeat=False,
+        )
+        song.section("Active", bars=1, tracks=[track])
+        song.section("Inactive", bars=1, tracks=[])
+        result = song.render(output, tail_seconds=1.0)
+        return sf.read(result.path, dtype="float64", always_2d=True)[0]
+
+    natural = render("natural", "renders/natural.wav")
+    cut = render("cut", "renders/cut.wav")
+
+    assert np.max(np.abs(natural[16_000:20_000])) > 0.1
+    assert np.max(np.abs(cut[16_000:])) == 0.0
+
+
+def test_loop_and_repeat_are_independent_for_audio_placements(project_script: Path) -> None:
+    _write_stereo_source(project_script, "short.wav", 2_000, value=0.25)
+
+    loop_song = Project(
+        "One loop placement",
+        prism_version="test",
+        tempo=120,
+        sample_rate=8_000,
+        master_gain_db=0,
+        normalize=False,
+        _script=project_script,
+    )
+    loop_song.track("Loop").audio(
+        "sounds/short.wav", bars=1, loop=True, repeat=False
+    )
+    loop_song.section("Two bars", bars=2)
+    loop_result = loop_song.render("renders/loop.wav")
+    loop_samples, _ = sf.read(loop_result.path, dtype="float64", always_2d=True)
+
+    repeat_song = Project(
+        "Repeated one shots",
+        prism_version="test",
+        tempo=120,
+        sample_rate=8_000,
+        master_gain_db=0,
+        normalize=False,
+        _script=project_script,
+    )
+    repeat_song.track("Shots").audio(
+        "sounds/short.wav", bars=1, loop=False, repeat=True
+    )
+    repeat_song.section("Two bars", bars=2)
+    repeat_result = repeat_song.render("renders/repeat.wav")
+    repeat_samples, _ = sf.read(repeat_result.path, dtype="float64", always_2d=True)
+
+    assert np.max(np.abs(loop_samples[:16_000])) > 0.1
+    assert np.max(np.abs(loop_samples[16_000:])) == 0.0
+    assert np.max(np.abs(repeat_samples[8_000:16_000])) == 0.0
+    assert np.max(np.abs(repeat_samples[16_000:18_000])) > 0.1
+
+
+def test_repeated_sample_hits_overlap_naturally_or_choke_explicitly(
+    project_script: Path,
+) -> None:
+    _write_stereo_source(project_script, "overlap.wav", 10_000, value=0.2)
+
+    def render(policy: str, output: str) -> np.ndarray:
+        song = Project(
+            f"{policy} hits",
+            prism_version="test",
+            tempo=120,
+            sample_rate=8_000,
+            master_gain_db=0,
+            normalize=False,
+            _script=project_script,
+        )
+        song.track("Hits").sample(
+            "sounds/overlap.wav",
+            "x-x-",
+            bars=1,
+            repeat=False,
+            release_policy=policy,  # type: ignore[arg-type]
+        )
+        song.section("Only", bars=1)
+        result = song.render(output)
+        return sf.read(result.path, dtype="float64", always_2d=True)[0]
+
+    natural = render("natural", "renders/natural-hits.wav")
+    choke = render("choke", "renders/choke-hits.wav")
+
+    assert np.mean(np.abs(natural[8_800:9_200])) > 1.5 * np.mean(
+        np.abs(choke[8_800:9_200])
+    )
+
+
+def test_cut_fade_ends_at_the_actual_arrangement_boundary(project_script: Path) -> None:
+    _write_stereo_source(project_script, "cut.wav", 20_000, value=0.25)
+    song = Project(
+        "Cut Fade",
+        prism_version="test",
+        tempo=120,
+        sample_rate=8_000,
+        master_gain_db=0,
+        normalize=False,
+        _script=project_script,
+    )
+    song.track("Cut").audio(
+        "sounds/cut.wav",
+        bars=1,
+        loop=False,
+        repeat=False,
+        fade_out_ms=500,
+        release_policy="cut",
+    )
+    song.section("Only", bars=1)
+
+    result = song.render("renders/cut-fade.wav", tail_seconds=0.5)
+    samples, _ = sf.read(result.path, dtype="float64", always_2d=True)
+
+    assert np.max(np.abs(samples[8_000:12_000])) > 0.1
+    assert np.max(np.abs(samples[14_000:16_000])) < 0.13
+    assert np.max(np.abs(samples[15_999])) == 0.0
+    assert np.max(np.abs(samples[16_000:])) == 0.0
+
+
+def test_native_percussion_release_is_not_step_choked_by_default(
+    project_script: Path,
+) -> None:
+    def render(policy: str, output: str) -> np.ndarray:
+        song = Project(
+            f"{policy} percussion",
+            prism_version="test",
+            tempo=300,
+            sample_rate=8_000,
+            master_gain_db=0,
+            normalize=False,
+            _script=project_script,
+        )
+        song.track("Kick").drum("kick", "x---", release_policy=policy)  # type: ignore[arg-type]
+        song.section("Only", bars=1)
+        result = song.render(output)
+        return sf.read(result.path, dtype="float64", always_2d=True)[0]
+
+    natural = render("natural", "renders/natural-kick.wav")
+    legacy = render("legacy", "renders/legacy-kick.wav")
+
+    assert np.max(np.abs(natural[1_600:2_400])) > 0.001
+    assert np.max(np.abs(legacy[1_600:2_400])) == 0.0
+
+
+def test_release_tail_is_frame_aligned_in_stems_and_master(project_script: Path) -> None:
+    _write_stereo_source(project_script, "tail.wav", 8_000, value=0.25)
+    song = Project(
+        "Aligned Tail",
+        prism_version="test",
+        tempo=120,
+        sample_rate=8_000,
+        master_gain_db=0,
+        normalize=False,
+        _script=project_script,
+    )
+    track = song.track("Tail").audio("sounds/tail.wav", loop=False, repeat=False)
+    song.section("Only", bars=1, tracks=[track])
+
+    stems = song.render_stems("renders/tail-stems", tail_seconds=0.5)
+    master = song.render("renders/tail-master.wav", tail_seconds=0.5)
+
+    assert stems.frames == master.frames == 20_000
+    assert stems.master.path.read_bytes() == master.path.read_bytes()
+    for item in stems.files:
+        samples, rate = sf.read(item.path, dtype="float64", always_2d=True)
+        assert rate == 8_000
+        assert samples.shape == (stems.frames, stems.channels)
 
 
 def test_section_clip_replaces_default_and_starts_at_requested_bar(
