@@ -11,10 +11,11 @@ The task suffix /35 in historical entries refers to the original audit plan.
 
 ## Task 09/35 — harden VST workers, cancellation, diagnostics, and state saving
 
-Status: Done; PR pending. Done describes implementation completion, not pull-request
-merge state.
+Status: Done; [PR #35](https://github.com/SeucheAchat9115/Prism/pull/35) open. Done
+describes implementation completion, not pull-request merge state.
 
-Implementation branch: `task-09/vst-worker-hardening`
+Implementation branch: `task-09/vst-worker-hardening`  
+Implementation commit: `3d03110e84e666e4bbf10bbadc68273c3a3257cd`
 
 ### Completed scope
 
