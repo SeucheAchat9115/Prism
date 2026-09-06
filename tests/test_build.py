@@ -6,6 +6,8 @@ from pathlib import Path
 
 import pytest
 
+from tutorial_harness import run_contract_tutorial
+
 from prism import (
     Project,
     ProjectError,
@@ -14,7 +16,6 @@ from prism import (
     resolve_project_root,
 )
 from prism.cli import create_project, main
-from tutorial_harness import run_contract_tutorial
 
 
 def test_new_scaffold_build_has_no_export_side_effect(tmp_path: Path) -> None:

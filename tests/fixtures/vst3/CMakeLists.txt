@@ -13,4 +13,7 @@ set(SMTG_ENABLE_WAYLAND_SUPPORT OFF CACHE BOOL "" FORCE)
 set(SMTG_CREATE_PLUGIN_LINK OFF CACHE BOOL "" FORCE)
 
 add_subdirectory("${PRISM_VST3_SDK_ROOT}" "vst3sdk")
+# The fixture is outside the SDK tree, so restore the source-root variable
+# that the SDK's package helper uses when adding its platform entry point.
+set(public_sdk_SOURCE_DIR "${PRISM_VST3_SDK_ROOT}/public.sdk")
 add_subdirectory(plugin)
