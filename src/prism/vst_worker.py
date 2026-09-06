@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -21,17 +23,35 @@ def main(arguments: list[str] | None = None) -> int:
         print("This internal command expects a request and response file.", file=sys.stderr)
         return 2
     request_path, response_path = map(Path, args)
+    request: dict[str, Any] = {}
+    stage = "read_request"
     try:
         request = json.loads(request_path.read_text(encoding="utf-8"))
+        if not isinstance(request, dict):
+            raise ValueError("VST3 worker request must be an object.")
+        _set_stage(request, "request_loaded")
         response = _execute(request)
+        _set_stage(request, "response_written")
         response_path.write_text(json.dumps(response), encoding="utf-8")
         return 0
     except Exception as error:  # plugin/backend exceptions must stay in this process
+        stage = str(request.get("_last_stage", stage)) if isinstance(request, dict) else stage
+        context = request if isinstance(request, dict) else {}
+        diagnostic = {
+            "operation": str(context.get("action", "unknown")),
+            "plugin_alias": context.get("plugin_alias"),
+            "track": context.get("track"),
+            "last_stage": stage,
+            "error_type": type(error).__name__,
+            "message": str(error),
+        }
+        print(f"PRISM_VST_DIAGNOSTIC:{json.dumps(diagnostic, sort_keys=True)}", file=sys.stderr)
         print(f"{type(error).__name__}: {error}", file=sys.stderr)
         return 1
 
 
 def _execute(request: Mapping[str, Any]) -> dict[str, object]:
+    _set_stage(request, "backend_import")
     _enable_windows_dpi_awareness()
     try:
         import dawdreamer as daw
@@ -42,27 +62,39 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
 
     action = str(request["action"])
     sample_rate = int(request.get("sample_rate", 44_100))
-    engine = daw.RenderEngine(sample_rate, 512)
+    block_size = _validated_block_size(request.get("backend"))
+    engine = daw.RenderEngine(sample_rate, block_size)
+    _set_stage(request, "engine_created")
     if hasattr(engine, "set_bpm"):
         engine.set_bpm(float(request.get("tempo", 120.0)))
     plugin = engine.make_plugin_processor("prism_vst3", str(request["plugin_path"]))
+    _set_stage(request, "plugin_loaded")
     if action == "edit":
         state_path = Path(str(request["state_path"]))
         previous_state = state_path.read_bytes() if state_path.is_file() else None
         if previous_state is not None:
             _succeeded(plugin.load_state(str(state_path)), "load the VST3 state")
+            _set_stage(request, "state_loaded")
         before = _parameters(plugin)
+        _set_stage(request, "parameters_inspected")
         _open_editor_while_processing(engine, plugin)
-        _succeeded(plugin.save_state(str(state_path)), "save the VST3 state")
+        _set_stage(request, "editor_closed")
+        _save_state_atomically(plugin, state_path)
+        _set_stage(request, "state_saved")
         after = _parameters(plugin)
-        return {
+        response: dict[str, object] = {
             "state_path": str(state_path),
             "baseline": "saved_state" if previous_state is not None else "plugin_defaults",
-            "state_changed": previous_state != state_path.read_bytes(),
+            "state_changed": previous_state != _read_state(state_path),
             "parameter_changes": _parameter_changes(before, after),
         }
+        if "backend" in request:
+            response["backend"] = _backend_metadata(daw, plugin, block_size)
+        return response
     _load_state(plugin, request)
+    _set_stage(request, "state_or_preset_loaded")
     parameters = _parameters(plugin)
+    _set_stage(request, "parameters_inspected")
 
     if action == "inspect":
         return {"parameters": parameters}
@@ -78,19 +110,25 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
         **_resolve_parameter_targets(automation_selectors, parameters),
     }
     _set_parameters(plugin, requested_parameters, targets)
+    _set_stage(request, "parameters_applied")
     _set_automation(plugin, automation_path, targets)
+    _set_stage(request, "automation_applied")
     frames = int(request["frames"])
     latency = _latency(plugin)
     duration = (frames + latency) / sample_rate
     if action == "instrument":
         _succeeded(plugin.load_midi(str(request["midi_path"])), "load the MIDI file")
+        _set_stage(request, "graph_loaded")
         engine.load_graph([(plugin, [])])
     elif action == "effect":
         audio = np.load(str(request["input_path"]), allow_pickle=False)
+        _validate_input_audio(audio, frames)
         padded = np.pad(audio, ((0, latency), (0, 0))).T.astype(np.float32)
         playback = engine.make_playback_processor("prism_input", padded)
         engine.load_graph([(playback, []), (plugin, [playback.get_name()])])
+        _set_stage(request, "graph_loaded")
     _succeeded(engine.render(duration), "render the VST3 graph")
+    _set_stage(request, "graph_rendered")
     output = np.asarray(plugin.get_audio(), dtype=np.float32).T
     if output.ndim != 2:
         raise RuntimeError(f"Plugin returned invalid audio shape {output.shape}.")
@@ -98,11 +136,102 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
         output = np.repeat(output, 2, axis=1) / np.sqrt(2.0)
     elif output.shape[1] != 2:
         raise RuntimeError("Prism currently supports mono or stereo VST3 output only.")
+    if output.shape[0] < latency + frames:
+        raise RuntimeError(
+            f"Plugin returned {output.shape[0]} frames; expected at least {latency + frames}."
+        )
     output = output[latency : latency + frames]
-    if output.shape[0] < frames:
-        output = np.pad(output, ((0, frames - output.shape[0]), (0, 0)))
+    if not np.isfinite(output).all():
+        raise RuntimeError("Plugin returned non-finite audio samples.")
+    _set_stage(request, "audio_validated")
     np.save(str(request["output_path"]), output, allow_pickle=False)
-    return {"frames": frames, "latency_samples": latency}
+    response = {
+        "frames": frames,
+        "latency_samples": latency,
+    }
+    if "backend" in request:
+        response["backend"] = _backend_metadata(daw, plugin, block_size)
+    return response
+
+
+def _set_stage(request: Mapping[str, Any], stage: str) -> None:
+    """Keep the last completed boundary available if the backend fails."""
+
+    if isinstance(request, dict):
+        request["_last_stage"] = stage
+
+
+def _validated_block_size(raw_backend: object) -> int:
+    if not isinstance(raw_backend, Mapping):
+        return 512
+    value = raw_backend.get("render_block_size", 512)
+    if isinstance(value, bool) or not isinstance(value, int) or not 16 <= value <= 8_192:
+        raise ValueError("VST render block size must be an integer between 16 and 8192.")
+    return value
+
+
+def _backend_metadata(daw: Any, plugin: Any, block_size: int) -> dict[str, object]:
+    """Report backend capabilities separately from plugin capabilities."""
+
+    backend_capabilities = {
+        "render_engine": hasattr(daw, "RenderEngine"),
+        "plugin_processor": hasattr(daw.RenderEngine, "make_plugin_processor"),
+        "playback_processor": hasattr(daw.RenderEngine, "make_playback_processor"),
+    }
+    plugin_capabilities = {
+        "state_load": hasattr(plugin, "load_state"),
+        "state_save": hasattr(plugin, "save_state"),
+        "preset_load": hasattr(plugin, "load_vst3_preset"),
+        "parameter_automation": hasattr(plugin, "set_automation"),
+        "latency_query": hasattr(plugin, "get_latency_samples"),
+        "editor": hasattr(plugin, "open_editor"),
+        "midi": hasattr(plugin, "load_midi"),
+    }
+    version = getattr(daw, "__version__", None)
+    return {
+        "name": "dawdreamer",
+        "version": None if version is None else str(version),
+        "render_block_size": block_size,
+        "backend_capabilities": backend_capabilities,
+        "plugin_capabilities": plugin_capabilities,
+    }
+
+
+def _validate_input_audio(audio: np.ndarray, frames: int) -> None:
+    if audio.ndim != 2 or audio.shape != (frames, 2):
+        raise RuntimeError(
+            f"Input audio has shape {audio.shape}; Prism requires {frames} stereo frames."
+        )
+    if not np.isfinite(audio).all():
+        raise RuntimeError("Input audio contains non-finite samples.")
+
+
+def _read_state(path: Path) -> bytes:
+    try:
+        return path.read_bytes()
+    except OSError as error:
+        raise RuntimeError(f"Saved VST3 state is not readable: {path}") from error
+
+
+def _save_state_atomically(plugin: Any, state_path: Path) -> None:
+    """Save to a sibling temporary file before replacing the previous state."""
+
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{state_path.name}.", suffix=".tmp", dir=state_path.parent
+    )
+    os.close(descriptor)
+    temporary = Path(temporary_name)
+    try:
+        _succeeded(plugin.save_state(str(temporary)), "save the VST3 state")
+        _read_state(temporary)
+        with temporary.open("r+b") as stream:
+            stream.seek(0, 2)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.replace(temporary, state_path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _is_windows_platform() -> bool:

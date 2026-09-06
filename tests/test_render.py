@@ -111,6 +111,8 @@ def test_render_stems_exports_aligned_tracks_buses_and_exact_master(
     assert result.channels == 2
     assert result.bit_depth == 16
     assert result.tail_seconds == 0.0
+    assert result.vst_backend is not None
+    assert result.vst_backend["render_block_size"] == 512
     assert len(result.files) == 5
     for item in result.files:
         samples, rate = sf.read(item.path, dtype="float32", always_2d=True)
@@ -134,6 +136,7 @@ def test_render_stems_exports_aligned_tracks_buses_and_exact_master(
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["schema_version"] == 1
     assert manifest["generation"] == rerendered.generation
+    assert manifest["vst_backend"]["render_block_size"] == 512
     assert {entry["path"] for entry in manifest["files"]} == {
         "tracks/01-kick.wav",
         "tracks/02-lead-main.wav",

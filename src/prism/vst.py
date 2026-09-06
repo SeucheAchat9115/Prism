@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import platform as system_platform
 import re
@@ -18,6 +19,73 @@ from prism.errors import ProjectError
 REGISTRY_FILENAME = "vst.json"
 REGISTRY_SCHEMA_VERSION = 1
 _ALIAS = re.compile(r"[a-z0-9][a-z0-9_-]*")
+
+
+@dataclass(frozen=True, slots=True)
+class VSTBackendConfig:
+    """Validated host policy for isolated VST3 workers.
+
+    The values describe Prism's worker boundary, not a plugin compatibility
+    claim.  In particular, the render block size is passed to the backend
+    explicitly so that it is part of a reproducible project description.
+    ``edit_timeout_seconds=None`` deliberately means that an editor session
+    ends when the user closes it (or a caller sets a cancellation event).
+    """
+
+    render_block_size: int = 512
+    inspection_timeout_seconds: float = 30.0
+    load_timeout_seconds: float = 30.0
+    render_timeout_seconds: float = 120.0
+    edit_timeout_seconds: float | None = None
+    diagnostic_limit: int = 8_192
+
+    def __post_init__(self) -> None:
+        if (
+            isinstance(self.render_block_size, bool)
+            or not isinstance(self.render_block_size, int)
+            or not 16 <= self.render_block_size <= 8_192
+        ):
+            raise ProjectError("VST render_block_size must be an integer between 16 and 8192.")
+        for label, value in (
+            ("inspection_timeout_seconds", self.inspection_timeout_seconds),
+            ("load_timeout_seconds", self.load_timeout_seconds),
+            ("render_timeout_seconds", self.render_timeout_seconds),
+        ):
+            if not isinstance(value, int | float) or isinstance(value, bool):
+                raise ProjectError(f"VST {label} must be a positive finite number.")
+            if not math.isfinite(float(value)) or float(value) <= 0.0:
+                raise ProjectError(f"VST {label} must be a positive finite number.")
+        if self.edit_timeout_seconds is not None and (
+            not isinstance(self.edit_timeout_seconds, int | float)
+            or isinstance(self.edit_timeout_seconds, bool)
+            or not math.isfinite(float(self.edit_timeout_seconds))
+            or float(self.edit_timeout_seconds) <= 0.0
+        ):
+            raise ProjectError(
+                "VST edit_timeout_seconds must be positive and finite, or None for explicit close."
+            )
+        if (
+            isinstance(self.diagnostic_limit, bool)
+            or not isinstance(self.diagnostic_limit, int)
+            or not 256 <= self.diagnostic_limit <= 1_048_576
+        ):
+            raise ProjectError("VST diagnostic_limit must be an integer between 256 and 1048576.")
+
+    def as_dict(self) -> dict[str, object]:
+        """Return the portable worker policy used in project metadata."""
+
+        return {
+            "render_block_size": self.render_block_size,
+            "inspection_timeout_seconds": float(self.inspection_timeout_seconds),
+            "load_timeout_seconds": float(self.load_timeout_seconds),
+            "render_timeout_seconds": float(self.render_timeout_seconds),
+            "edit_timeout_seconds": (
+                None
+                if self.edit_timeout_seconds is None
+                else float(self.edit_timeout_seconds)
+            ),
+            "diagnostic_limit": self.diagnostic_limit,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -452,6 +520,7 @@ def _safe_project_file(value: str | None, label: str) -> str | None:
 
 __all__ = [
     "CanonicalVSTParameter",
+    "VSTBackendConfig",
     "VST3",
     "VSTParameterDescription",
     "VSTRegistry",
