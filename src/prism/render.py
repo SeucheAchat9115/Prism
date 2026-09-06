@@ -47,6 +47,9 @@ BitDepth = Literal[16, 24, 32]
 ClippingPolicy = Literal["error", "warn", "clip"]
 NormalizationMode = Literal["none", "peak"]
 DitherPolicy = Literal["none", "tpdf"]
+StemDeliveryMode = Literal["channel_taps", "master_inputs"]
+StemReconstructionTarget = Literal["none", "pre_master_mix"]
+StemStage = Literal["post_track", "post_bus", "pre_master", "master"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -157,6 +160,43 @@ class ExportDiagnostics:
 
 
 @dataclass(frozen=True, slots=True)
+class StemDeliveryContract:
+    """Describe what a stem set contains and what it can reconstruct."""
+
+    mode: StemDeliveryMode
+    reconstruction_target: StemReconstructionTarget
+    reconstruction_guarantee: Literal["none", "pre_master_linear_sum"]
+    reconstruction_includes_master_gain: bool
+    reconstruction_includes_master_effects: bool
+    master_reference: Literal["same_generation"] = "same_generation"
+    independent_stem_normalization: bool = False
+    dithered_stems: bool = False
+
+    def __post_init__(self) -> None:
+        if self.mode not in {"channel_taps", "master_inputs"}:
+            raise ProjectError("Stem delivery mode must be 'channel_taps' or 'master_inputs'.")
+        if self.reconstruction_target not in {"none", "pre_master_mix"}:
+            raise ProjectError("Stem reconstruction target is invalid.")
+        if self.reconstruction_guarantee not in {"none", "pre_master_linear_sum"}:
+            raise ProjectError("Stem reconstruction guarantee is invalid.")
+        if self.master_reference != "same_generation":
+            raise ProjectError("Stem master_reference must be 'same_generation'.")
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": 1,
+            "mode": self.mode,
+            "reconstruction_target": self.reconstruction_target,
+            "reconstruction_guarantee": self.reconstruction_guarantee,
+            "reconstruction_includes_master_gain": self.reconstruction_includes_master_gain,
+            "reconstruction_includes_master_effects": self.reconstruction_includes_master_effects,
+            "master_reference": self.master_reference,
+            "independent_stem_normalization": self.independent_stem_normalization,
+            "dithered_stems": self.dithered_stems,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class RenderResult:
     """Useful facts about one completed WAV render."""
 
@@ -187,6 +227,7 @@ class StemFile:
     sha256: str
     peak_dbfs: float | None
     diagnostics: ExportDiagnostics | None = None
+    stage: StemStage = "post_track"
 
 
 @dataclass(frozen=True, slots=True)
@@ -207,6 +248,8 @@ class StemRenderResult:
     vst_backend: Mapping[str, object] | None = None
     export_profile: Mapping[str, object] | None = None
     diagnostics: Mapping[str, ExportDiagnostics] | None = None
+    delivery: StemDeliveryContract | None = None
+    master_processing: Mapping[str, object] | None = None
 
     @property
     def files(self) -> tuple[StemFile, ...]:
@@ -227,6 +270,7 @@ class _RenderedProject:
     frames: int
     tracks: dict[str, np.ndarray]
     buses: dict[str, np.ndarray]
+    pre_master: np.ndarray
     master: np.ndarray
 
 
@@ -260,6 +304,8 @@ class _StemManifest:
     files: tuple[tuple[str, str], ...]
     vst_backend: Mapping[str, object] = field(default_factory=dict)
     export_profile: Mapping[str, object] = field(default_factory=dict)
+    delivery: Mapping[str, object] = field(default_factory=dict)
+    master_processing: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -352,6 +398,7 @@ def render_stems(
     sample_rate: int | None = None,
     tail_seconds: float = 0.0,
     profile: ExportProfile | None = None,
+    stem_mode: StemDeliveryMode = "channel_taps",
 ) -> StemRenderResult:
     """Render aligned track, bus/return, and master WAV files.
 
@@ -359,6 +406,12 @@ def render_stems(
     is written privately first; its ownership manifest becomes current only after
     every WAV is complete. ``StemRenderResult.directory`` is therefore the
     recoverable, completed generation rather than the container itself.
+
+    ``channel_taps`` retains every post-track and post-bus tap for inspection.
+    ``master_inputs`` is the production delivery set: it contains ungrouped
+    post-track signals and every post-bus signal, so a grouped track is not
+    exported twice. Its reconstruction target is the pre-master mix; the
+    separately written master is the final reference from this same generation.
     """
 
     directory = project._output_directory(output)
@@ -370,6 +423,8 @@ def render_stems(
         tail_seconds=tail_seconds,
         profile=profile,
     )
+    delivery = _stem_delivery_contract(project, settings, stem_mode)
+    master_processing = _master_processing_metadata(project, settings, delivery)
     previous: _StemManifest | None = None
     staging: Path | None = None
     staging_created = False
@@ -393,6 +448,7 @@ def render_stems(
         staging.mkdir()
         staging_created = True
 
+        track_entries = _stem_track_entries(project, rendered, stem_mode)
         track_files = tuple(
             _write_stem(
                 _safe_stem_destination(
@@ -401,7 +457,7 @@ def render_stems(
                     protected,
                 ),
                 _prepare_export_diagnostics(
-                    rendered.tracks[name],
+                    samples,
                     project.sample_rate,
                     settings,
                     normalize=settings.normalize_stems,
@@ -410,9 +466,11 @@ def render_stems(
                 settings,
                 name=name,
                 kind="track",
+                stage=stage,
             )
-            for index, name in enumerate(rendered.tracks, start=1)
+            for index, (name, samples, stage) in enumerate(track_entries, start=1)
         )
+        bus_entries = _stem_bus_entries(rendered, stem_mode)
         bus_files = tuple(
             _write_stem(
                 _safe_stem_destination(
@@ -421,7 +479,7 @@ def render_stems(
                     protected,
                 ),
                 _prepare_export_diagnostics(
-                    rendered.buses[name],
+                    samples,
                     project.sample_rate,
                     settings,
                     normalize=settings.normalize_stems,
@@ -430,8 +488,9 @@ def render_stems(
                 settings,
                 name=name,
                 kind="bus",
+                stage=stage,
             )
-            for index, name in enumerate(rendered.buses, start=1)
+            for index, (name, samples, stage) in enumerate(bus_entries, start=1)
         )
         master_prepared = _prepare_export_diagnostics(
             rendered.master,
@@ -445,6 +504,7 @@ def render_stems(
             settings,
             name="Master",
             kind="master",
+            stage="master",
         )
         staged_files = (*track_files, *bus_files, master)
         manifest = _StemManifest(
@@ -459,6 +519,8 @@ def render_stems(
             ),
             vst_backend=project.vst_backend.as_dict(),
             export_profile=settings.profile.as_dict(resolved_sample_rate=settings.sample_rate),
+            delivery=delivery.as_dict(),
+            master_processing=master_processing,
         )
         staging_root = staging
         os.replace(staging, generation)
@@ -497,6 +559,8 @@ def render_stems(
                 for item in (*track_files, *bus_files, master)
                 if item.diagnostics is not None
             },
+            delivery=delivery,
+            master_processing=master_processing,
         )
     except ProjectError:
         raise
@@ -561,14 +625,87 @@ def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _Rendered
         bus_outputs[bus.name] = bus_output
         mix += bus_output
 
+    pre_master = mix.copy()
     mix = process_effect_chain(project, project.master_effects, mix)
     mix *= db_gain(project.master_gain_db)
     return _RenderedProject(
         frames=total_frames,
         tracks=track_outputs,
         buses=bus_outputs,
+        pre_master=pre_master,
         master=mix,
     )
+
+
+def _stem_delivery_contract(
+    project: Project,
+    settings: _ExportSettings,
+    stem_mode: StemDeliveryMode,
+) -> StemDeliveryContract:
+    """Resolve a stem mode into an explicit reconstruction statement."""
+
+    if stem_mode not in {"channel_taps", "master_inputs"}:
+        raise ProjectError("Stem delivery mode must be 'channel_taps' or 'master_inputs'.")
+    if stem_mode == "master_inputs" and settings.normalize_stems:
+        raise ProjectError(
+            "master_inputs cannot independently normalize stems; set normalize_stems=False "
+            "to preserve the pre-master reconstruction contract."
+        )
+    is_master_inputs = stem_mode == "master_inputs"
+    return StemDeliveryContract(
+        mode=stem_mode,
+        reconstruction_target="pre_master_mix" if is_master_inputs else "none",
+        reconstruction_guarantee="pre_master_linear_sum" if is_master_inputs else "none",
+        reconstruction_includes_master_gain=False,
+        reconstruction_includes_master_effects=False,
+        independent_stem_normalization=settings.normalize_stems,
+        dithered_stems=settings.dither_stems and settings.dither == "tpdf",
+    )
+
+
+def _stem_track_entries(
+    project: Project,
+    rendered: _RenderedProject,
+    stem_mode: StemDeliveryMode,
+) -> tuple[tuple[str, np.ndarray, StemStage], ...]:
+    stage: StemStage = "pre_master" if stem_mode == "master_inputs" else "post_track"
+    return tuple(
+        (track.name, rendered.tracks[track.name], stage)
+        for track in project.tracks
+        if stem_mode == "channel_taps" or track.output_bus is None
+    )
+
+
+def _stem_bus_entries(
+    rendered: _RenderedProject,
+    stem_mode: StemDeliveryMode,
+) -> tuple[tuple[str, np.ndarray, StemStage], ...]:
+    stage: StemStage = "pre_master" if stem_mode == "master_inputs" else "post_bus"
+    return tuple((name, samples, stage) for name, samples in rendered.buses.items())
+
+
+def _master_processing_metadata(
+    project: Project,
+    settings: _ExportSettings,
+    delivery: StemDeliveryContract,
+) -> dict[str, object]:
+    return {
+        "stage": "master",
+        "gain_db": project.master_gain_db,
+        "effects": [
+            {"name": effect.name, "kind": effect.kind, "preset": effect.preset}
+            for effect in project.master_effects
+        ],
+        "applied_to_master_reference": True,
+        "excluded_from_reconstruction_target": delivery.reconstruction_target
+        == "pre_master_mix",
+        "may_be_signal_dependent": any(
+            effect.preset != "gain" for effect in project.master_effects
+        ),
+        "delivery_normalization": settings.profile.normalization
+        if settings.normalize_master
+        else "none",
+    }
 
 
 def _schedule_audio_voices(
@@ -1361,6 +1498,7 @@ def _write_stem(
     *,
     name: str,
     kind: Literal["track", "bus", "master"],
+    stage: StemStage,
 ) -> StemFile:
     _write_wav(
         path,
@@ -1375,6 +1513,7 @@ def _write_stem(
         sha256=_sha256(path),
         peak_dbfs=_peak_dbfs(prepared.samples),
         diagnostics=prepared.diagnostics,
+        stage=stage,
     )
 
 
@@ -1522,12 +1661,20 @@ def _read_stem_manifest(
     backend = dict(raw_backend) if isinstance(raw_backend, Mapping) else {}
     raw_profile = data.get("export_profile", {})
     export_profile = dict(raw_profile) if isinstance(raw_profile, Mapping) else {}
+    raw_delivery = data.get("delivery", {})
+    delivery = dict(raw_delivery) if isinstance(raw_delivery, Mapping) else {}
+    raw_master_processing = data.get("master_processing", {})
+    master_processing = (
+        dict(raw_master_processing) if isinstance(raw_master_processing, Mapping) else {}
+    )
     return _StemManifest(
         generation_value,
         generation,
         tuple(files),
         backend,
         export_profile,
+        delivery,
+        master_processing,
     )
 
 
@@ -1559,6 +1706,8 @@ def _manifest_data(manifest: _StemManifest, metadata: Path) -> dict[str, object]
         "generation_directory": manifest.directory.relative_to(metadata).as_posix(),
         "vst_backend": dict(manifest.vst_backend),
         "export_profile": dict(manifest.export_profile),
+        "delivery": dict(manifest.delivery),
+        "master_processing": dict(manifest.master_processing),
         "files": [
             {"path": relative, "sha256": sha256}
             for relative, sha256 in sorted(manifest.files)
@@ -1587,6 +1736,7 @@ def _relocate_stem(item: StemFile, staging: Path, generation: Path) -> StemFile:
         sha256=item.sha256,
         peak_dbfs=item.peak_dbfs,
         diagnostics=item.diagnostics,
+        stage=item.stage,
     )
 
 

@@ -73,6 +73,73 @@ Implementation commit: `d76cd96a08ccc2aa4b73c92a3485dc3e1024063d`
   package gates are local and do not establish third-party VST compatibility.
 
 
+## Task 12/35 — make stem delivery modes and reconstruction guarantees explicit
+
+Status: Done; PR pending. Done describes implementation completion, not
+pull-request merge state.
+
+Implementation branch: `task-12/stem-delivery-modes`
+
+### Completed scope
+
+- Added the explicit `stem_mode="channel_taps"` and
+  `stem_mode="master_inputs"` API. The default keeps the existing complete
+  post-track/post-bus tap set; production mode exports only ungrouped track
+  outputs plus group and return bus outputs.
+- Added `StemDeliveryContract` metadata and explicit `StemFile.stage` labels.
+  Production stems declare a pre-master reconstruction target, exclude master
+  gain/effects from that target, and point to the final master written in the
+  same generation.
+- Captured the pre-master mix before master processing and added master-stage
+  metadata including master gain, effect identities, delivery normalization,
+  and a signal-dependent-processing warning.
+- Preserved task-01 staging, manifest ownership, symlink/source protection,
+  aligned tails, file formats, profile diagnostics, and deterministic master
+  output for both stem modes.
+- Rejected independently normalized stems in `master_inputs` mode so its
+  pre-master linear-sum guarantee is not silently invalidated. Stem dither is
+  reported explicitly as a final-quantizer choice.
+
+### Compatibility decisions
+
+- `channel_taps` remains the default and preserves existing track/bus/master
+  exports. `master_inputs` is opt-in and omits a track routed into a group
+  because the group bus already contains it.
+- The production reconstruction target is the pre-master mix before master
+  gain, master effects, and final delivery normalization. The guarantee is
+  defined before integer quantization; the same-generation master is the
+  finished reference and is not regenerated per stem.
+- A nonlinear or signal-dependent master processor is not claimed to be
+  reproducible by independently processing each input stem. The contract
+  reports this limitation instead of manufacturing equality.
+
+### Verification
+
+- Focused stem-mode and reconstruction regressions pass, including grouped
+  routing without double counting, sends/returns, stage labels, same-generation
+  master equality, nonlinear-master limitation, manifest metadata, and the
+  independent-normalization rejection.
+- `uv run pytest --cov --cov-report=term-missing`: **242 passed, 5 skipped**;
+  total coverage **87.29%**. The skips are the existing real-VST
+  qualification tests without plugin-path environment variables.
+- `uv run ruff check .`: passed.
+- `uv run mypy src/prism`: passed.
+- `uv run --extra docs mkdocs build --strict`: passed with the same temporary
+  local placeholder for the reconstructed checkout's missing binary logo; the
+  placeholder is not part of this change.
+- The separate real-VST workflow remains unchanged.
+
+### Concrete limitations
+
+- `master_inputs` reconstructs the pre-master linear sum, not a separately
+  reprocessed mastered signal. Integer WAV stems necessarily include their
+  own quantization; use float-32 delivery for the closest pre-quantization
+  interchange.
+- Dry/source and pre-insert taps are not exposed yet; adding them would require
+  additional explicit stage contracts. VST and other external processors still
+  carry their task-09/task-10 runtime qualification limits.
+
+
 ## Task 10/35 — strengthen real VST tests and verify latency compensation
 
 Status: Done; [PR #36](https://github.com/SeucheAchat9115/Prism/pull/36) open. Done

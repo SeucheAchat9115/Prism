@@ -51,7 +51,12 @@ from prism.vst import VST3, VSTBackendConfig, VSTRegistry
 if TYPE_CHECKING:
     from prism.arrangement import CompiledTrackEvents
     from prism.midi import MidiResult
-    from prism.render import ExportProfile, RenderResult, StemRenderResult
+    from prism.render import (
+        ExportProfile,
+        RenderResult,
+        StemDeliveryMode,
+        StemRenderResult,
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -1395,6 +1400,7 @@ class Project:
         sample_rate: int | None = None,
         tail_seconds: float = 0.0,
         profile: ExportProfile | None = None,
+        stem_mode: StemDeliveryMode = "channel_taps",
     ) -> StemRenderResult:
         """Render aligned track, bus, and master WAV files into a generation.
 
@@ -1416,6 +1422,7 @@ class Project:
             sample_rate=sample_rate,
             tail_seconds=tail_seconds,
             profile=profile,
+            stem_mode=stem_mode,
         )
 
     def export_midi(self, output: str | Path = "renders/song.mid") -> MidiResult:
