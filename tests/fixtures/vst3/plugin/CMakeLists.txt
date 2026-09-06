@@ -16,6 +16,9 @@ target_include_directories(prism-fixture-delay PRIVATE
     "${ADelay_SOURCE_DIR}"
 )
 
+target_compile_features(prism-fixture-delay PRIVATE cxx_std_17)
+target_link_libraries(prism-fixture-delay PRIVATE sdk)
+
 smtg_add_vst3plugin(prism-fixture-instrument
     factory_instrument.cpp
     "${MDA_SOURCE_DIR}/helpers.h"
@@ -35,3 +38,6 @@ target_include_directories(prism-fixture-instrument PRIVATE
     "${PRISM_VST3_SDK_ROOT}"
     "${MDA_SOURCE_DIR}"
 )
+
+target_compile_features(prism-fixture-instrument PRIVATE cxx_std_17)
+target_link_libraries(prism-fixture-instrument PRIVATE sdk)
