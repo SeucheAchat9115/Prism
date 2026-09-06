@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.25.0)
 
-set(ADelay_SOURCE_DIR "${SDK_ROOT}/samples/vst/adelay/source")
-set(MDA_SOURCE_DIR "${SDK_ROOT}/samples/vst/mda-vst3/source")
+set(ADelay_SOURCE_DIR "${PRISM_VST3_SDK_ROOT}/samples/vst/adelay/source")
+set(MDA_SOURCE_DIR "${PRISM_VST3_SDK_ROOT}/samples/vst/mda-vst3/source")
 
 smtg_add_vst3plugin(prism-fixture-delay
     factory_delay.cpp
