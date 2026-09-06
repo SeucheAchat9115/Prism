@@ -11,10 +11,11 @@ The task suffix /35 in historical entries refers to the original audit plan.
 
 ## Task 11/35 — add explicit export profiles, clipping policy, and dither
 
-Status: Done; PR pending. Done describes implementation completion, not
+Status: Done; [PR #37](https://github.com/SeucheAchat9115/Prism/pull/37) open. Done describes implementation completion, not
 pull-request merge state.
 
 Implementation branch: `task-11/export-profiles`
+Implementation commit: `d76cd96a08ccc2aa4b73c92a3485dc3e1024063d`
 
 ### Completed scope
 
