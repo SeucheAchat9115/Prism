@@ -9,7 +9,7 @@ rate, and enough time for the final delay and reverb to fade naturally.
 Replace everything in your tutorial project's `main.py` with this:
 
 ```python
-from prism import Project, Uniwave
+from prism import ExportProfile, Project, Uniwave
 
 song = Project(
     "Finished Export",
@@ -36,19 +36,31 @@ lead.send(room, gain_db=-12)
 song.master_effect("compressor", threshold_db=-10, ratio=2)
 song.section("Final Bar", bars=1)
 
-master = song.render(
-    "renders/song.wav",
+master_profile = ExportProfile(
+    name="final-master",
     bit_depth=24,
     channels="stereo",
-    sample_rate=48_000,
+    delivery_sample_rate=48_000,
     tail_seconds=1.5,
+    normalization="peak",
+    normalization_target_dbfs=-1.0,
+    clipping="error",
+)
+stem_profile = ExportProfile(
+    name="floating-stems",
+    bit_depth=32,
+    channels="stereo",
+    delivery_sample_rate=48_000,
+    tail_seconds=1.5,
+    normalization="none",
+)
+master = song.render(
+    "renders/song.wav",
+    profile=master_profile,
 )
 stems = song.render_stems(
     "renders/stems",
-    bit_depth=32,
-    channels="stereo",
-    sample_rate=48_000,
-    tail_seconds=1.5,
+    profile=stem_profile,
 )
 
 print(master)
@@ -66,6 +78,10 @@ delay and reverb can finish instead of stopping suddenly.
 The master is a stereo, 24-bit WAV at 48 kHz. The completed generation printed
 by `stems` contains stereo 32-bit floating-point WAVs at the same sample rate.
 They also contain the complete tail and all start at the same point.
+
+The named profiles make those delivery choices explicit and serializable. The
+master uses peak normalization at -1 dBFS, not loudness normalization. The
+floating-point stem profile preserves the internal level and headroom.
 
 ## 3. Choose the right bit depth
 

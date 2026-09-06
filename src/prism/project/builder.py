@@ -51,7 +51,7 @@ from prism.vst import VST3, VSTBackendConfig, VSTRegistry
 if TYPE_CHECKING:
     from prism.arrangement import CompiledTrackEvents
     from prism.midi import MidiResult
-    from prism.render import RenderResult, StemRenderResult
+    from prism.render import ExportProfile, RenderResult, StemRenderResult
 
 
 @dataclass(frozen=True, slots=True)
@@ -1370,6 +1370,7 @@ class Project:
         channels: Literal["mono", "stereo"] = "stereo",
         sample_rate: int | None = None,
         tail_seconds: float = 0.0,
+        profile: ExportProfile | None = None,
     ) -> RenderResult:
         """Render the arrangement with selectable WAV quality and effect tail."""
 
@@ -1382,6 +1383,7 @@ class Project:
             channels=channels,
             sample_rate=sample_rate,
             tail_seconds=tail_seconds,
+            profile=profile,
         )
 
     def render_stems(
@@ -1392,6 +1394,7 @@ class Project:
         channels: Literal["mono", "stereo"] = "stereo",
         sample_rate: int | None = None,
         tail_seconds: float = 0.0,
+        profile: ExportProfile | None = None,
     ) -> StemRenderResult:
         """Render aligned track, bus, and master WAV files into a generation.
 
@@ -1412,6 +1415,7 @@ class Project:
             channels=channels,
             sample_rate=sample_rate,
             tail_seconds=tail_seconds,
+            profile=profile,
         )
 
     def export_midi(self, output: str | Path = "renders/song.mid") -> MidiResult:

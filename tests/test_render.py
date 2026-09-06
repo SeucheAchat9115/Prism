@@ -9,7 +9,14 @@ import pytest
 import soundfile as sf
 
 import prism.render as render_module
-from prism import Project, ProjectError, RenderError, StemFile, StemRenderResult
+from prism import (
+    ExportProfile,
+    Project,
+    ProjectError,
+    RenderError,
+    StemFile,
+    StemRenderResult,
+)
 
 
 def _mini_song(script: Path) -> Project:
@@ -52,6 +59,21 @@ def _write_stereo_source(script: Path, name: str, frames: int, value: float = 0.
         subtype="PCM_16",
     )
     return path
+
+
+def _loud_song(script: Path) -> Project:
+    song = Project(
+        "Loud Export",
+        prism_version="test",
+        tempo=300,
+        sample_rate=8_000,
+        master_gain_db=12,
+        normalize=False,
+        _script=script,
+    )
+    song.track("Loud Kick", gain_db=12).drum("kick", "x---")
+    song.section("Hit", bars=1)
+    return song
 
 
 def test_render_is_non_silent_and_deterministic(project_script: Path) -> None:
@@ -175,6 +197,202 @@ def test_render_writes_selected_bit_depth_and_preserves_float_headroom(
         assert np.max(np.abs(samples)) > 1.0
     else:
         assert np.max(np.abs(samples)) <= 1.0
+
+
+def test_export_profile_records_delivery_diagnostics_and_clipping_policy(
+    project_script: Path,
+) -> None:
+    strict = ExportProfile(
+        name="strict-master",
+        bit_depth=16,
+        normalization="none",
+        clipping="error",
+    )
+    with pytest.raises(RenderError, match="overloaded samples"):
+        _loud_song(project_script).render("renders/strict.wav", profile=strict)
+
+    warn_profile = ExportProfile(
+        name="warn-master",
+        bit_depth=16,
+        normalization="none",
+        clipping="warn",
+    )
+    with pytest.warns(RuntimeWarning, match="clipped"):
+        warned = _loud_song(project_script).render(
+            "renders/warn.wav", profile=warn_profile
+        )
+    assert warned.diagnostics is not None
+    assert warned.diagnostics.preclip_peak > 1.0
+    assert warned.diagnostics.overload_samples > 0
+    assert warned.diagnostics.clipped_samples == warned.diagnostics.overload_samples
+    warned_samples, _ = sf.read(warned.path, dtype="float64", always_2d=True)
+    assert np.max(np.abs(warned_samples)) <= 1.0
+
+    float_profile = ExportProfile(
+        name="float-headroom",
+        bit_depth=32,
+        normalization="none",
+        clipping="clip",
+    )
+    floating = _loud_song(project_script).render(
+        "renders/headroom.wav", sample_rate=16_000, profile=float_profile
+    )
+    assert floating.export_profile is not None
+    assert floating.export_profile["delivery_sample_rate"] == 8_000
+    assert floating.diagnostics is not None
+    assert floating.diagnostics.overload_samples > 0
+    assert floating.diagnostics.clipped_samples == 0
+    floating_samples, rate = sf.read(floating.path, dtype="float64", always_2d=True)
+    assert rate == 8_000
+    assert np.max(np.abs(floating_samples)) > 1.0
+
+
+def test_export_profile_normalizes_after_delivery_conversion_and_is_serializable(
+    project_script: Path,
+) -> None:
+    profile = ExportProfile(
+        name="delivery-48k",
+        bit_depth=32,
+        channels="mono",
+        delivery_sample_rate=16_000,
+        normalization="peak",
+        normalization_target_dbfs=-6.0,
+    )
+    assert json.loads(json.dumps(profile.as_dict()))["name"] == "delivery-48k"
+    result = _loud_song(project_script).render(
+        "renders/delivery-profile.wav",
+        sample_rate=8_000,
+        profile=profile,
+    )
+
+    assert result.sample_rate == 16_000
+    assert result.channels == 1
+    assert result.export_profile == profile.as_dict()
+    assert result.diagnostics is not None
+    assert result.diagnostics.peak_before_normalization > 10.0 ** (-6.0 / 20.0)
+    assert result.diagnostics.normalized is True
+    assert result.diagnostics.preclip_peak == pytest.approx(10.0 ** (-6.0 / 20.0))
+    samples, rate = sf.read(result.path, dtype="float64", always_2d=True)
+    assert rate == 16_000
+    assert samples.shape[1] == 1
+    assert np.max(np.abs(samples)) == pytest.approx(10.0 ** (-6.0 / 20.0), abs=1e-6)
+
+
+def test_export_profile_dither_is_seeded_and_only_applies_to_integer_delivery(
+    project_script: Path,
+) -> None:
+    profile = ExportProfile(bit_depth=16, dither="tpdf", dither_seed=1234)
+    settings = render_module._export_settings(
+        _mini_song(project_script),
+        bit_depth=16,
+        channels="stereo",
+        sample_rate=None,
+        tail_seconds=0.0,
+        profile=profile,
+    )
+    source = np.full((512, 2), 0.1234567, dtype=np.float64)
+    first = render_module._prepare_export_diagnostics(
+        source, 8_000, settings, normalize=False
+    )
+    second = render_module._prepare_export_diagnostics(
+        source, 8_000, settings, normalize=False
+    )
+    assert first.diagnostics.dithered is True
+    assert np.array_equal(first.samples, second.samples)
+    assert not np.array_equal(first.samples, source)
+
+    plain_settings = render_module._export_settings(
+        _mini_song(project_script),
+        bit_depth=32,
+        channels="stereo",
+        sample_rate=None,
+        tail_seconds=0.0,
+        profile=ExportProfile(bit_depth=32),
+    )
+    plain = render_module._prepare_export_diagnostics(
+        source, 8_000, plain_settings, normalize=False
+    )
+    assert plain.diagnostics.dithered is False
+    assert np.array_equal(plain.samples, source)
+    with pytest.raises(ProjectError, match="TPDF"):
+        ExportProfile(bit_depth=32, dither="tpdf")
+
+
+def test_export_profile_rejects_nonfinite_audio_and_reports_silence(
+    project_script: Path,
+) -> None:
+    song = _mini_song(project_script)
+    profile = ExportProfile(bit_depth=32)
+    settings = render_module._export_settings(
+        song,
+        bit_depth=32,
+        channels="stereo",
+        sample_rate=None,
+        tail_seconds=0.0,
+        profile=profile,
+    )
+    silence = render_module._prepare_export_diagnostics(
+        np.zeros((32, 2), dtype=np.float64), 8_000, settings, normalize=False
+    )
+    assert silence.diagnostics.peak_before_normalization == 0.0
+    assert silence.diagnostics.overload_samples == 0
+    assert np.count_nonzero(silence.samples) == 0
+    with pytest.raises(RenderError, match="non-finite"):
+        render_module._prepare_export_diagnostics(
+            np.array([[np.nan, np.inf]]), 8_000, settings, normalize=False
+        )
+
+
+def test_export_profile_detects_resampling_overshoot_before_fixed_point_clip(
+    project_script: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def overshoot(
+        samples: np.ndarray, source_rate: int, target_rate: int, **_: object
+    ) -> np.ndarray:
+        return np.full((samples.shape[0] * 2, samples.shape[1]), 1.5, dtype=np.float64)
+
+    monkeypatch.setattr(render_module.soxr, "resample", overshoot)
+    song = _mini_song(project_script)
+    settings = render_module._export_settings(
+        song,
+        bit_depth=16,
+        channels="stereo",
+        sample_rate=16_000,
+        tail_seconds=0.0,
+        profile=ExportProfile(
+            bit_depth=16,
+            delivery_sample_rate=16_000,
+            normalization="none",
+            clipping="error",
+        ),
+    )
+    with pytest.raises(RenderError, match="overloaded samples"):
+        render_module._prepare_export_diagnostics(
+            np.zeros((32, 2), dtype=np.float64), 8_000, settings, normalize=False
+        )
+    clipped_settings = render_module._export_settings(
+        song,
+        bit_depth=16,
+        channels="stereo",
+        sample_rate=16_000,
+        tail_seconds=0.0,
+        profile=ExportProfile(
+            bit_depth=16,
+            delivery_sample_rate=16_000,
+            normalization="none",
+            clipping="clip",
+        ),
+    )
+    clipped = render_module._prepare_export_diagnostics(
+        np.zeros((32, 2), dtype=np.float64),
+        8_000,
+        clipped_settings,
+        normalize=False,
+    )
+    assert clipped.diagnostics.preclip_peak == pytest.approx(1.5)
+    assert clipped.diagnostics.overload_samples == 128
+    assert clipped.diagnostics.clipped_samples == 128
+    assert np.max(np.abs(clipped.samples)) == 1.0
 
 
 def test_render_can_downmix_resample_and_keep_an_effect_tail(
