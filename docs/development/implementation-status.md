@@ -9,6 +9,62 @@ Original audit IDs and historical test results below are retained. Tasks 17, 18,
 The task suffix /35 in historical entries refers to the original audit plan.
 
 
+## Task 10/35 — strengthen real VST tests and verify latency compensation
+
+Status: Done; PR pending. Done describes implementation completion, not pull-request
+merge state.
+
+Implementation branch: `task-10/real-vst-qualification`
+
+### Completed scope
+
+- Added two reproducible fixture targets under `tests/fixtures/vst3`: a
+  deterministic MIDI instrument based on the upstream MDA Piano example and a
+  known-delay effect based on the upstream ADelay example. The workflow pins
+  the upstream VST3 SDK commit, verifies the checkout, and builds the fixtures
+  on both Windows and Linux without committing platform binaries.
+- Added real-plugin metrics for onset, RMS, audible duration, peak, and tails;
+  configured effect assertions compare output with input instead of accepting
+  unchanged audio. The real VST workflow writes bounded WAV/JSON diagnostics
+  and uploads them on every run, including failures.
+- Reconciled reported plugin latency after state/parameter application and
+  graph preparation. When graph preparation changes the report, the worker
+  rebuilds effect padding or the instrument graph once with the final value;
+  another change fails explicitly instead of guessing at alignment.
+- Added portable impulse-alignment, latency-change, and state/preset/parameter
+  precedence regressions. The Surge workflow remains separate from the pinned
+  fixture qualification and no Serum credentials or coverage are implied.
+
+### Compatibility decisions
+
+- The existing `latency_samples` response remains stable for legacy worker
+  requests. Requests carrying backend metadata additionally report the value
+  before graph setup and whether reconciliation occurred.
+- Plugin latency is compensated once at the worker boundary. A plugin's own
+  audible delay parameter is not treated as host latency and remains audible.
+- Fixture sources are obtained from the pinned upstream SDK during CI; no
+  third-party plugin binary or license is redistributed in the Prism tree.
+
+### Verification
+
+- `uv run pytest --cov --cov-report=term-missing`: **235 passed, 5 skipped**;
+  total coverage **87.99%**. The five real-plugin tests skip without their
+  environment paths.
+- `uv run ruff check .`: passed.
+- `uv run mypy src/prism`: passed.
+- `uv run --extra docs mkdocs build --strict`: passed with the repository's
+  unchanged logo asset available in the published tree.
+- The separate real-VST workflow exercises the fixture and Surge matrix.
+
+### Concrete limitations
+
+- The local environment does not include the optional DawDreamer runtime or
+  installed Surge/fixture binaries, so platform/plugin evidence is produced by
+  the hosted VST3 workflow rather than local execution.
+- The upstream MDA Piano and ADelay examples are controlled qualification
+  fixtures, not a claim that every VST3 vendor or channel layout is compatible.
+
+
 ## Task 09/35 — harden VST workers, cancellation, diagnostics, and state saving
 
 Status: Done; [PR #35](https://github.com/SeucheAchat9115/Prism/pull/35) open. Done

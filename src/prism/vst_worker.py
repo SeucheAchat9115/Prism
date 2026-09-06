@@ -114,19 +114,45 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
     _set_automation(plugin, automation_path, targets)
     _set_stage(request, "automation_applied")
     frames = int(request["frames"])
-    latency = _latency(plugin)
-    duration = (frames + latency) / sample_rate
+    latency_before_graph = _latency(plugin)
+    latency = latency_before_graph
+    input_audio: np.ndarray | None = None
     if action == "instrument":
         _succeeded(plugin.load_midi(str(request["midi_path"])), "load the MIDI file")
         _set_stage(request, "graph_loaded")
         engine.load_graph([(plugin, [])])
     elif action == "effect":
-        audio = np.load(str(request["input_path"]), allow_pickle=False)
-        _validate_input_audio(audio, frames)
-        padded = np.pad(audio, ((0, latency), (0, 0))).T.astype(np.float32)
-        playback = engine.make_playback_processor("prism_input", padded)
-        engine.load_graph([(playback, []), (plugin, [playback.get_name()])])
+        input_audio = np.load(str(request["input_path"]), allow_pickle=False)
+        _validate_input_audio(input_audio, frames)
+        _load_effect_graph(engine, plugin, input_audio, latency)
         _set_stage(request, "graph_loaded")
+    latency = _latency(plugin)
+    reconciled = latency != latency_before_graph
+    if reconciled:
+        _set_stage(request, "latency_reconciled")
+        # Some hosts/plugins only publish their final latency once the graph is
+        # connected. Rebuild the effect input padding with that authoritative
+        # value so the adapter compensates exactly once.
+        if action == "effect":
+            assert input_audio is not None
+            _load_effect_graph(engine, plugin, input_audio, latency)
+            latency_after_rebuild = _latency(plugin)
+            if latency_after_rebuild != latency:
+                raise RuntimeError(
+                    "VST3 latency changed again after graph reconciliation; refusing "
+                    "to guess at sample alignment."
+                )
+            latency = latency_after_rebuild
+        else:
+            engine.load_graph([(plugin, [])])
+            latency_after_rebuild = _latency(plugin)
+            if latency_after_rebuild != latency:
+                raise RuntimeError(
+                    "VST3 latency changed again after graph reconciliation; refusing "
+                    "to guess at sample alignment."
+                )
+            latency = latency_after_rebuild
+    duration = (frames + latency) / sample_rate
     _succeeded(engine.render(duration), "render the VST3 graph")
     _set_stage(request, "graph_rendered")
     output = np.asarray(plugin.get_audio(), dtype=np.float32).T
@@ -150,6 +176,8 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
         "latency_samples": latency,
     }
     if "backend" in request:
+        response["latency_samples_before_graph"] = latency_before_graph
+        response["latency_reconciled"] = reconciled
         response["backend"] = _backend_metadata(daw, plugin, block_size)
     return response
 
@@ -204,6 +232,14 @@ def _validate_input_audio(audio: np.ndarray, frames: int) -> None:
         )
     if not np.isfinite(audio).all():
         raise RuntimeError("Input audio contains non-finite samples.")
+
+
+def _load_effect_graph(
+    engine: Any, plugin: Any, audio: np.ndarray, latency: int
+) -> None:
+    padded = np.pad(audio, ((0, latency), (0, 0))).T.astype(np.float32)
+    playback = engine.make_playback_processor("prism_input", padded)
+    engine.load_graph([(playback, []), (plugin, [playback.get_name()])])
 
 
 def _read_state(path: Path) -> bytes:
