@@ -16,7 +16,7 @@ from prism.render import RenderResult, StemFile, StemRenderResult
 from prism.sample_library import SampleLibrary
 from prism.synthesis.types import SynthWave, Uniwave
 from prism.version import __version__
-from prism.vst import VST3, VSTRegistry
+from prism.vst import VST3, VSTBackendConfig, VSTRegistry
 
 __all__ = [
     "AutomationLane",
@@ -41,6 +41,7 @@ __all__ = [
     "Track",
     "Uniwave",
     "VST3",
+    "VSTBackendConfig",
     "VSTRegistry",
     "__version__",
 ]

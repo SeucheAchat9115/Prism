@@ -8,7 +8,7 @@ import pytest
 from prism import VST3, Project, ProjectError
 from prism import cli as prism_cli
 from prism.cli import create_project, main
-from prism.vst import VSTRegistry, hash_vst3, platform_key
+from prism.vst import VSTBackendConfig, VSTRegistry, hash_vst3, platform_key
 from prism.vst_host import VSTEditResult, VSTParameterChange
 
 
@@ -34,6 +34,31 @@ def test_new_projects_include_an_empty_vst_registry(tmp_path: Path) -> None:
         "plugins": {},
         "schema_version": 1,
     }
+
+
+def test_backend_policy_is_validated_and_serialized(tmp_path: Path) -> None:
+    root, _plugin = _project(tmp_path)
+    backend = VSTBackendConfig(render_block_size=256, render_timeout_seconds=45.0)
+    project = Project(
+        "Backend policy",
+        prism_version="test",
+        _script=root / "main.py",
+        vst_backend=backend,
+    )
+
+    assert project.vst_backend is backend
+    assert project.configuration()["vst_backend"] == {
+        "render_block_size": 256,
+        "inspection_timeout_seconds": 30.0,
+        "load_timeout_seconds": 30.0,
+        "render_timeout_seconds": 45.0,
+        "edit_timeout_seconds": None,
+        "diagnostic_limit": 8192,
+    }
+    with pytest.raises(ProjectError, match="render_block_size"):
+        VSTBackendConfig(render_block_size=8)
+    with pytest.raises(ProjectError, match="edit_timeout_seconds"):
+        VSTBackendConfig(edit_timeout_seconds=0.0)
 
 
 def test_registry_records_portable_path_and_detects_changes(tmp_path: Path) -> None:

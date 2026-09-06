@@ -10,7 +10,7 @@ import re
 import shutil
 import tempfile
 import uuid
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Literal, Mapping
 
@@ -58,6 +58,7 @@ class RenderResult:
     peak_dbfs: float | None
     bit_depth: BitDepth
     tail_seconds: float
+    vst_backend: Mapping[str, object] | None = None
 
     def __str__(self) -> str:
         return f"Rendered {self.duration_seconds:.2f}s to {self.path}"
@@ -89,6 +90,7 @@ class StemRenderResult:
     buses: tuple[StemFile, ...]
     master: StemFile
     generation: int = 0
+    vst_backend: Mapping[str, object] | None = None
 
     @property
     def files(self) -> tuple[StemFile, ...]:
@@ -127,6 +129,7 @@ class _StemManifest:
     generation: int
     directory: Path
     files: tuple[tuple[str, str], ...]
+    vst_backend: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -192,6 +195,7 @@ def render_project(
             peak_dbfs=_peak_dbfs(output_samples),
             bit_depth=settings.bit_depth,
             tail_seconds=settings.tail_seconds,
+            vst_backend=project.vst_backend.as_dict(),
         )
     except (ProjectError, RenderError):
         raise
@@ -294,6 +298,7 @@ def render_stems(
                 )
                 for item in staged_files
             ),
+            vst_backend=project.vst_backend.as_dict(),
         )
         staging_root = staging
         os.replace(staging, generation)
@@ -325,6 +330,7 @@ def render_stems(
             buses=bus_files,
             master=master,
             generation=generation_number,
+            vst_backend=manifest.vst_backend,
         )
     except ProjectError:
         raise
@@ -1245,7 +1251,9 @@ def _read_stem_manifest(
         _assert_safe_managed_path(project, candidate, protected, "Stem cleanup candidate")
         seen.add(relative.as_posix())
         files.append((relative.as_posix(), sha256))
-    return _StemManifest(generation_value, generation, tuple(files))
+    raw_backend = data.get("vst_backend", {})
+    backend = dict(raw_backend) if isinstance(raw_backend, Mapping) else {}
+    return _StemManifest(generation_value, generation, tuple(files), backend)
 
 
 def _manifest_relative(value: str, label: str) -> PurePosixPath:
@@ -1274,6 +1282,7 @@ def _manifest_data(manifest: _StemManifest, metadata: Path) -> dict[str, object]
         "schema_version": _STEM_MANIFEST_SCHEMA_VERSION,
         "generation": manifest.generation,
         "generation_directory": manifest.directory.relative_to(metadata).as_posix(),
+        "vst_backend": dict(manifest.vst_backend),
         "files": [
             {"path": relative, "sha256": sha256}
             for relative, sha256 in sorted(manifest.files)

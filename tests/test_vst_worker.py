@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import json
+import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -76,6 +78,7 @@ class _FakeEngine:
     def __init__(self, sample_rate: int, block_size: int) -> None:
         self.__class__.instances.append(self)
         self.sample_rate = sample_rate
+        self.block_size = block_size
         self.frames = 0
         self.render_count = 0
         self.midi_load_count = 0
@@ -199,6 +202,146 @@ def test_worker_renders_one_complete_instrument_graph_once(
     engine = _FakeEngine.instances[0]
     assert engine.midi_load_count == 1
     assert engine.render_count == 1
+
+
+def test_worker_uses_validated_block_size_and_reports_capabilities(
+    tmp_path: Path, fake_daw: None
+) -> None:
+    _FakeEngine.instances.clear()
+    output = tmp_path / "output.npy"
+    midi = tmp_path / "notes.mid"
+    midi.write_bytes(b"midi")
+
+    response = vst_worker._execute(
+        {
+            "action": "instrument",
+            "plugin_path": "test.vst3",
+            "midi_path": str(midi),
+            "output_path": str(output),
+            "sample_rate": 10,
+            "frames": 10,
+            "backend": {"render_block_size": 256},
+        }
+    )
+
+    assert _FakeEngine.instances[0].block_size == 256
+    backend = response["backend"]
+    assert isinstance(backend, dict)
+    assert backend["render_block_size"] == 256
+    assert backend["backend_capabilities"] == {
+        "render_engine": True,
+        "plugin_processor": True,
+        "playback_processor": True,
+    }
+    assert backend["plugin_capabilities"]["latency_query"] is True  # type: ignore[index]
+
+
+def test_failed_state_save_preserves_previous_state_and_cleans_temporary_file(
+    tmp_path: Path, fake_daw: None
+) -> None:
+    state = tmp_path / "lead.state"
+    state.write_bytes(b"previous")
+
+    class FailingPlugin(_FakePlugin):
+        def save_state(self, path: str) -> bool:
+            Path(path).write_bytes(b"partial")
+            return False
+
+    plugin = FailingPlugin(_FakeEngine(44_100, 512))
+    with pytest.raises(RuntimeError, match="Could not save the VST3 state"):
+        vst_worker._save_state_atomically(plugin, state)
+
+    assert state.read_bytes() == b"previous"
+    assert list(tmp_path.glob(f".{state.name}.*.tmp")) == []
+
+
+@pytest.mark.parametrize("bad_audio", ["short", "nonfinite"])
+def test_worker_rejects_short_or_nonfinite_plugin_audio(
+    tmp_path: Path, fake_daw: None, monkeypatch: pytest.MonkeyPatch, bad_audio: str
+) -> None:
+    output = tmp_path / "output.npy"
+    midi = tmp_path / "notes.mid"
+    midi.write_bytes(b"midi")
+
+    def bad_output(plugin: _FakePlugin) -> np.ndarray:
+        if bad_audio == "short":
+            return np.zeros((2, plugin.engine.frames - 1), dtype=np.float32)
+        return np.full((2, plugin.engine.frames), np.nan, dtype=np.float32)
+
+    monkeypatch.setattr(_FakePlugin, "get_audio", bad_output)
+    with pytest.raises(RuntimeError, match="(expected at least|non-finite)"):
+        vst_worker._execute(
+            {
+                "action": "instrument",
+                "plugin_path": "test.vst3",
+                "midi_path": str(midi),
+                "output_path": str(output),
+                "sample_rate": 10,
+                "frames": 10,
+            }
+        )
+
+
+class _HangingProcess:
+    pid = 12345
+
+    def __init__(self) -> None:
+        self.stdout = io.BytesIO(b"o" * 100_000)
+        self.stderr = io.BytesIO(b"e" * 100_000)
+        self.terminated = False
+
+    def poll(self) -> int | None:
+        return -15 if self.terminated else None
+
+    def wait(self, timeout: float | None = None) -> int:
+        if not self.terminated:
+            raise subprocess.TimeoutExpired("worker", timeout)
+        return -15
+
+    def terminate(self) -> None:
+        self.terminated = True
+
+    def kill(self) -> None:
+        self.terminated = True
+
+
+def test_host_cancellation_terminates_worker_and_bounds_diagnostics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    process = _HangingProcess()
+    cancelled = threading.Event()
+    cancelled.set()
+    terminated: list[bool] = []
+
+    monkeypatch.setattr(vst_host, "_start_worker", lambda *_args: process)
+
+    def terminate(worker: object, *, force: bool = False) -> None:
+        assert worker is process
+        terminated.append(force)
+        process.terminate()
+
+    monkeypatch.setattr(vst_host, "_terminate_process_tree", terminate)
+    with pytest.raises(vst_host.VSTWorkerError) as raised:
+        vst_host._run_worker(
+            {
+                "action": "instrument",
+                "plugin_alias": "hanging",
+                "track": "Lead",
+                "backend": {"diagnostic_limit": 256},
+            },
+            cancel_event=cancelled,
+        )
+
+    diagnostics = raised.value.diagnostics
+    assert diagnostics.cancelled
+    assert not diagnostics.timed_out
+    assert diagnostics.operation == "instrument"
+    assert diagnostics.plugin_alias == "hanging"
+    assert diagnostics.track == "Lead"
+    assert len(diagnostics.stdout) <= 256 + 40
+    assert len(diagnostics.stderr) <= 256 + 40
+    assert process.terminated
+    assert terminated == [False]
 
 
 def test_worker_main_reports_plugin_errors(
