@@ -147,7 +147,7 @@ remains a separate concern.
 
 Implementation branch: `task-03/track-owned-vst-configuration`  
 Implementation commit: `c7ac39d072b0e774a914313b3afc8d7de6f665cd`
-Status/docs follow-up: `fab98f3511162302b80f12b738849abdf878322f`
+The final status-only follow-up is tracked in the PR commit history.
 
 ### Completed scope
 
@@ -194,10 +194,10 @@ Status/docs follow-up: `fab98f3511162302b80f12b738849abdf878322f`
 - `uv run --extra dev mypy src/prism`: passed.
 - `uv run --extra dev ruff check .`: passed.
 - `uv run --extra docs mkdocs build --strict`: passed.
-- Hosted PR CI, Documentation, CodeQL, and VST3 integration all passed on the
-  final PR head `fab98f3511162302b80f12b738849abdf878322f`; the VST3 workflow's
-  Ubuntu and Windows real-VST3 jobs passed. Local skips do not establish
-  hardware/plugin qualification beyond that hosted workflow.
+- Hosted PR CI, Documentation, CodeQL, and VST3 integration passed on the
+  implementation and final status-only PR heads; the VST3 workflow's Ubuntu and
+  Windows real-VST3 jobs passed. Local skips do not establish hardware/plugin
+  qualification beyond that hosted workflow.
 
 ### Concrete limitations
 
