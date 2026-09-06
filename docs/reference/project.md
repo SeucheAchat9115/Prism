@@ -32,6 +32,9 @@ non-quarter-note migration mode.
         - clips
         - clips_for
         - instrument_plugin
+        - instrument_specification
+        - instrument_configuration
+        - instrument_instance_id
         - sample
         - audio
         - drum

@@ -116,6 +116,7 @@ class Plugin:
     settings: Mapping[str, object]
     automatable: Mapping[str, Parameter]
     vst3: VST3 | None = None
+    instance_id: str | None = None
 
     def __str__(self) -> str:
         return f"{self.track} → {self.name} ({self.preset} {self.kind})"
@@ -184,6 +185,7 @@ def instrument_plugin(
     track: str,
     settings: Mapping[str, object],
     melodic: bool,
+    instance_id: str | None = None,
 ) -> Plugin:
     """Create the public plugin view of a built-in instrument."""
 
@@ -211,6 +213,7 @@ def instrument_plugin(
         preset=preset,
         settings=MappingProxyType(dict(settings)),
         automatable=MappingProxyType(automatable),
+        instance_id=instance_id,
     )
 
 
@@ -261,6 +264,7 @@ def vst3_plugin(
     name: str,
     track: str,
     kind: PluginKind,
+    instance_id: str | None = None,
 ) -> Plugin:
     """Bind a producer-authored VST3 declaration to a Prism signal chain."""
 
@@ -276,6 +280,7 @@ def vst3_plugin(
         settings=MappingProxyType(dict(specification.parameters)),
         automatable=MappingProxyType(parameters),
         vst3=specification,
+        instance_id=instance_id,
     )
 
 

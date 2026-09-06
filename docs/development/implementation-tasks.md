@@ -104,7 +104,7 @@ Done describes implementation completion; check the linked PR for merge state.
 | --- | --- | --- | --- | --- |
 | 01 | [Protect source audio and make stem exports recoverable](implementation-prompts.md#task-01) | None | Done | [PR #13](https://github.com/SeucheAchat9115/Prism/pull/13) |
 | 02 | [Unify musical time and correct non-quarter-note meters](implementation-prompts.md#task-02) | 01 | Done | [PR #16](https://github.com/SeucheAchat9115/Prism/pull/16) |
-| 03 | [Make VST instrument configuration explicitly track-owned](implementation-prompts.md#task-03) | 02 | Planned | — |
+| 03 | [Make VST instrument configuration explicitly track-owned](implementation-prompts.md#task-03) | 02 | Done | [PR #29](https://github.com/SeucheAchat9115/Prism/pull/29) |
 | 04 | [Compile arrangement notes and expressive controls once](implementation-prompts.md#task-04) | 02, 03 | Planned | — |
 | 05 | [Render each VST instrument track through one continuous instance](implementation-prompts.md#task-05) | 03, 04 | Planned | — |
 | 06 | [Preserve sample and audio releases across arrangement boundaries](implementation-prompts.md#task-06) | 02, 04 | Planned | — |
