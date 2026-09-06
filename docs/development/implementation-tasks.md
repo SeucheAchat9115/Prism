@@ -107,7 +107,7 @@ Done describes implementation completion; check the linked PR for merge state.
 | 03 | [Make VST instrument configuration explicitly track-owned](implementation-prompts.md#task-03) | 02 | Done | [PR #29](https://github.com/SeucheAchat9115/Prism/pull/29) |
 | 04 | [Compile arrangement notes and expressive controls once](implementation-prompts.md#task-04) | 02, 03 | Done | [PR #30](https://github.com/SeucheAchat9115/Prism/pull/30) |
 | 05 | [Render each VST instrument track through one continuous instance](implementation-prompts.md#task-05) | 03, 04 | Done | [PR #31](https://github.com/SeucheAchat9115/Prism/pull/31) |
-| 06 | [Preserve sample and audio releases across arrangement boundaries](implementation-prompts.md#task-06) | 02, 04 | In progress | `task-06/preserve-audio-releases` (PR pending) |
+| 06 | [Preserve sample and audio releases across arrangement boundaries](implementation-prompts.md#task-06) | 02, 04 | Done | [PR #32](https://github.com/SeucheAchat9115/Prism/pull/32) |
 | 07 | [Fix native voice lifetime and remove accidental song-length limits](implementation-prompts.md#task-07) | 02, 04, 06 | Planned | — |
 | 08 | [Define parameter automation boundaries and canonical targets](implementation-prompts.md#task-08) | 02, 03, 04, 07 | Planned | — |
 | 09 | [Harden VST workers, cancellation, diagnostics, and state saving](implementation-prompts.md#task-09) | 03, 05, 08 | Planned | — |
@@ -152,4 +152,3 @@ Continue with task 03 from the latest integrated main branch. The September 6
 roadmap revision adds planned work; it does not mark agent features implemented.
 Each implementation PR must update its task row and the implementation-status
 record with actual verification and merge information.
-

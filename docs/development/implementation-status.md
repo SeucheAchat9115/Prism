@@ -11,10 +11,9 @@ The task suffix /35 in historical entries refers to the original audit plan.
 
 ## Task 06/35 — preserve sample and audio releases across arrangement boundaries
 
-Status: In progress; the implementation is on `task-06/preserve-audio-releases`
-and the pull request link will be added in the required follow-up commit after
-the connector publishes the branch. Done describes implementation completion,
-not pull-request merge state.
+Status: Done; [PR #32](https://github.com/SeucheAchat9115/Prism/pull/32) is open.
+The implementation is on `task-06/preserve-audio-releases`. Done describes
+implementation completion, not pull-request merge state.
 
 ### Completed scope
 
@@ -56,10 +55,13 @@ not pull-request merge state.
   3 skipped, coverage 87.77%.
 - `uv run --extra dev mypy src/prism`: passed; 35 source files checked.
 - `uv run --extra dev ruff check .`: passed.
-- `uv run --extra docs mkdocs build --strict`: the reconstructed local tree is
-  missing the unchanged binary `docs/assets/prism-logo.jpg`, so strict mode
-  reports that one missing target. The remote base tree retains that asset;
-  the docs check remains pending on the published branch.
+- `uv run --extra docs mkdocs build --strict`: the local connector-reconstructed
+  tree lacked the unchanged binary `docs/assets/prism-logo.jpg`, but the
+  published Documentation workflow #108 passed its strict build on the full
+  repository tree.
+- Published CI workflow #141, VST3 integration workflow #79, and CodeQL
+  workflow #64 all passed. The separate real-VST qualification workflow remains
+  distinct from offline test mocks.
 - The separate real-VST workflow is unchanged; this task does not claim
   third-party/plugin qualification.
 
@@ -413,4 +415,3 @@ Implementation commit: `2b8909c68924b37a0558c6b64e86e13bb4d9e2b0`
   continuous state across the whole track is intentionally task 05.
 - Standard MIDI channel note messages do not carry Prism's stable per-note IDs;
   a receiving device may apply its own same-pitch voice-stealing policy.
-
