@@ -9,6 +9,66 @@ Original audit IDs and historical test results below are retained. Tasks 17, 18,
 The task suffix /35 in historical entries refers to the original audit plan.
 
 
+## Task 07/35 — fix native voice lifetime and remove accidental song-length limits
+
+Status: Done; [PR #33](https://github.com/SeucheAchat9115/Prism/pull/33) is open.
+Done describes implementation completion, not pull-request merge state.
+
+Implementation branch: `task-07/native-voice-lifetime`  
+Implementation commit: `e24842bde50a67fa7c4cb070ac4fc6f8ee952c95`
+
+### Completed scope
+
+- Uniwave release automation is sampled at the note-off frame. The sampled
+  value determines the active voice's complete release; later automation does
+  not resize that release, while later notes use the updated value.
+- Native arrangement rendering keeps the authored clip span separate from the
+  absolute compiled event stream and explicit output frame range. A 257-bar
+  arrangement is no longer rejected as a 257-bar `NativeSynthSpec` clip.
+- Authored clips retain the documented 1–256 bar limit. Explicit native render
+  ranges are validated before allocation, including finite automation arrays
+  and a resource guard for absurd frame counts.
+
+### Compatibility decisions
+
+- `NativeSynthSpec.bars` remains the authored clip span and continues to reject
+  values above 256. Arrangement callers must pass `frame_count` plus absolute
+  events rather than putting song length into `bars`.
+- A native voice is truncated at the explicit output frame range. Callers must
+  request `tail_seconds` when a release should continue after the final
+  arrangement bar; no implicit output extension is added.
+- Release automation is note-off sampled rather than continuously changing an
+  active release. This preserves deterministic allocation and makes a constant
+  automated release equivalent to its static envelope.
+
+### Verification
+
+- Focused task-07 checks pass, covering constant automated release, note-off
+  increases/decreases, zero release, sustained notes, explicit-range
+  truncation, invalid ranges/non-finite automation, 257-bar native melodic and
+  drum arrangements, a larger scheduling-only arrangement, and a 257-bar
+  external-instrument arrangement.
+- `uv run --extra dev pytest --cov --cov-report=term-missing`: **219 passed,
+  3 skipped**, total coverage **87.79%**. The skips are the existing real-VST
+  qualification tests without their plugin-path environment variables.
+- `uv run --extra dev mypy src/prism`: passed; 35 source files checked.
+- `uv run --extra dev ruff check .`: passed.
+- `uv run --extra docs mkdocs build --strict`: passed in the reconstructed
+  checkout; hosted Documentation workflow **#112** also passed on the full
+  repository asset set.
+- Hosted CI **#145**, VST3 integration **#83**, and CodeQL **#68** passed. The
+  separate real-VST workflow remains unchanged; offline tests and mocks do not
+  establish third-party/plugin qualification.
+
+### Concrete limitations
+
+- The explicit native frame-range guard is 100,000,000 frames; this is a
+  resource-protection limit, not a 256-bar song limit. Larger projects should
+  render bounded ranges in a later range-rendering workflow.
+- The release policy is sampled at note-off; automation changes after note-off
+  intentionally do not affect an already active voice.
+
+
 ## Task 06/35 — preserve sample and audio releases across arrangement boundaries
 
 Status: Done; [PR #32](https://github.com/SeucheAchat9115/Prism/pull/32) is open.

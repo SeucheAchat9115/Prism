@@ -122,3 +122,23 @@ Checkpoint: you have built three independent polyphonic Uniwave instruments and
 automated the lead's filter and oscillator mix.
 Chords create several voices at once, while every note uses all configured
 waves. The same `noise_seed` always produces the same render.
+
+## Automate release without changing voice ownership
+
+`release_ms` can be automated like the other Uniwave parameters:
+
+```python
+song.automation(
+    "Lead Release",
+    target=lead_synth,
+    parameter="release_ms",
+    points=[(0, 100), (1, 900), (2, 250)],
+)
+```
+
+Prism samples this automation at each note's note-off frame and uses that value
+for the complete release of that voice. A later automation point cannot extend
+or shorten a release that has already started; it controls the next note-off.
+This makes a constant automated release match the equivalent static Uniwave
+setting and keeps voice lifetime deterministic. If a release should remain
+audible after the final section, add enough `tail_seconds` to `song.render()`.
