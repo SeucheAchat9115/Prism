@@ -16,7 +16,7 @@ connector publication and hosted checks. The task row remains synchronized with
 this status until the pull request URL and final verification are recorded.
 
 Implementation branch: `task-05/continuous-vst-instance`  
-Implementation commit: pending publication
+Implementation commit: `f2ca3004f9b3be15019dc71724ad6eb94d1b72cd`
 
 ### Completed scope
 
@@ -52,8 +52,12 @@ Implementation commit: pending publication
 
 - Focused continuous-VST regressions pass locally, including the compiled stream
   and host automation request checks.
-- The full test suite, coverage, type, lint, and strict documentation results
-  will be recorded here after the final local run and hosted CI checks.
+- `uv run --extra dev pytest --cov --cov-report=term-missing`: **202 passed,
+  3 skipped**, total coverage **88.32%**. The skips are the existing real-VST
+  qualification tests without their plugin-path environment variables.
+- `uv run --extra dev mypy src/prism`: passed; 35 source files checked.
+- `uv run --extra dev ruff check .`: passed.
+- `uv run --extra docs mkdocs build --strict`: passed.
 - The separate real-VST workflow remains unchanged; local tests without an
   installed plugin do not establish third-party/plugin qualification.
 
