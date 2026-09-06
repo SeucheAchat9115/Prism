@@ -9,6 +9,69 @@ Original audit IDs and historical test results below are retained. Tasks 17, 18,
 The task suffix /35 in historical entries refers to the original audit plan.
 
 
+## Task 11/35 — add explicit export profiles, clipping policy, and dither
+
+Status: Done; PR pending. Done describes implementation completion, not
+pull-request merge state.
+
+Implementation branch: `task-11/export-profiles`
+
+### Completed scope
+
+- Added the serializable `ExportProfile` and `ExportDiagnostics` public API.
+  Profiles name delivery settings for bit depth, channel layout, delivery
+  sample rate, tail, peak-normalization target, clipping policy, and dither.
+- Kept the internal project render rate separate from delivery conversion.
+  Downmixing, sample-rate conversion, peak measurement, optional peak
+  normalization, overload detection, and fixed-point clipping now have an
+  explicit order in the delivery domain.
+- Added `error`, `warn`, and `clip` policies for fixed-point overloads. Results
+  report the pre-normalization peak, post-normalization preclip peak, overload
+  sample count, and clipped sample count. Float-32 output preserves headroom
+  while still reporting overloads.
+- Added seeded TPDF dither immediately before integer WAV quantization. Stems
+  opt in with `dither_stems=True`; float exports never receive dither. WAV
+  writing retains float64 samples to avoid an extra precision-losing cast.
+- Added profile and diagnostics metadata to render results and stem manifests,
+  plus focused coverage for silence, non-finite audio, normalization, all
+  existing WAV subtypes/layouts, deterministic dither, quantization input,
+  and resampling overshoot.
+
+### Compatibility decisions
+
+- Existing keyword calls remain supported. Without a profile, the adapter
+  preserves the historical `Project(normalize=True)` peak target of -1 dBFS,
+  fixed-point clipping, and no dither. A supplied profile is the complete
+  delivery contract and takes precedence over those legacy keyword defaults.
+- `normalization="peak"` is intentionally not loudness normalization; Prism
+  makes no LUFS or perceptual-loudness claim. Stem normalization remains off by
+  default so aligned stems retain their authored levels.
+- Clipping policies govern fixed-point quantization. Float-32 exports retain
+  samples above 0 dBFS and expose those overloads diagnostically.
+
+### Verification
+
+- `uv run pytest --cov --cov-report=term-missing`: **240 passed, 5 skipped**;
+  total coverage **87.25%**. The skips are the existing real-VST
+  qualification tests without plugin-path environment variables.
+- `uv run ruff check .`: passed.
+- `uv run mypy src/prism`: passed.
+- `uv run --extra docs mkdocs build --strict`: passed with a temporary local
+  placeholder for the reconstructed checkout's missing binary logo asset; the
+  placeholder is not part of this change and the published repository asset is
+  unchanged.
+- The separate real-VST workflow remains unchanged.
+
+### Concrete limitations
+
+- TPDF dither is intentionally limited to integer WAV delivery and is seeded
+  per export. The current API does not implement loudness normalization,
+  noise-shaped dither, or a multi-file atomic stem transaction.
+- The local reconstruction lacks the repository's binary logo, so hosted docs
+  should be checked with the original asset present. The export tests and
+  package gates are local and do not establish third-party VST compatibility.
+
+
 ## Task 10/35 — strengthen real VST tests and verify latency compensation
 
 Status: Done; [PR #36](https://github.com/SeucheAchat9115/Prism/pull/36) open. Done
