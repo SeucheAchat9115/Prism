@@ -11,11 +11,11 @@ The task suffix /35 in historical entries refers to the original audit plan.
 
 ## Task 14/35 — create a public project build contract and executable CLI tutorials
 
-Status: In progress; PR pending. Done describes implementation completion, not
+Status: Done; [PR #40](https://github.com/SeucheAchat9115/Prism/pull/40) open. Done describes implementation completion, not
 pull-request merge state.
 
 Implementation branch: `task-14/project-build-contract`
-Implementation commit: `4a91c74cae21f15ce971a7adc4be01b19340be88`
+Implementation commit: `8b9810667820759fcd4256e5432c4310cf07dbbc`
 
 ### Completed scope
 
@@ -56,9 +56,17 @@ Implementation commit: `4a91c74cae21f15ce971a7adc4be01b19340be88`
 ### Verification
 
 - Focused Task 14 tests and the repository CI/type/lint/docs gates are included
-  in this PR; the local workspace executor became unavailable before the new
-  tests could be run. CI is pending publication. No real-VST qualification
-  claim is made.
+  in this PR.
+- `uv run pytest --cov --cov-report=term-missing`: **255 passed, 5 skipped**;
+  total coverage **86.79%** on Ubuntu and **87.00%** on Windows.
+- `uv run ruff check .`: passed on Ubuntu and Windows.
+- `uv run mypy src/prism`: passed on Ubuntu and Windows.
+- Release packaging completed on both Python CI platforms.
+- `uv run --extra docs mkdocs build --strict`: passed.
+- The separate real-VST workflow passed its pinned fixture and Surge smoke tests
+  on Ubuntu and Windows.
+- The local workspace executor became unavailable before a final local run; CI
+  is the authoritative verification for this branch.
 
 ### Concrete limitations
 
