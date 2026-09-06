@@ -11,10 +11,11 @@ The task suffix /35 in historical entries refers to the original audit plan.
 
 ## Task 10/35 — strengthen real VST tests and verify latency compensation
 
-Status: Done; PR pending. Done describes implementation completion, not pull-request
-merge state.
+Status: Done; [PR #36](https://github.com/SeucheAchat9115/Prism/pull/36) open. Done
+describes implementation completion, not pull-request merge state.
 
-Implementation branch: `task-10/real-vst-qualification`
+Implementation branch: `task-10/real-vst-qualification`  
+Implementation commit: `4e61fc322083a6043c15828e413cb45142c02538`
 
 ### Completed scope
 
