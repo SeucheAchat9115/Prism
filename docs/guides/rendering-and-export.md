@@ -69,6 +69,23 @@ The default is zero seconds and the accepted range is 0 through 60 seconds.
 Choose the shortest duration that lets the slowest effect become quiet. All
 stems receive the same tail and remain exactly aligned.
 
+## Native arrangement ranges and release automation
+
+The 256-bar limit applies to an authored clip, not to the song. Native MIDI
+clips retain that limit so an accidental clip declaration cannot allocate an
+unbounded implicit buffer. During arrangement rendering, Prism compiles the
+absolute note/event range and supplies the complete output frame range
+separately. A song can therefore contain a 256-bar section followed by another
+bar without turning the complete arrangement into a 257-bar clip.
+
+Uniwave `release_ms` automation is sampled once at the note-off frame. The
+sampled value determines that voice's release duration; changing the lane after
+note-off affects later notes, but does not resize an already active release.
+A constant automated release is therefore equivalent to the same static
+Uniwave envelope. The explicit render range remains a hard endpoint: a natural
+release is rendered only when the requested arrangement plus `tail_seconds`
+contains enough frames. Prism does not silently allocate beyond that range.
+
 ## Stem output ownership and recovery
 
 `render_stems("renders/stems")` treats the argument as a producer-facing

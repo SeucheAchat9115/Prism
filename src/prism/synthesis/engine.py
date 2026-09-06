@@ -48,6 +48,7 @@ def render_native_synth(
     if spec.frame_count is None and seconds > MAX_SYNTH_SECONDS:
         raise ValueError(f"native synth output cannot exceed {MAX_SYNTH_SECONDS:g} seconds")
     frames = spec.frame_count or max(1, timing.quarter_notes_to_frame(total_quarter_notes))
+    _validate_automation(spec, frames)
     definition = STOCK_PLUGINS.get("instrument", spec.preset)
     if definition.synth_processor is not None:
         rendered = definition.synth_processor(
@@ -77,6 +78,22 @@ def render_native_synth(
     samples *= gain
     samples = np.tanh(samples * 1.15) / math.tanh(1.15)
     return np.asarray(np.clip(samples, -1.0, 1.0), dtype=np.float64)
+
+
+def _validate_automation(spec: NativeSynthSpec, frames: int) -> None:
+    """Reject malformed automation before any renderer allocates voice buffers."""
+
+    for parameter, values in (spec.automation or {}).items():
+        try:
+            resolved = np.asarray(values, dtype=np.float64)
+        except (TypeError, ValueError) as error:
+            raise ValueError(f"Automation {parameter!r} must be a numeric frame array") from error
+        if resolved.ndim != 1 or resolved.size < frames:
+            raise ValueError(
+                f"Automation {parameter!r} must contain at least {frames} finite frame values"
+            )
+        if not np.all(np.isfinite(resolved)):
+            raise ValueError(f"Automation {parameter!r} contains non-finite values")
 
 
 def _render_percussion(

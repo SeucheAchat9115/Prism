@@ -36,6 +36,7 @@ from prism.plugins import (
 from prism.sample_library import SampleLibrary
 from prism.synthesis.engine import native_instrument_settings
 from prism.synthesis.types import (
+    MAX_SYNTH_CLIP_BARS,
     MAX_SYNTH_SECONDS,
     SynthWaveform,
     Uniwave,
@@ -1741,8 +1742,14 @@ def _project_script(value: str | Path | None) -> Path:
 
 
 def _bars(value: int, label: str) -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 256:
-        raise ProjectError(f"{label} bars must be an integer between 1 and 256.")
+    if (
+        isinstance(value, bool)
+        or not isinstance(value, int)
+        or not 1 <= value <= MAX_SYNTH_CLIP_BARS
+    ):
+        raise ProjectError(
+            f"{label} bars must be an integer between 1 and {MAX_SYNTH_CLIP_BARS}."
+        )
     return value
 
 

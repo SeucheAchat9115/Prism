@@ -858,8 +858,12 @@ def _arrange_midi_track(
         uniwave=clip.uniwave,
         automation=automation,
         automation_base_gain_db=_automation_base_gain(track) if automation else None,
+        # ``bars`` remains the authored clip span for NativeSynthSpec.  The
+        # absolute arrangement span is represented by the compiled note events
+        # and this explicit frame range, so a 257-bar song is not mistaken for
+        # a 257-bar authored clip.
         frame_count=total_frames,
-        bars=total_bars,
+        bars=clip.bars,
         waveform=clip.waveform,
         attack_ms=clip.attack_ms,
         decay_ms=clip.decay_ms,

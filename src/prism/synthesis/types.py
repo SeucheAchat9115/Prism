@@ -15,7 +15,15 @@ if TYPE_CHECKING:
 SynthPreset = str
 SynthWaveform = Literal["sine", "triangle", "saw", "square"]
 
+# Authored native clips stay bounded so an accidental clip declaration cannot
+# allocate an unbounded implicit buffer.  This is deliberately not an
+# arrangement limit: arrangement renders provide an explicit frame range.
+MAX_SYNTH_CLIP_BARS = 256
 MAX_SYNTH_SECONDS = 120.0
+# Explicit offline ranges may represent a long song, but still need a hard
+# resource guard before a renderer allocates a NumPy buffer.  At the supported
+# maximum sample rate this is just over eight minutes of mono audio.
+MAX_EXPLICIT_SYNTH_FRAMES = 100_000_000
 PERCUSSION_PRESETS = frozenset({"kick", "snare", "hihat"})
 MELODIC_PRESETS = frozenset({"bass", "lead", "pad"})
 
@@ -149,8 +157,17 @@ class Uniwave:
             vibrato_depth_cents=5,
         )
 
+
 @dataclass(frozen=True, slots=True)
 class NativeSynthSpec:
+    """One validated native-synth render request.
+
+    ``bars`` is the authored clip span used for implicit clip renders.  A
+    song-level render must provide ``frame_count`` and keep its arrangement
+    range in the compiled note events; it must not pass the whole song length
+    as the clip span.
+    """
+
     preset: SynthPreset
     sequence: tuple[str, ...]
     note_events: tuple[Note, ...] = ()
@@ -175,8 +192,23 @@ class NativeSynthSpec:
     def __post_init__(self) -> None:
         if not self.preset:
             raise ValueError("Instrument preset cannot be empty")
-        if not 1 <= self.bars <= 256:
-            raise ValueError("Synth clip bars must be between 1 and 256")
+        if (
+            isinstance(self.bars, bool)
+            or not isinstance(self.bars, int)
+            or not 1 <= self.bars <= MAX_SYNTH_CLIP_BARS
+        ):
+            raise ValueError(
+                f"Synth clip bars must be an integer between 1 and {MAX_SYNTH_CLIP_BARS}"
+            )
+        if self.frame_count is not None and (
+            isinstance(self.frame_count, bool)
+            or not isinstance(self.frame_count, int)
+            or not 1 <= self.frame_count <= MAX_EXPLICIT_SYNTH_FRAMES
+        ):
+            raise ValueError(
+                "Explicit native render frame_count must be an integer between "
+                f"1 and {MAX_EXPLICIT_SYNTH_FRAMES}"
+            )
         if self.preset in PERCUSSION_PRESETS:
             normalized = rhythm_steps(self.sequence)
         elif self.note_events:

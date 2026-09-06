@@ -60,7 +60,18 @@ def render(
         if start >= frames:
             continue
         note_frames = max(1, timing.quarter_notes_to_frame(note.duration))
-        release = max(0, int(round(sound.release_ms * sample_rate / 1_000.0)))
+        note_off_frame = start + note_frames
+        release_ms = (
+            _automated_value_at(
+                automation,
+                "release_ms",
+                sound.release_ms,
+                note_off_frame,
+            )
+            if note_off_frame < frames
+            else sound.release_ms
+        )
+        release = max(0, int(round(release_ms * sample_rate / 1_000.0)))
         voice_frames = min(frames - start, note_frames + release)
         vibrato_rate = _automated(
             automation, "vibrato_rate_hz", sound.vibrato_rate_hz, start, voice_frames
@@ -105,6 +116,7 @@ def render(
             sound=sound,
             automation=automation,
             start=start,
+            release_ms=release_ms,
         )
         note_gain = db_gain(spec.note_gains_db[event_index]) if spec.note_gains_db else 1.0
         output[start : start + voice_frames] += (
@@ -129,6 +141,20 @@ def _automated(
     if values is None:
         return np.full(frames, default, dtype=np.float64)
     return np.asarray(values[start : start + frames], dtype=np.float64)
+
+
+def _automated_value_at(
+    automation: Mapping[str, np.ndarray], name: str, default: float, frame: int
+) -> float:
+    """Sample an automated value at one absolute frame, clamping to the range."""
+
+    values = automation.get(name)
+    if values is None:
+        return default
+    resolved = np.asarray(values, dtype=np.float64)
+    if resolved.ndim != 1 or resolved.size == 0:
+        raise ValueError(f"Automation {name!r} must be a non-empty frame array")
+    return float(resolved[min(max(frame, 0), resolved.size - 1)])
 
 
 def _step_events(spec: NativeSynthSpec, quarter_notes_per_bar: float) -> tuple[Note, ...]:
@@ -170,7 +196,15 @@ def _envelope(
     sound: Uniwave,
     automation: Mapping[str, np.ndarray],
     start: int,
+    release_ms: float | None = None,
 ) -> np.ndarray:
+    if release_ms is None:
+        release_ms = _automated_value_at(
+            automation,
+            "release_ms",
+            sound.release_ms,
+            start + note_frames,
+        )
     positions = np.arange(frames, dtype=np.float64)
     attack = np.maximum(
         1.0, _automated(automation, "attack_ms", sound.attack_ms, start, frames)
@@ -181,10 +215,7 @@ def _envelope(
         * sample_rate / 1_000.0
     )
     sustain = _automated(automation, "sustain", sound.sustain, start, frames)
-    release = np.maximum(
-        1.0, _automated(automation, "release_ms", sound.release_ms, start, frames)
-        * sample_rate / 1_000.0
-    )
+    release = max(0.0, release_ms * sample_rate / 1_000.0)
     envelope = sustain.copy()
     attack_mask = positions < attack
     envelope[attack_mask] = positions[attack_mask] / attack[attack_mask]
@@ -196,13 +227,16 @@ def _envelope(
     note_off = min(frames, note_frames)
     if note_off < frames:
         release_position = positions - note_off
-        release_mask = release_position < release
         start_level = envelope[max(0, note_off - 1)]
-        active_indices = np.arange(note_off, frames)[release_mask[note_off:]]
-        envelope[active_indices] = start_level * (
-            1.0 - release_position[active_indices] / release[active_indices]
-        )
-        envelope[np.arange(note_off, frames)[~release_mask[note_off:]]] = 0.0
+        if release > 0.0:
+            release_mask = release_position < release
+            active_indices = np.arange(note_off, frames)[release_mask[note_off:]]
+            envelope[active_indices] = start_level * (
+                1.0 - release_position[active_indices] / release
+            )
+            envelope[np.arange(note_off, frames)[~release_mask[note_off:]]] = 0.0
+        else:
+            envelope[note_off:] = 0.0
     return envelope
 
 
