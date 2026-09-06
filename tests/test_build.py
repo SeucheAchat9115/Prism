@@ -5,7 +5,6 @@ import json
 from pathlib import Path
 
 import pytest
-
 from tutorial_harness import run_contract_tutorial
 
 from prism import (
