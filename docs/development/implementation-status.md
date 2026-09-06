@@ -11,11 +11,14 @@ The task suffix /35 in historical entries refers to the original audit plan.
 
 ## Task 08/35 — define parameter automation boundaries and canonical targets
 
-Status: In progress; the implementation PR is pending.
+Status: Done; [PR #34](https://github.com/SeucheAchat9115/Prism/pull/34) is open.
+Done describes implementation completion, not pull-request merge state.
 
 Implementation branch: `task-08-parameter-automation-boundaries`
+Implementation commit: `1bfc6a6a29f4871189b58fb2fb85eb669b20c5cc`
+The final status-only follow-up records the PR URL in both roadmap records.
 
-### Implemented scope so far
+### Completed scope
 
 - Added a sparse compiled parameter-envelope representation with absolute sample
   frame boundaries, explicit base-value versus legacy first-point behavior,
@@ -43,12 +46,18 @@ Implementation branch: `task-08-parameter-automation-boundaries`
   parameters remain sparse in the compiled representation and are materialized
   only when an audio adapter requests sample-aligned values.
 
-### Verification so far
+### Verification
 
 - Focused automation regressions: **7 passed**.
-- `uv run --extra dev mypy src/prism`: passed.
-- `uv run --extra dev ruff check src tests`: passed.
-- Full required gates and hosted CI remain pending until the final PR commit.
+- `uv run --extra dev pytest --cov --cov-report=term-missing`: **226 passed,
+  3 skipped**, total coverage **87.57%**. The skips are the existing real-VST
+  qualification tests without plugin-path environment variables.
+- `uv run --extra dev mypy src/prism`: passed; 35 source files checked.
+- `uv run --extra dev ruff check .`: passed.
+- `uv run --extra docs mkdocs build --strict`: passed.
+- `uv build`: passed.
+- Hosted CI and the separate real-VST workflow are checked on the published PR;
+  offline tests and mocks do not establish third-party/plugin qualification.
 
 ### Concrete limitations
 
