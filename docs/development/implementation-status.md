@@ -11,11 +11,11 @@ The task suffix /35 in historical entries refers to the original audit plan.
 
 ## Task 07/35 — fix native voice lifetime and remove accidental song-length limits
 
-Status: Done; PR pending. Done describes implementation completion, not
-pull-request merge state; the actual PR URL will be added in the publication
-follow-up commit.
+Status: Done; [PR #33](https://github.com/SeucheAchat9115/Prism/pull/33) is open.
+Done describes implementation completion, not pull-request merge state.
 
-Implementation branch: `task-07/native-voice-lifetime`
+Implementation branch: `task-07/native-voice-lifetime`  
+Implementation commit: `e24842bde50a67fa7c4cb070ac4fc6f8ee952c95`
 
 ### Completed scope
 
