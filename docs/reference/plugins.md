@@ -20,7 +20,8 @@
 `Track.effect`, `Bus.effect`, or `Project.master_effect`. Parameter values are
 normalized from `0.0` to `1.0`. See the
 [external VST3 guide](../guides/external-vst3.md) for registry and inspection
-commands.
+commands. Instrument VST3 declarations are owned by their track; equivalent
+clips reuse the same stable instance, while timed changes belong in automation.
 
 ## VSTRegistry
 

@@ -121,6 +121,7 @@ class MidiClip:
 
 
 TrackClip = SampleClip | AudioClip | DrumClip | MidiClip
+InstrumentSpecification = str | Uniwave | VST3
 
 
 @dataclass(frozen=True, slots=True)
@@ -189,6 +190,8 @@ class Track:
         self.muted = bool(muted)
         self._clips: list[ClipPlacement] = []
         self._instrument: Plugin | None = None
+        self._instrument_specification: InstrumentSpecification | None = None
+        self._instrument_instance_id = f"track:{self.name}:instrument"
         self.effects: list[Plugin] = []
         self.output_bus: Bus | None = None
         self.sends: list[Send] = []
@@ -218,6 +221,29 @@ class Track:
         """The stock instrument that turns this track's events into sound."""
 
         return self._instrument
+
+    @property
+    def instrument_specification(self) -> InstrumentSpecification | None:
+        """The immutable instrument declaration owned by this track.
+
+        MIDI clips refer to this declaration instead of owning independent VST3
+        state. A second clip may repeat an equivalent declaration, but a
+        different VST3 alias, state, preset, or parameter map is rejected.
+        """
+
+        return self._instrument_specification
+
+    @property
+    def instrument_configuration(self) -> InstrumentSpecification | None:
+        """Compatibility alias for :attr:`instrument_specification`."""
+
+        return self._instrument_specification
+
+    @property
+    def instrument_instance_id(self) -> str:
+        """Return the stable identity of this track's instrument instance."""
+
+        return self._instrument_instance_id
 
     def sample(
         self,
@@ -270,6 +296,7 @@ class Track:
                 track=self.name,
                 settings={"gain_db": clip.gain_db},
                 melodic=False,
+                instance_id=self._instrument_instance_id,
             )
         return self
 
@@ -324,6 +351,7 @@ class Track:
                 track=self.name,
                 settings={"gain_db": clip.gain_db},
                 melodic=False,
+                instance_id=self._instrument_instance_id,
             )
         return self
 
@@ -367,6 +395,7 @@ class Track:
                 track=self.name,
                 settings={"gain_db": clip.gain_db, "seed": float(seed)},
                 melodic=False,
+                instance_id=self._instrument_instance_id,
             )
         return self
 
@@ -374,7 +403,7 @@ class Track:
         self,
         notes: str | Sequence[str] | Sequence[Note],
         *,
-        instrument: str | Uniwave | VST3 = "uniwave",
+        instrument: str | Uniwave | VST3 | None = None,
         bars: int = 1,
         velocity: int = 100,
         waveform: SynthWaveform | None = None,
@@ -397,8 +426,15 @@ class Track:
     ) -> Self:
         """Add a placed MIDI-note clip rendered by this track's instrument."""
 
+        requested_instrument: str | Uniwave | VST3 = (
+            self._instrument_specification
+            if instrument is None and self._instrument_specification is not None
+            else "uniwave"
+            if instrument is None
+            else instrument
+        )
         preset, uniwave, external = _resolve_instrument(
-            instrument,
+            requested_instrument,
             waveform=waveform,
             attack_ms=attack_ms,
             decay_ms=decay_ms,
@@ -447,6 +483,7 @@ class Track:
             maximum=1.0,
             clip_beats=clip_beats,
         )
+        specification = _instrument_specification(preset, uniwave, external)
         self._add_clip(
             MidiClip(
                 instrument=preset,
@@ -473,9 +510,14 @@ class Track:
             section=section,
             start_bar=start_bar,
             repeat=repeat,
+            instrument_specification=specification,
         )
         if self._instrument is None:
-            self._set_melodic_instrument(external or preset, name=None)
+            self._set_melodic_instrument(
+                external or preset,
+                name=None,
+                specification=specification,
+            )
         return self
 
     def instrument(
@@ -518,7 +560,8 @@ class Track:
         resolved_gain = clip.gain_db if gain_db is None else validate_gain(
             gain_db, label=f"Instrument {self.name!r} gain"
         )
-        self._clips = [
+        specification = _instrument_specification(preset_name, uniwave, external)
+        updated_clips = [
             replace(
                 placement,
                 clip=replace(
@@ -537,7 +580,19 @@ class Track:
             for placement in self._clips
             if isinstance(placement.clip, MidiClip)
         ]
-        return self._set_melodic_instrument(external or preset_name, name=name)
+        updated_clip = next(
+            (placement.clip for placement in updated_clips if isinstance(placement.clip, MidiClip)),
+            None,
+        )
+        assert isinstance(updated_clip, MidiClip)
+        plugin = self._set_melodic_instrument(
+            external or preset_name,
+            name=name,
+            clip=updated_clip,
+            specification=specification,
+        )
+        self._clips = updated_clips
+        return plugin
 
     def effect(
         self,
@@ -588,42 +643,121 @@ class Track:
         preset: str | VST3,
         *,
         name: str | None,
+        clip: MidiClip | None = None,
+        specification: InstrumentSpecification | None = None,
     ) -> Plugin:
-        clip = self.clip
-        assert isinstance(clip, MidiClip)
+        source_clip = self.clip if clip is None else clip
+        assert isinstance(source_clip, MidiClip)
         if isinstance(preset, VST3):
-            self._instrument = vst3_plugin(
+            plugin = vst3_plugin(
                 preset,
                 name=f"{self.name} Instrument" if name is None else _name(name, "Plugin"),
                 track=self.name,
                 kind="instrument",
+                instance_id=self._instrument_instance_id,
             )
-            return self._instrument
-        settings: dict[str, object] = {}
-        if clip.uniwave is not None:
-            from prism.stock_plugins.uniwave import settings as uniwave_settings
-
-            settings.update(uniwave_settings(clip.uniwave))
         else:
-            settings.update(native_instrument_settings(preset))
-        overrides = {
-            "waveform": clip.waveform,
-            "attack_ms": clip.attack_ms,
-            "decay_ms": clip.decay_ms,
-            "sustain": clip.sustain,
-            "release_ms": clip.release_ms,
-            "cutoff_hz": clip.cutoff_hz,
-        }
-        settings.update({key: value for key, value in overrides.items() if value is not None})
-        settings["gain_db"] = clip.gain_db
-        self._instrument = instrument_plugin(
-            preset,
-            name=f"{self.name} Instrument" if name is None else _name(name, "Plugin"),
-            track=self.name,
-            settings=settings,
-            melodic=True,
+            settings: dict[str, object] = {}
+            if source_clip.uniwave is not None:
+                from prism.stock_plugins.uniwave import settings as uniwave_settings
+
+                settings.update(uniwave_settings(source_clip.uniwave))
+            else:
+                settings.update(native_instrument_settings(preset))
+            overrides = {
+                "waveform": source_clip.waveform,
+                "attack_ms": source_clip.attack_ms,
+                "decay_ms": source_clip.decay_ms,
+                "sustain": source_clip.sustain,
+                "release_ms": source_clip.release_ms,
+                "cutoff_hz": source_clip.cutoff_hz,
+            }
+            settings.update({key: value for key, value in overrides.items() if value is not None})
+            settings["gain_db"] = source_clip.gain_db
+            plugin = instrument_plugin(
+                preset,
+                name=f"{self.name} Instrument" if name is None else _name(name, "Plugin"),
+                track=self.name,
+                settings=settings,
+                melodic=True,
+                instance_id=self._instrument_instance_id,
+            )
+        effective_specification = preset if specification is None else specification
+        self._replace_instrument(plugin, effective_specification)
+        return plugin
+
+    def _replace_instrument(
+        self,
+        plugin: Plugin,
+        specification: InstrumentSpecification,
+    ) -> None:
+        previous = self._instrument
+        if previous is not None:
+            remapped: list[AutomationLane] = []
+            for lane in self._project.automation_lanes:
+                if lane.target is not previous:
+                    remapped.append(lane)
+                    continue
+                parameter = plugin.automatable.get(lane.parameter)
+                if plugin.vst3 is None and parameter is None:
+                    raise ProjectError(
+                        f"Cannot replace instrument on track {self.name!r}: automation "
+                        f"{lane.name!r} targets parameter {lane.parameter!r}, which the "
+                        "new instrument does not expose. Remove or retarget that lane "
+                        "before replacing the instrument."
+                    )
+                if parameter is not None and any(
+                    point.value < parameter.minimum or point.value > parameter.maximum
+                    for point in lane.points
+                ):
+                    raise ProjectError(
+                        f"Cannot replace instrument on track {self.name!r}: automation "
+                        f"{lane.name!r} contains values outside the new instrument's "
+                        f"range for {lane.parameter!r}. Remove or retarget that lane "
+                        "before replacing the instrument."
+                    )
+                remapped.append(replace(lane, target=plugin))
+            self._project.automation_lanes = remapped
+        self._instrument = plugin
+        self._instrument_specification = specification
+
+    def _check_instrument_compatibility(
+        self,
+        requested: InstrumentSpecification,
+    ) -> None:
+        existing = self._instrument_specification
+        if existing is None or existing == requested:
+            return
+        if isinstance(existing, VST3) or isinstance(requested, VST3):
+            if isinstance(existing, VST3) and isinstance(requested, VST3):
+                differences: list[str] = []
+                if existing.alias != requested.alias:
+                    differences.append(f"alias {existing.alias!r} vs {requested.alias!r}")
+                if existing.state != requested.state:
+                    differences.append(f"state {existing.state!r} vs {requested.state!r}")
+                if existing.preset != requested.preset:
+                    differences.append(f"preset {existing.preset!r} vs {requested.preset!r}")
+                if dict(existing.parameters) != dict(requested.parameters):
+                    differences.append(
+                        f"parameters {dict(existing.parameters)!r} vs "
+                        f"{dict(requested.parameters)!r}"
+                    )
+                detail = "; ".join(differences) or "the VST3 configuration"
+            else:
+                detail = (
+                    f"instrument type {type(existing).__name__} vs "
+                    f"{type(requested).__name__}"
+                )
+            raise ProjectError(
+                f"Track {self.name!r} owns one VST3 instrument instance, but this clip "
+                f"requests an incompatible {detail}. Clips reuse the track-owned VST3 "
+                "configuration; use song.automation(...) for timed parameter changes "
+                "or a separate track for a different patch."
+            )
+        raise ProjectError(
+            f"Track {self.name!r} already owns a different instrument configuration. "
+            "Use track.instrument(...) to replace it for the whole track."
         )
-        return self._instrument
 
     def _add_clip(
         self,
@@ -632,6 +766,7 @@ class Track:
         section: str | None,
         start_bar: float,
         repeat: bool,
+        instrument_specification: InstrumentSpecification | None = None,
     ) -> None:
         if self._clips:
             first = self._clips[0].clip
@@ -644,6 +779,8 @@ class Track:
                 if first.preset != clip.preset:
                     raise ProjectError("All drum clips on one track must use the same preset.")
             if isinstance(first, MidiClip) and isinstance(clip, MidiClip):
+                if instrument_specification is not None:
+                    self._check_instrument_compatibility(instrument_specification)
                 if first.instrument != clip.instrument:
                     raise ProjectError(
                         "All MIDI clips on one track must use the same instrument."
@@ -1110,12 +1247,17 @@ class Project:
                         }
                         for placement in track.clips
                     ],
+                    "instrument_instance_id": track.instrument_instance_id,
+                    "instrument_specification": _instrument_specification_configuration(
+                        track.instrument_specification,
+                        track.instrument_plugin,
+                    ),
                     "instrument": _plugin_configuration(track.instrument_plugin),
                     "effects": [_plugin_configuration(effect) for effect in track.effects],
                 }
             )
         return {
-            "schema_version": 7,
+            "schema_version": 8,
             "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,
@@ -1294,16 +1436,54 @@ def _plugin_configuration(plugin: Plugin | None) -> dict[str, object] | None:
         "preset": plugin.preset,
         "settings": dict(plugin.settings),
     }
+    if plugin.instance_id is not None:
+        configuration["instance_id"] = plugin.instance_id
     if plugin.vst3 is not None:
         configuration["format"] = "vst3"
         configuration["external"] = {
             "alias": plugin.vst3.alias,
             "state": plugin.vst3.state,
             "preset": plugin.vst3.preset,
+            "parameters": dict(plugin.vst3.parameters),
         }
     else:
         configuration["format"] = "stock"
     return configuration
+
+
+def _instrument_specification_configuration(
+    specification: InstrumentSpecification | None,
+    plugin: Plugin | None,
+) -> dict[str, object] | None:
+    if specification is None:
+        return None
+    if isinstance(specification, VST3):
+        return {
+            "format": "vst3",
+            "alias": specification.alias,
+            "state": specification.state,
+            "preset": specification.preset,
+            "parameters": dict(specification.parameters),
+        }
+    if plugin is None:
+        return {"format": "stock", "preset": specification}
+    return {
+        "format": "stock",
+        "preset": plugin.preset,
+        "settings": dict(plugin.settings),
+    }
+
+
+def _instrument_specification(
+    preset: str,
+    uniwave: Uniwave | None,
+    external: VST3 | None,
+) -> InstrumentSpecification:
+    if external is not None:
+        return external
+    if uniwave is not None:
+        return uniwave
+    return preset
 
 
 def _chain_effect(

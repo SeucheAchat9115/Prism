@@ -109,6 +109,7 @@ nav:
       - "19 · Find and organize samples": tutorial/19-find-and-organize-samples.md
       - "20 · Build a free VST3 song": tutorial/20-free-vst3-song.md
       - "21 · Use Serum on Windows": tutorial/21-serum-on-windows.md
+      - "22 · Track-owned VST3 instruments": tutorial/22-track-owned-vst3-instrument.md
   - Guides:
       - How Prism thinks: guides/concepts.md
       - MIDI and expression: guides/midi-and-expression.md

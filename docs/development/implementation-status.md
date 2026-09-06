@@ -137,3 +137,63 @@ Implementation commit: `5b2629f4d855ca5c7ae9470fdf722b6d8be2545c`
 - At the original handoff, hosted CI and the separate real-VST workflow had
   not yet been checked. The PR has since merged; local skips do not establish
   hardware/plugin qualification.
+
+## Task 03/35 — make VST instrument configuration explicitly track-owned
+
+Status: In progress; the implementation and focused regressions are complete,
+but the full required gates and hosted PR checks are still pending. PR link and
+final status will be added in the publication follow-up commit.
+
+### Completed scope
+
+- MIDI tracks now retain one immutable instrument specification, including the
+  complete `VST3` alias, relative state or preset path, and normalized parameter
+  map. Later clips may omit `instrument` or repeat an equivalent declaration;
+  conflicting aliases, states, presets, or parameter maps fail with an
+  actionable `ProjectError` before a render can start.
+- Instrument plugins expose a deterministic stable instance ID derived from the
+  owning track. Resolved project configuration records that ID and the effective
+  relative VST3 specification without machine-specific plugin paths. The
+  configuration schema is now version `8`.
+- Deliberate `Track.instrument(...)` replacement updates every MIDI clip and
+  preserves the track instance ID. Existing automation is rebound by parameter
+  name when compatible; replacements that would orphan a lane or exceed a new
+  native parameter range are rejected atomically.
+- Native instruments retain the existing first-clip syntax and replacement API.
+  VST3 patch changes are intentionally not implemented as hidden per-clip
+  instances: use automation for timed parameter changes and separate tracks for
+  simultaneous patches.
+- Added the track-owned VST3 guide section, reference members, and runnable
+  tutorial level 22.
+
+### Compatibility decisions
+
+- `Track.midi(..., instrument=None)` keeps the existing default Uniwave behavior
+  on a new track and reuses the existing track-owned instrument on later clips.
+  Passing `VST3(...)` on the first clip remains the supported explicit syntax.
+- `Track.instrument(...)` is the explicit whole-track replacement operation.
+  Compatible automation is rebound in the project's lane collection by
+  parameter name; callers must re-read that collection after replacement because
+  `AutomationLane` remains immutable.
+- The separate real-VST workflow and hardware/plugin qualification are unchanged.
+  Continuous one-instance arrangement rendering remains task 05.
+
+### Verification
+
+- Focused VST tests: **16 passed** locally, including equal declaration reuse,
+  alias/state/preset/parameter conflicts, stable configuration, replacement,
+  automation rebinding, and atomic orphan rejection.
+- `uv run --extra dev mypy src/prism`: passed.
+- `uv run --extra dev ruff check src/prism/plugins.py src/prism/project/builder.py`:
+  passed.
+- Full `pytest --cov`, repository-wide Ruff, strict MkDocs, and hosted CI are
+  pending at this intermediate status.
+
+### Concrete limitations
+
+- A VST3 parameter name not present in the authored parameter map is still
+  accepted for automation because the installed plugin is the authority for its
+  exposed controls; hardware/plugin inspection remains outside this task.
+- The current renderer still creates worker renders per arrangement placement;
+  the track-owned identity is groundwork for task 05 and does not claim its
+  continuous-instance behavior.

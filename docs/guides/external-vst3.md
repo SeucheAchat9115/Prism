@@ -104,6 +104,32 @@ Use the exact names printed by `inspect`; manufacturers choose their own names.
 The loading order is plugin default, state or preset, `parameters`, then Prism
 automation. This makes the visible values in `main.py` authoritative.
 
+## Keep one VST3 configuration per track
+
+An instrument track owns one immutable VST3 declaration and one stable instrument
+instance identity. Later MIDI clips can omit `instrument` to reuse that
+track-owned declaration, or pass an equivalent `VST3(...)` value explicitly:
+
+```python
+patch = VST3("serum", parameters={"Filter Cutoff": 0.35})
+lead = song.track("Lead").midi("C4 Eb4 G4", instrument=patch)
+lead.midi("G4 F4 Eb4 C4", section="Chorus")  # reuses patch
+```
+
+The alias, state, preset, and complete parameter map must remain compatible on
+one track. A conflicting declaration such as `Filter Cutoff=0.8` raises before
+rendering with a message that identifies the conflict. Prism does not create a
+hidden per-clip plugin instance to switch patches. Use `song.automation(...)`
+for timed parameter changes and separate tracks when two patches must sound at
+the same time.
+
+Calling `lead.instrument(VST3(...))` is an explicit whole-track replacement.
+All MIDI clips receive the replacement patch. Compatible automation is rebound
+by parameter name; if a lane would become orphaned or exceed the new instrument's
+range, the replacement is rejected before the track is changed. The resolved
+configuration records the effective relative state/preset paths, parameters,
+and stable instance ID, but never the machine-specific plugin path.
+
 ## Save settings that parameters cannot express
 
 Some plugins keep wavetable selections, modulation routings, sample data, or
