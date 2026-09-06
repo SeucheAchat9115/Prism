@@ -16,12 +16,20 @@
         - render
         - render_stems
         - export_midi
+        - compile_track_events
         - configuration
 
 `Project.timing` is the shared constant-tempo conversion boundary used by
 arrangement placement, audio, automation, and MIDI export. See
 [Musical timing](timing.md) for its canonical quarter-note contract and
 non-quarter-note migration mode.
+
+`Project.controller_boundary` controls expressive state at concrete clip
+boundaries. It defaults to `"reset"`, with `"retain"` and explicit `"legacy"`
+compatibility available for deliberate controller continuity. Use
+`prism.compile_track_events` when an agent needs to inspect stable note IDs,
+absolute positions, controller curves, or repeated/scoped clip occurrences
+before rendering.
 
 ## Track
 

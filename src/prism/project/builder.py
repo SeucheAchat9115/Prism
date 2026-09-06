@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Literal, Self, Sequence, TypedDict
 
 from prism.errors import ProjectError
 from prism.music import (
+    ControlCurve,
+    ControllerBoundaryMode,
     ControlPoint,
     Note,
     note_steps,
@@ -40,6 +42,7 @@ from prism.timing import CANONICAL_TIMING_VERSION, MusicalTiming, TimeSignature,
 from prism.vst import VST3, VSTRegistry
 
 if TYPE_CHECKING:
+    from prism.arrangement import CompiledTrackEvents
     from prism.midi import MidiResult
     from prism.render import RenderResult, StemRenderResult
 
@@ -104,6 +107,9 @@ class MidiClip:
     events: tuple[Note, ...]
     pitch_bend: tuple[ControlPoint, ...]
     modulation: tuple[ControlPoint, ...]
+    pitch_bend_range: float
+    pitch_bend_curve: ControlCurve
+    modulation_curve: ControlCurve
     bars: int
     velocity: int
     waveform: SynthWaveform | None
@@ -192,6 +198,7 @@ class Track:
         self._instrument: Plugin | None = None
         self._instrument_specification: InstrumentSpecification | None = None
         self._instrument_instance_id = f"track:{self.name}:instrument"
+        self._pitch_bend_range: float | None = None
         self.effects: list[Plugin] = []
         self.output_bus: Bus | None = None
         self.sends: list[Send] = []
@@ -419,6 +426,9 @@ class Track:
         repeat: bool = True,
         pitch_bend: Sequence[tuple[float, float]] = (),
         modulation: Sequence[tuple[float, float]] = (),
+        pitch_bend_range: float | None = None,
+        pitch_bend_curve: ControlCurve = "linear",
+        modulation_curve: ControlCurve = "linear",
         swing: float = 0.5,
         humanize_timing_ms: float = 0.0,
         humanize_velocity: int = 0,
@@ -469,12 +479,32 @@ class Track:
             humanize_seed=humanize_seed,
         )
         clip_beats = self._project.timing.bars_to_quarter_notes(resolved_bars)
+        resolved_pitch_bend_range = _pitch_bend_range(
+            (
+                self._pitch_bend_range
+                if self._pitch_bend_range is not None
+                else 2.0
+                if pitch_bend_range is None
+                else pitch_bend_range
+            )
+        )
+        if (
+            self._pitch_bend_range is not None
+            and not math.isclose(
+                resolved_pitch_bend_range, self._pitch_bend_range, rel_tol=0.0, abs_tol=1e-9
+            )
+        ):
+            raise ProjectError(
+                f"Track {self.name!r} already declares an effective pitch-bend range of "
+                f"{self._pitch_bend_range:g} semitones; use the same range on every clip."
+            )
         bends = _control_points(
             pitch_bend,
             label="Pitch bend",
-            minimum=-2.0,
-            maximum=2.0,
+            minimum=-resolved_pitch_bend_range,
+            maximum=resolved_pitch_bend_range,
             clip_beats=clip_beats,
+            curve=pitch_bend_curve,
         )
         modulation_points = _control_points(
             modulation,
@@ -482,6 +512,7 @@ class Track:
             minimum=0.0,
             maximum=1.0,
             clip_beats=clip_beats,
+            curve=modulation_curve,
         )
         specification = _instrument_specification(preset, uniwave, external)
         self._add_clip(
@@ -492,6 +523,9 @@ class Track:
                 events=events,
                 pitch_bend=bends,
                 modulation=modulation_points,
+                pitch_bend_range=resolved_pitch_bend_range,
+                pitch_bend_curve=pitch_bend_curve,
+                modulation_curve=modulation_curve,
                 bars=resolved_bars,
                 velocity=velocity,
                 waveform=None if uniwave is not None else waveform,
@@ -512,6 +546,8 @@ class Track:
             repeat=repeat,
             instrument_specification=specification,
         )
+        if self._pitch_bend_range is None:
+            self._pitch_bend_range = resolved_pitch_bend_range
         if self._instrument is None:
             self._set_melodic_instrument(
                 external or preset,
@@ -903,6 +939,7 @@ class Project:
         beats_per_bar: int = 4,
         beat_unit: Literal[1, 2, 4, 8, 16] = 4,
         timing_compatibility: TimingCompatibility = CANONICAL_TIMING_VERSION,
+        controller_boundary: ControllerBoundaryMode = "reset",
         master_gain_db: float = -3.0,
         normalize: bool = True,
         _script: str | Path | None = None,
@@ -922,6 +959,11 @@ class Project:
             ),
             compatibility=timing_compatibility,
         )
+        if controller_boundary not in {"reset", "retain", "legacy"}:
+            raise ProjectError(
+                "Controller boundary must be 'reset', 'retain', or 'legacy'."
+            )
+        self.controller_boundary: ControllerBoundaryMode = controller_boundary
         self.tempo = self.timing.tempo_bpm
         self.sample_rate = self.timing.sample_rate
         self.beats_per_bar = self.timing.numerator
@@ -1220,6 +1262,21 @@ class Project:
 
         return export_midi(self, output)
 
+    def compile_track_events(self, track: Track) -> CompiledTrackEvents:
+        """Compile one track into the shared absolute musical event stream."""
+
+        if track._project is not self:
+            raise ProjectError("The track must belong to this project.")
+        summary = self.validate()
+        from prism.arrangement import compile_track_events
+
+        return compile_track_events(
+            self,
+            track,
+            total_bars=summary.bars,
+            total_frames=self.timing.bar_to_frame(summary.bars),
+        )
+
     def configuration(self) -> dict[str, object]:
         """Return the resolved song settings as a plain dictionary."""
 
@@ -1257,7 +1314,7 @@ class Project:
                 }
             )
         return {
-            "schema_version": 8,
+            "schema_version": 9,
             "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,
@@ -1266,6 +1323,7 @@ class Project:
             "time_signature": [self.beats_per_bar, self.beat_unit],
             "timing_compatibility": self.timing.compatibility,
             "quarter_notes_per_bar": self.timing.quarter_notes_per_bar,
+            "controller_boundary": self.controller_boundary,
             "master_gain_db": self.master_gain_db,
             "normalize": self.normalize,
             "sample_folders": self.samples.folders,
@@ -1670,7 +1728,10 @@ def _control_points(
     minimum: float,
     maximum: float,
     clip_beats: float,
+    curve: ControlCurve,
 ) -> tuple[ControlPoint, ...]:
+    if curve not in {"linear", "hold"}:
+        raise ProjectError(f"{label} curve must be 'linear' or 'hold'.")
     points: list[ControlPoint] = []
     previous = -1.0
     for beat, value in values:
@@ -1690,9 +1751,23 @@ def _control_points(
             raise ProjectError(
                 f"{label} values must be between {minimum:g} and {maximum:g}."
             )
-        points.append(ControlPoint(resolved_beat, resolved_value))
+        points.append(ControlPoint(resolved_beat, resolved_value, curve))
         previous = resolved_beat
     return tuple(points)
+
+
+def _pitch_bend_range(value: float) -> float:
+    try:
+        resolved = float(value)
+    except (TypeError, ValueError) as error:
+        raise ProjectError(
+            "pitch_bend_range must be a finite value between 0.01 and 96 semitones."
+        ) from error
+    if not math.isfinite(resolved) or not 0.01 <= resolved <= 96.0:
+        raise ProjectError(
+            "pitch_bend_range must be a finite value between 0.01 and 96 semitones."
+        )
+    return resolved
 
 
 def _optional_range(value: float | None, low: float, high: float, label: str) -> None:

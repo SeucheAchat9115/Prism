@@ -63,6 +63,8 @@ lead = song.track("Bending Lead", gain_db=-10, pan=0.2).midi(
     instrument=Uniwave.lead(),
     bars=2,
     pitch_bend=[(0, 0), (1, 2), (2, 0), (4, -2), (5, 0)],
+    pitch_bend_range=2,
+    pitch_bend_curve="linear",
     modulation=[(0, 0), (3, 0.25), (5, 1), (8, 0)],
 )
 lead.effect("delay", time_beats=0.5, feedback=0.3, mix=0.2)
@@ -82,7 +84,9 @@ Run the command printed for the tutorial project, then open `renders/song.wav`.
 
 Listen for the bass notes starting between the obvious grid positions and
 hitting at different strengths. The lead bends upward, returns to pitch, bends
-downward, and gains vibrato as the modulation value rises.
+downward, and gains vibrato as the modulation value rises. The pitch-bend range
+is an explicit patch declaration; if the selected instrument uses a wider range,
+change `pitch_bend_range` rather than scaling the musical semitone values.
 
 The same timing and velocity variation returns on every render because
 `humanize_seed=42` is part of `main.py`.
@@ -95,7 +99,8 @@ Try one change at a time:
 2. Set both humanize amounts to zero for a completely fixed performance.
 3. Change `humanize_seed` to obtain a different reproducible performance.
 4. Change the lead's `2` semitone bend to `1` for a smaller bend.
-5. Move a `Note` by changing only its `start` value.
+5. Try `pitch_bend_curve="hold"` to turn the bend into stepped performance data.
+6. Move a `Note` by changing only its `start` value.
 
 Checkpoint: every performed note and controller movement is explicit, editable,
 exportable to MIDI, audible in the WAV, and reproducible from the project file.

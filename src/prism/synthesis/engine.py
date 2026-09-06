@@ -6,7 +6,7 @@ import math
 
 import numpy as np
 
-from prism.music import ControlPoint, note_frequency
+from prism.music import ControlPoint, control_values, db_gain, note_frequency
 from prism.plugins import STOCK_PLUGINS
 from prism.synthesis.types import (
     MAX_SYNTH_SECONDS,
@@ -176,7 +176,7 @@ def _render_melodic(
             if token != "-"
             for pitch in token.split("+")
         )
-    for pitch, start, note_off, velocity in events:
+    for event_index, (pitch, start, note_off, velocity) in enumerate(events):
         if start >= output.size:
             continue
         release_frames = max(0, int(round(patch.release_ms * sample_rate / 1000.0)))
@@ -201,7 +201,15 @@ def _render_melodic(
             release_ms=patch.release_ms,
         )
         output[start : start + voice_frames] += (
-            patch.amplitude * (velocity / 100.0) * voice * envelope
+            patch.amplitude
+            * (velocity / 100.0)
+            * (
+                db_gain(spec.note_gains_db[event_index])
+                if spec.note_gains_db
+                else 1.0
+            )
+            * voice
+            * envelope
         )
     window = int(round(sample_rate / max(40.0, patch.cutoff_hz * 2.0)))
     window = max(1, min(64, output.size, window))
@@ -227,17 +235,8 @@ def _control_values(
     timing: MusicalTiming,
     default: float,
 ) -> np.ndarray:
-    if not points:
-        return np.full(frames, default, dtype=np.float64)
-    positions = [
-        float(timing.quarter_notes_to_frame(point.beat)) for point in points
-    ]
-    values = [point.value for point in points]
-    if positions[0] > 0.0:
-        positions.insert(0, 0.0)
-        values.insert(0, default)
     return np.asarray(
-        np.interp(np.arange(frames, dtype=np.float64), positions, values),
+        control_values(points, frames, timing=timing, default=default),
         dtype=np.float64,
     )
 

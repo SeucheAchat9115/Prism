@@ -154,6 +154,7 @@ class NativeSynthSpec:
     preset: SynthPreset
     sequence: tuple[str, ...]
     note_events: tuple[Note, ...] = ()
+    note_gains_db: tuple[float, ...] = ()
     pitch_bend: tuple[ControlPoint, ...] = ()
     modulation: tuple[ControlPoint, ...] = ()
     uniwave: Uniwave | None = None
@@ -199,6 +200,13 @@ class NativeSynthSpec:
             if any(value is not None for value in melodic):
                 raise ValueError("Waveform, ADSR, cutoff, and gate apply to MIDI tracks only")
             return
+        if self.note_gains_db and len(self.note_gains_db) != len(self.note_events):
+            raise ValueError("note_gains_db must match note_events when supplied")
+        if any(
+            not math.isfinite(value) or not -60.0 <= value <= 12.0
+            for value in self.note_gains_db
+        ):
+            raise ValueError("note_gains_db values must be between -60 and 12 dB")
         if self.waveform not in {None, "sine", "triangle", "saw", "square"}:
             raise ValueError("Waveform must be sine, triangle, saw, or square")
         _optional_range(self.attack_ms, 0.0, 5000.0, "Attack")

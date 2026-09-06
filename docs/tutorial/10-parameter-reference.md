@@ -25,6 +25,7 @@ song = Project(
     sample_rate=44100,
     beats_per_bar=4,
     beat_unit=4,
+    controller_boundary="reset",
     master_gain_db=-3,
     normalize=True,
 )
@@ -39,6 +40,7 @@ song = Project(
 | `beats_per_bar` | `4` | 1–32 |
 | `beat_unit` | `4` | 1, 2, 4, 8, or 16 |
 | `timing_compatibility` | `"quarter_note_v1"` | `"quarter_note_v1"` or `"legacy_numerator_v0"` |
+| `controller_boundary` | `"reset"` | `"reset"`, `"retain"`, or `"legacy"` |
 | `master_gain_db` | `-3` | -60 through +12 dB |
 | `normalize` | `True` | If needed, lower the final peak to -1 dBFS |
 
@@ -57,6 +59,10 @@ canonical musical timing, remove that argument and review explicit `Note` and
 controller positions; values that were written as denominator-note steps may
 need to be multiplied by `4 / beat_unit`. Compact step notation is rescaled
 automatically because its steps fill the canonical clip span.
+
+`controller_boundary="reset"` returns pitch bend and modulation to zero at
+each concrete clip occurrence. Use `"retain"` for deliberate continuity or
+`"legacy"` to omit synthetic resets when migrating an older MIDI workflow.
 
 ## `track(...)`
 

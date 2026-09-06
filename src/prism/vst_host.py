@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import sys
 import tempfile
@@ -12,6 +13,11 @@ from typing import TYPE_CHECKING, Mapping, Sequence
 
 import numpy as np
 
+from prism.arrangement import (
+    MIDI_MODULATION_STEPS,
+    MIDI_PITCH_BEND_STEPS,
+    CompiledTrackEvents,
+)
 from prism.errors import RenderError
 from prism.midi import TICKS_PER_BEAT
 from prism.music import ControlPoint, Note, note_to_midi
@@ -106,19 +112,40 @@ def edit_vst3(project: Project, alias: str, state: str) -> VSTEditResult:
 def render_vst3_instrument(
     project: Project,
     plugin: Plugin,
-    notes: Sequence[Note],
-    pitch_bend: Sequence[ControlPoint],
-    modulation: Sequence[ControlPoint],
-    frames: int,
+    notes: Sequence[Note] | CompiledTrackEvents,
+    pitch_bend: Sequence[ControlPoint] | int = (),
+    modulation: Sequence[ControlPoint] = (),
+    frames: int | None = None,
 ) -> np.ndarray:
-    """Render arranged MIDI with one external instrument."""
+    """Render MIDI with one external instrument.
+
+    New callers pass a :class:`CompiledTrackEvents` stream and the frame count
+    as the fourth positional argument. The original note/controller signature
+    remains accepted for plugins and user code that call this low-level helper.
+    """
+
+    stream: CompiledTrackEvents | None
+    if isinstance(notes, CompiledTrackEvents):
+        stream = notes
+        if isinstance(pitch_bend, int) and frames is None:
+            frames = pitch_bend
+        elif not isinstance(pitch_bend, int):
+            raise RenderError("Compiled VST events need the output frame count.")
+    else:
+        stream = None
+    if frames is None:
+        raise RenderError("VST instrument rendering needs an output frame count.")
 
     with tempfile.TemporaryDirectory(prefix="prism-vst3-") as temporary:
         root = Path(temporary)
         midi_path = root / "notes.mid"
-        midi_path.write_bytes(
-            _midi_file(project.timing, notes, pitch_bend, modulation)
-        )
+        if stream is not None:
+            midi_payload = _midi_file(project.timing, stream)
+        else:
+            assert not isinstance(notes, CompiledTrackEvents)
+            assert not isinstance(pitch_bend, int)
+            midi_payload = _midi_file(project.timing, notes, pitch_bend, modulation)
+        midi_path.write_bytes(midi_payload)
         output_path = root / "output.npy"
         request = _plugin_request(project, plugin)
         request.update(
@@ -256,11 +283,15 @@ def _read_output(path: Path, frames: int) -> np.ndarray:
 
 def _midi_file(
     tempo: float | MusicalTiming,
-    notes: Sequence[Note],
-    bends: Sequence[ControlPoint],
-    modulation: Sequence[ControlPoint],
+    notes: Sequence[Note] | CompiledTrackEvents,
+    bends: Sequence[ControlPoint] = (),
+    modulation: Sequence[ControlPoint] = (),
+    *,
+    pitch_bend_range: float = 2.0,
 ) -> bytes:
     timing = tempo if isinstance(tempo, MusicalTiming) else MusicalTiming(tempo_bpm=tempo)
+    if isinstance(notes, CompiledTrackEvents):
+        return _compiled_midi_file(notes, timing)
     events: list[tuple[int, int, bytes]] = []
     microseconds = timing.microseconds_per_quarter_note
     events.append((0, -3, b"\xff\x51\x03" + microseconds.to_bytes(3, "big")))
@@ -273,12 +304,11 @@ def _midi_file(
         events.append((start, 1, bytes((0x90, number, note.velocity))))
         events.append((end, 0, bytes((0x80, number, 0))))
     for point in bends:
-        value = max(0, min(16_383, round((point.value + 2.0) / 4.0 * 16_383)))
         events.append(
             (
                 timing.quarter_notes_to_ticks(point.beat, TICKS_PER_BEAT),
                 -1,
-                bytes((0xE0, value & 0x7F, value >> 7)),
+                _pitch_bend_message(0, point.value, pitch_bend_range),
             )
         )
     for point in modulation:
@@ -301,6 +331,62 @@ def _midi_file(
     header = b"MThd" + (6).to_bytes(4, "big") + (0).to_bytes(2, "big")
     header += (1).to_bytes(2, "big") + TICKS_PER_BEAT.to_bytes(2, "big")
     return header + b"MTrk" + len(body).to_bytes(4, "big") + bytes(body)
+
+
+def _compiled_midi_file(stream: CompiledTrackEvents, timing: MusicalTiming) -> bytes:
+    """Serialize one compiled stream with explicit equal-time event ordering."""
+
+    events: list[tuple[int, int, int, bytes]] = []
+    microseconds = timing.microseconds_per_quarter_note
+    events.append((0, -3, -1, b"\xff\x51\x03" + microseconds.to_bytes(3, "big")))
+    for event in stream.events:
+        if event.kind not in {"note_on", "note_off"}:
+            continue
+        assert event.midi_note is not None
+        tick = timing.quarter_notes_to_ticks(event.beat, TICKS_PER_BEAT)
+        status = 0x90 if event.kind == "note_on" else 0x80
+        velocity = event.velocity if event.velocity is not None else 0
+        events.append(
+            (
+                tick,
+                0 if event.kind == "note_off" else 5,
+                event.sequence,
+                bytes((status, event.midi_note, velocity)),
+            )
+        )
+    for controller in stream.midi_controller_events(TICKS_PER_BEAT):
+        if controller.controller == "pitch_bend":
+            payload = _pitch_bend_message(0, controller.value, controller.pitch_bend_range)
+            order = 3
+        else:
+            value = max(0, min(MIDI_MODULATION_STEPS, round(controller.value * 127.0)))
+            payload = bytes((0xB0, 1, value))
+            order = 4
+        events.append((controller.tick, order, controller.sequence, payload))
+    end_tick = max(
+        timing.quarter_notes_to_ticks(stream.total_beats, TICKS_PER_BEAT),
+        max((tick for tick, _order, _sequence, _payload in events), default=0),
+    )
+    events.append((end_tick, 9, 2**31 - 1, b"\xff\x2f\x00"))
+    body = bytearray()
+    previous = 0
+    for tick, _order, _sequence, payload in sorted(events, key=lambda item: item[:3]):
+        body.extend(_variable_length(tick - previous))
+        body.extend(payload)
+        previous = tick
+    header = b"MThd" + (6).to_bytes(4, "big") + (0).to_bytes(2, "big")
+    header += (1).to_bytes(2, "big") + TICKS_PER_BEAT.to_bytes(2, "big")
+    return header + b"MTrk" + len(body).to_bytes(4, "big") + bytes(body)
+
+
+def _pitch_bend_message(channel: int, semitones: float, bend_range: float = 2.0) -> bytes:
+    if not math.isfinite(bend_range) or bend_range <= 0.0:
+        raise RenderError("VST pitch-bend range must be positive and finite.")
+    value = min(
+        MIDI_PITCH_BEND_STEPS,
+        max(0, round(8_192 + semitones / bend_range * 8_191)),
+    )
+    return bytes((0xE0 | channel, value & 0x7F, (value >> 7) & 0x7F))
 
 
 def _variable_length(value: int) -> bytes:

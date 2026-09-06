@@ -207,3 +207,86 @@ The final status-only follow-up is tracked in the PR commit history.
 - The current renderer still creates worker renders per arrangement placement;
   the track-owned identity is groundwork for task 05 and does not claim its
   continuous-instance behavior.
+
+## Task 04/35 — compile arrangement notes and expressive controls once
+
+Status: Done; [PR #30](https://github.com/SeucheAchat9115/Prism/pull/30) is open.
+Done describes implementation completion, not PR merge state. The final PR head
+and hosted checks remain separate from the implementation decision.
+
+Implementation branch: `task-04/compiled-arrangement-events`
+Implementation commit: `2b8909c68924b37a0558c6b64e86e13bb4d9e2b0`
+
+### Completed scope
+
+- Added `prism.arrangement.compile_track_events` and
+  `Project.compile_track_events`, producing one deterministic per-track stream
+  with stable note IDs, absolute quarter-note/sample positions, explicit
+  note-on/note-off events, controller points/curves, and concrete repeated or
+  section-scoped clip boundaries.
+- Shared the compiled stream with native arrangement rendering, the VST3 MIDI
+  adapter, and standard MIDI export. The old independent MIDI arrangement
+  walker is no longer used for export.
+- Defined equal-time ordering as note-off, clip end/start and controller reset,
+  authored controller values, then note-on. Same-pitch overlaps keep separate
+  stable note identities; an old note-off therefore precedes a same-time
+  retrigger without collapsing voices.
+- Added explicit `linear` and `hold` curve modes for pitch bend and modulation.
+  Native audio evaluates the declared curve directly. MIDI resamples it at no
+  more than 24 ticks between authored points/boundaries before applying its
+  14-bit pitch-bend or 7-bit modulation quantization.
+- Added the declared effective `pitch_bend_range` in semitones. The default
+  `2.0` is an explicit migration default; Prism does not claim to configure a
+  VST patch's bend range or assume that all patches use the same range.
+- Added `Project.controller_boundary` with `reset` (default), `retain`, and
+  explicit `legacy` behavior. Reset prevents controller state leaking from a
+  bent clip into an unbent following clip; retain and legacy are documented
+  compatibility choices. Configuration schema is now version `9`.
+- Kept VST placement renders scoped and derived from the shared stream so task
+  05 can own the later one-continuous-instance change. Track/clip gain behavior
+  remains unchanged for this task.
+
+### Compatibility decisions
+
+- Existing `pitch_bend` values remain musical semitones and existing projects
+  default to an effective ±2-semitone range. Authors with another patch range
+  must pass `pitch_bend_range` explicitly; this value is not sent as an
+  invented RPN or VST-specific range command.
+- Existing controller points remain linear by default. `hold` is opt-in per
+  controller through `pitch_bend_curve` or `modulation_curve`.
+- `controller_boundary="reset"` is the new deterministic default for all
+  compiled consumers. `retain` chases the current value into isolated VST
+  placement input; `legacy` omits synthetic reset events for migrations that
+  require the older MIDI state behavior.
+- The public low-level VST MIDI helper still accepts its prior notes/point
+  arguments. New render paths pass `CompiledTrackEvents`; the separate
+  continuous VST instance optimization remains task 05.
+
+### Verification
+
+- Focused arrangement regressions: **5 passed** in
+  `tests/test_arrangement.py`, covering modulation, curves, overlaps, exact
+  boundaries, repeated/scoped clips, controller chase/reset, native reset
+  behavior, and VST/export expression agreement.
+- `uv run --extra dev pytest --cov --cov-report=term-missing`: **196 passed,
+  3 skipped**, total coverage **87.82%**. The skips are the existing real-VST
+  qualification tests without their plugin environment.
+- `uv run --extra dev mypy src/prism`: passed; 35 source files checked.
+- `uv run --extra dev ruff check .`: passed.
+- `uv run --extra docs mkdocs build --strict`: passed after restoring the
+  unchanged `docs/assets/prism-logo.jpg` already present on current `main` in
+  the local task-03 seed; that base asset is not part of this PR.
+- The separate real-VST workflow remains unchanged and is still the path for
+  third-party/plugin qualification.
+
+### Concrete limitations
+
+- MIDI remains a quantized representation. The documented 24-tick sampling
+  bound and MIDI value resolution are tolerances, not an audible-quality claim.
+- A VST3 patch's actual pitch-bend range is external plugin/patch knowledge;
+  Prism records and applies the author's declared effective range but cannot
+  infer or force a vendor-specific range mechanism.
+- VST placement renders still instantiate/process per concrete placement;
+  continuous state across the whole track is intentionally task 05.
+- Standard MIDI channel note messages do not carry Prism's stable per-note IDs;
+  a receiving device may apply its own same-pitch voice-stealing policy.
