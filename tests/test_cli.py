@@ -39,6 +39,8 @@ def test_create_command_builds_a_runnable_plain_folder(
     source = (target / "main.py").read_text(encoding="utf-8")
     assert "__file__" not in source
     assert 'prism_version="0.2.0.dev0"' in source
+    assert "def build() -> Project:" in source
+    assert 'if __name__ == "__main__":' in source
 
     runpy.run_path(str(target / "main.py"), run_name="__main__")
 
