@@ -50,6 +50,7 @@ from prism.vst import VST3, VSTBackendConfig, VSTRegistry
 
 if TYPE_CHECKING:
     from prism.arrangement import CompiledTrackEvents
+    from prism.fingerprint import ProjectFingerprint
     from prism.midi import MidiResult
     from prism.render import (
         ExportProfile,
@@ -1238,7 +1239,7 @@ class Project:
         self.automation_lanes.append(lane)
         return lane
 
-    def validate(self) -> ProjectSummary:
+    def validate(self, *, verify_vst: bool = True) -> ProjectSummary:
         """Check the complete description and return a readable summary."""
 
         if self.script.suffix.casefold() != ".py" or not self.script.is_file():
@@ -1327,7 +1328,7 @@ class Project:
                         )
                     seen_parameters.add(identity.parameter_id)
             if plugin.vst3.alias not in verified_aliases:
-                self.vsts.resolve(plugin.vst3.alias)
+                self.vsts.resolve(plugin.vst3.alias, verify=verify_vst)
                 verified_aliases.add(plugin.vst3.alias)
             for state_relative in (plugin.vst3.state, plugin.vst3.preset):
                 if state_relative is not None and not (
@@ -1447,7 +1448,19 @@ class Project:
             total_frames=self.timing.bar_to_frame(summary.bars),
         )
 
-    def configuration(self) -> dict[str, object]:
+    def fingerprint(
+        self,
+        *,
+        profile: ExportProfile | None = None,
+        stem_mode: StemDeliveryMode | None = None,
+    ) -> ProjectFingerprint:
+        """Return the portable content identity and runtime-aware render key."""
+
+        from prism.fingerprint import fingerprint_project
+
+        return fingerprint_project(self, profile=profile, stem_mode=stem_mode)
+
+    def configuration(self, *, verify_vst: bool = True) -> dict[str, object]:
         """Return the resolved song settings as a plain dictionary."""
 
         tracks: list[dict[str, object]] = []
@@ -1520,7 +1533,7 @@ class Project:
                 for alias in dict.fromkeys(
                     plugin.preset for plugin in self._external_plugins()
                 )
-                for _path, entry in (self.vsts.resolve(alias),)
+                for _path, entry in (self.vsts.resolve(alias, verify=verify_vst),)
             ],
             "tracks": tracks,
             "buses": [

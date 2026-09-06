@@ -8,6 +8,7 @@ from prism.arrangement import (  # noqa: F401
     compile_track_events,
 )
 from prism.errors import PrismError, ProjectError, RenderError
+from prism.fingerprint import FingerprintedFile, ProjectFingerprint
 from prism.midi import MidiResult
 from prism.music import ControlPoint, Note  # noqa: F401
 from prism.plugins import AutomationLane, AutomationPoint, OutputGainLane, Plugin
@@ -31,6 +32,7 @@ __all__ = [
     "Bus",
     "ExportDiagnostics",
     "ExportProfile",
+    "FingerprintedFile",
     "MidiResult",
     "Note",
     "OutputGainLane",
@@ -39,6 +41,7 @@ __all__ = [
     "Project",
     "ProjectError",
     "ProjectSummary",
+    "ProjectFingerprint",
     "RenderError",
     "RenderResult",
     "SampleLibrary",

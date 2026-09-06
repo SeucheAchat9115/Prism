@@ -43,6 +43,21 @@ duration.
 that master processing is excluded from that target, and identifies whether
 stem dither was requested.
 
+`RenderResult.fingerprint` and `StemRenderResult.fingerprint` contain the
+JSON-safe `ProjectFingerprint` used for the completed export. The portable hash
+is suitable for identifying a project moved to another folder; the render key
+also includes the runtime and backend contract used for that render. Native
+processing is reported as deterministic, while projects with VST3 dependencies
+are reported as conditional external renders.
+
+## ProjectFingerprint
+
+::: prism.ProjectFingerprint
+
+## FingerprintedFile
+
+::: prism.FingerprintedFile
+
 ## StemFile
 
 ::: prism.StemFile
