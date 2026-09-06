@@ -104,4 +104,28 @@ The same rule applies to a different alias, state file, or preset file. Prism
 does not create hidden per-clip VST instances to make such a conflict appear to
 work.
 
+## 5. Render the track continuously and migrate clip gain
+
+All placements on this track are sent through one isolated VST worker and one
+continuous plugin instance per offline render. That includes leading silence,
+section changes, overlapping notes, controller events, parameter automation,
+and the requested export tail. Track insert effects run after the instrument.
+
+A shared polyphonic VST cannot generally apply independent post-instrument
+levels to overlapping voices or to internal release/effect tails. Keep every
+MIDI clip on a VST track at one common `gain_db`:
+
+```python
+lead.instrument(lead_patch, gain_db=0.0)
+lead.output_gain(
+    [(0.0, -6.0), (4.0, -3.0)],
+    name="Lead shared output",
+)
+```
+
+The lane is a whole-track dB envelope, not per-clip or per-voice gain. Prism
+rejects independently scaled VST clip gains instead of guessing that notes or
+tails are independent. For genuinely independent levels, use separate tracks
+or a plugin with a correct voice-level control.
+
 [Back: use Serum on Windows →](21-serum-on-windows.md)

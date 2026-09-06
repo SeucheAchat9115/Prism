@@ -46,6 +46,7 @@ in your normal music player. Keep the terminal in the repository root.
 | 19 | [Find and organize samples](19-find-and-organize-samples.md) | Search folders, short filenames, duplicate detection, and suggestions |
 | 20 | [Build a free VST3 song](20-free-vst3-song.md) | Surge XT, Xfer OTT, plugin state, and automation |
 | 21 | [Use Serum on Windows](21-serum-on-windows.md) | Parameter discovery and reproducible commercial-plugin state |
+| 22 | [Track-owned VST3 instruments](22-track-owned-vst3-instrument.md) | One continuous instrument instance, controller continuity, and shared output gain |
 
 Levels are independent: every page shows the whole `main.py`, not only a diff.
 You can replace the file at each level or put each level in a separate folder.
@@ -108,4 +109,5 @@ the Prism version used when that project was created.
 | 16/24/32-bit WAV, mono/stereo, output sample rate, and effect tails | Level 18 |
 | Sample folders, short-name lookup, terminal listing, duplicates, and suggestions | Level 19 |
 | VST3 registry, inspection, states, instruments, effects, and automation | Levels 20 and 21 |
+| One continuous VST3 instrument instance and shared output-gain lanes | Level 22 |
 | Exact defaults, ranges, and return values | Level 10 |

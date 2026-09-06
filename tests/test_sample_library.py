@@ -32,7 +32,7 @@ def test_default_library_finds_nested_sample_by_short_name(project_script: Path)
     assert isinstance(song.samples, SampleLibrary)
     assert song.samples.folders == ("sounds",)
     assert song.samples.files() == ("sounds/drums/kick-heavy.wav",)
-    assert configuration["schema_version"] == 9
+    assert configuration["schema_version"] == 10
     assert configuration["sample_folders"] == ("sounds",)
     assert configuration["tracks"][0]["part"]["path"] == "sounds/drums/kick-heavy.wav"  # type: ignore[index]
     assert song.render().path.is_file()

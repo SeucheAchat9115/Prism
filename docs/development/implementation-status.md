@@ -9,6 +9,62 @@ Original audit IDs and historical test results below are retained. Tasks 17, 18,
 The task suffix /35 in historical entries refers to the original audit plan.
 
 
+## Task 05/35 — render each VST instrument track through one continuous instance
+
+Status: In progress; the implementation is complete locally and is awaiting
+connector publication and hosted checks. The task row remains synchronized with
+this status until the pull request URL and final verification are recorded.
+
+Implementation branch: `task-05/continuous-vst-instance`  
+Implementation commit: pending publication
+
+### Completed scope
+
+- `_arrange_midi_track()` now sends the complete compiled per-track event stream
+  to one isolated VST worker call. Leading silence, section/placement
+  boundaries, overlapping notes, retained controllers, global automation, and
+  the requested export tail remain in one continuous plugin render.
+- The worker still loads state or preset, applies parameter overrides, loads
+  automation, and then renders one instrument graph. Track insert effects remain
+  after the completed instrument buffer.
+- Master and stem export continue to consume the same `_render_buffers()` track
+  result within one stem generation, so a VST instrument is not instantiated
+  again for the stem master.
+- Added focused regressions for long arrangements, monophonic/legato overlap,
+  equal-time ordering, leading silence, controller continuity, global
+  automation timing, tail frames, worker render-call count, and stem/master
+  reuse.
+
+### Compatibility decisions
+
+- VST MIDI clips on one track must use one common `gain_db`. Prism applies that
+  value once after the instrument and before track insert effects. It does not
+  convert dB to MIDI velocity or multiply a whole track once per placement.
+- Independently scaled VST clip gains are rejected even when note intervals look
+  separate, because plugin voices and release/internal-effect tails may overlap.
+  The migration is to normalize clip gains, normally to `0.0`, then use the new
+  explicit `Track.output_gain(...)` shared dB lane or separate tracks.
+- `Track.output_gain(...)` is a whole-track post-instrument envelope; it is not
+  a voice-level mechanism and cannot reproduce independent overlapping clip
+  levels. The resolved project configuration schema is now version `10`.
+
+### Verification
+
+- Focused continuous-VST regressions pass locally, including the compiled stream
+  and host automation request checks.
+- The full test suite, coverage, type, lint, and strict documentation results
+  will be recorded here after the final local run and hosted CI checks.
+- The separate real-VST workflow remains unchanged; local tests without an
+  installed plugin do not establish third-party/plugin qualification.
+
+### Concrete limitations
+
+- A VST's internal voice/effect implementation remains external behavior; Prism
+  preserves one continuous instance and rejects unsupported independent clip
+  gain semantics but cannot infer a vendor's voice-level gain capability.
+- Real Surge XT/plugin qualification remains in the separate VST3 workflow.
+
+
 ## Task 01/35 — protect source audio and make stem exports recoverable
 
 Status: Done; [PR #13](https://github.com/SeucheAchat9115/Prism/pull/13) merged

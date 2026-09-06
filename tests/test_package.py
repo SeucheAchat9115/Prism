@@ -17,6 +17,7 @@ def test_public_package_is_small_and_script_first() -> None:
         "Bus",
         "MidiResult",
         "Note",
+        "OutputGainLane",
         "Plugin",
         "PrismError",
         "Project",
