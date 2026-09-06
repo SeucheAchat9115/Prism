@@ -141,11 +141,13 @@ Implementation commit: `5b2629f4d855ca5c7ae9470fdf722b6d8be2545c`
 ## Task 03/35 — make VST instrument configuration explicitly track-owned
 
 Status: Done; [PR #29](https://github.com/SeucheAchat9115/Prism/pull/29) is open.
-Done describes implementation completion, not merge state. The hosted PR checks
-and separate real-VST qualification remain separate handoff checks.
+Done describes implementation completion, not merge state. The final PR head and
+hosted check results are recorded below; separate hardware/plugin qualification
+remains a separate concern.
 
 Implementation branch: `task-03/track-owned-vst-configuration`  
 Implementation commit: `c7ac39d072b0e774a914313b3afc8d7de6f665cd`
+Status/docs follow-up: `fab98f3511162302b80f12b738849abdf878322f`
 
 ### Completed scope
 
@@ -192,8 +194,10 @@ Implementation commit: `c7ac39d072b0e774a914313b3afc8d7de6f665cd`
 - `uv run --extra dev mypy src/prism`: passed.
 - `uv run --extra dev ruff check .`: passed.
 - `uv run --extra docs mkdocs build --strict`: passed.
-- Hosted PR CI and the separate real-VST workflow were not available at this
-  handoff; local skips do not establish hardware/plugin qualification.
+- Hosted PR CI, Documentation, CodeQL, and VST3 integration all passed on the
+  final PR head `fab98f3511162302b80f12b738849abdf878322f`; the VST3 workflow's
+  Ubuntu and Windows real-VST3 jobs passed. Local skips do not establish
+  hardware/plugin qualification beyond that hosted workflow.
 
 ### Concrete limitations
 
