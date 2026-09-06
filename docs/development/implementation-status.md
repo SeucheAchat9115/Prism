@@ -140,9 +140,12 @@ Implementation commit: `5b2629f4d855ca5c7ae9470fdf722b6d8be2545c`
 
 ## Task 03/35 — make VST instrument configuration explicitly track-owned
 
-Status: In progress; the implementation and focused regressions are complete,
-but the full required gates and hosted PR checks are still pending. PR link and
-final status will be added in the publication follow-up commit.
+Status: Done; [PR #29](https://github.com/SeucheAchat9115/Prism/pull/29) is open.
+Done describes implementation completion, not merge state. The hosted PR checks
+and separate real-VST qualification remain separate handoff checks.
+
+Implementation branch: `task-03/track-owned-vst-configuration`  
+Implementation commit: `c7ac39d072b0e774a914313b3afc8d7de6f665cd`
 
 ### Completed scope
 
@@ -183,11 +186,14 @@ final status will be added in the publication follow-up commit.
 - Focused VST tests: **16 passed** locally, including equal declaration reuse,
   alias/state/preset/parameter conflicts, stable configuration, replacement,
   automation rebinding, and atomic orphan rejection.
+- `uv run --extra dev pytest --cov --cov-report=term-missing`: **191 passed, 3 skipped**;
+  total coverage **87.91%**. The skips are the existing real-VST qualification
+  tests without their plugin environment.
 - `uv run --extra dev mypy src/prism`: passed.
-- `uv run --extra dev ruff check src/prism/plugins.py src/prism/project/builder.py`:
-  passed.
-- Full `pytest --cov`, repository-wide Ruff, strict MkDocs, and hosted CI are
-  pending at this intermediate status.
+- `uv run --extra dev ruff check .`: passed.
+- `uv run --extra docs mkdocs build --strict`: passed.
+- Hosted PR CI and the separate real-VST workflow were not available at this
+  handoff; local skips do not establish hardware/plugin qualification.
 
 ### Concrete limitations
 
