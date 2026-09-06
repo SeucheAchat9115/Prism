@@ -11,12 +11,13 @@ The task suffix /35 in historical entries refers to the original audit plan.
 
 ## Task 05/35 — render each VST instrument track through one continuous instance
 
-Status: In progress; the implementation is complete locally and is awaiting
-connector publication and hosted checks. The task row remains synchronized with
-this status until the pull request URL and final verification are recorded.
+Status: Done; [PR #31](https://github.com/SeucheAchat9115/Prism/pull/31) is open.
+Done describes implementation completion, not pull-request merge state. The
+separate hosted checks and real-plugin qualification remain recorded evidence.
 
 Implementation branch: `task-05/continuous-vst-instance`  
-Implementation commit: `f2ca3004f9b3be15019dc71724ad6eb94d1b72cd`
+Implementation commit: `f2ca3004f9b3be15019dc71724ad6eb94d1b72cd`  
+Verification/status commit: `798a7d97e5d42e5204bb3d44ec9ce3920de1b0a9`
 
 ### Completed scope
 
