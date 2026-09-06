@@ -12,7 +12,6 @@ smtg_add_vst3plugin(prism-fixture-delay
     "${ADelay_SOURCE_DIR}/adelayprocessor.h"
 )
 target_include_directories(prism-fixture-delay PRIVATE "${ADelay_SOURCE_DIR}")
-smtg_target_setup_as_vst3_example(prism-fixture-delay)
 
 smtg_add_vst3plugin(prism-fixture-instrument
     factory_instrument.cpp
@@ -30,4 +29,3 @@ smtg_add_vst3plugin(prism-fixture-instrument
     "${MDA_SOURCE_DIR}/mdaPianoProcessor.h"
 )
 target_include_directories(prism-fixture-instrument PRIVATE "${MDA_SOURCE_DIR}")
-smtg_target_setup_as_vst3_example(prism-fixture-instrument)
