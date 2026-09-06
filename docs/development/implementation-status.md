@@ -1,8 +1,18 @@
 # Implementation status
 
+## September 6, 2026 — agentic roadmap revision
+
+Planning/documentation change only. Tasks A01–A05 are Planned; no new runtime
+capability is claimed. Delivery order is 01–14 → A01–A03 → 15–18 → A04–A05 → 19–35.
+Original audit IDs and historical test results below are retained. Tasks 17, 18,
+22, 25, 32 and 35 now depend explicitly on the relevant agent contracts.
+The task suffix /35 in historical entries refers to the original audit plan.
+
+
 ## Task 01/35 — protect source audio and make stem exports recoverable
 
-Status: implemented on the task branch; verification is recorded below.
+Status: Done; [PR #13](https://github.com/SeucheAchat9115/Prism/pull/13) merged
+September 5, 2026. Historical implementation verification is recorded below.
 
 ### Completed scope
 
@@ -66,8 +76,8 @@ Status: implemented on the task branch; verification is recorded below.
 
 ## Task 02/35 — unify musical time and correct non-quarter-note meters
 
-Status: Done; [PR #16](https://github.com/SeucheAchat9115/Prism/pull/16) is open and
-hosted CI is pending.
+Status: Done; [PR #16](https://github.com/SeucheAchat9115/Prism/pull/16) merged
+September 5, 2026. Verification below records the original implementation handoff.
 
 Implementation branch: `task-02/unify-musical-time`  
 Implementation commit: `5b2629f4d855ca5c7ae9470fdf722b6d8be2545c`
@@ -124,6 +134,6 @@ Implementation commit: `5b2629f4d855ca5c7ae9470fdf722b6d8be2545c`
   only. `TimingMap` keeps the conversion seam available for future tempo maps;
   tempo changes are not yet accepted by `Project`.
 - MIDI import is not implemented by this task and remains a later roadmap item.
-- Hosted CI and the separate real-VST workflow are not yet checked for this
-  unpublished branch; hardware/plugin qualification is not represented by the
-  local skips.
+- At the original handoff, hosted CI and the separate real-VST workflow had
+  not yet been checked. The PR has since merged; local skips do not establish
+  hardware/plugin qualification.
