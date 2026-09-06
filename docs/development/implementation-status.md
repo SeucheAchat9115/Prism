@@ -9,6 +9,56 @@ Original audit IDs and historical test results below are retained. Tasks 17, 18,
 The task suffix /35 in historical entries refers to the original audit plan.
 
 
+## Task 08/35 — define parameter automation boundaries and canonical targets
+
+Status: In progress; the implementation PR is pending.
+
+Implementation branch: `task-08-parameter-automation-boundaries`
+
+### Implemented scope so far
+
+- Added a sparse compiled parameter-envelope representation with absolute sample
+  frame boundaries, explicit base-value versus legacy first-point behavior,
+  exact point-boundary values, linear/hold intervals, and final-value holds.
+- Added stable plugin-instance and physical-parameter identities to automation
+  resolution. VST3 names remain readable while inspected name/index aliases
+  resolve to one canonical index identity.
+- Added pre-render worker validation for unknown, ambiguous, and duplicate VST3
+  selectors, plus deterministic instance IDs for stock effect targets.
+- Updated the mixing guide, external-VST guide, and runnable automation tutorial
+  with migration and volume/filter examples. Focused regression tests are in
+  `tests/test_parameter_automation.py`.
+
+### Compatibility decisions
+
+- New projects use `automation_compatibility="initial_value_v1"`: the configured
+  parameter base value is held before the first authored point. The explicit
+  `"first_point_v0"` mode preserves the historical pre-first clamp for projects
+  that need it; no behavior is inferred from `prism_version`.
+- `linear` and authored `hold` curves are evaluated exactly at absolute frame
+  boundaries. Live-control smoothing is intentionally not part of this model.
+- Named VST selectors remain in the readable project configuration while the
+  compiled lane records the stable instance and canonical parameter identities.
+  The worker validates live metadata before loading the audio graph. Constant
+  parameters remain sparse in the compiled representation and are materialized
+  only when an audio adapter requests sample-aligned values.
+
+### Verification so far
+
+- Focused automation regressions: **7 passed**.
+- `uv run --extra dev mypy src/prism`: passed.
+- `uv run --extra dev ruff check src tests`: passed.
+- Full required gates and hosted CI remain pending until the final PR commit.
+
+### Concrete limitations
+
+- Projects authored without cached VST metadata can keep readable selectors
+  portable, but the live worker must inspect the installed plugin during render;
+  offline source-only validation cannot prove a name exists on an absent VST.
+- This task does not add a persistent VST metadata cache or live transport
+  smoothing; those remain separate concerns.
+
+
 ## Task 07/35 — fix native voice lifetime and remove accidental song-length limits
 
 Status: Done; [PR #33](https://github.com/SeucheAchat9115/Prism/pull/33) is open.

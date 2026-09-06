@@ -372,8 +372,13 @@ song.automation(
 
 Each point is `(bar, value)`, measured from the beginning of the complete song.
 Bars are zero or greater, strictly increasing, and cannot finish beyond the
-arrangement. `linear` moves smoothly between values; `hold` keeps the previous
-value until the next point. One plugin parameter can have one automation lane.
+arrangement. The compiled envelope holds the plugin's configured base value
+before the first point, takes a point's value at its exact boundary, follows
+`linear` or `hold` between points, and holds the last value after the final
+point. One plugin parameter can have one automation lane. A project that must
+preserve the historical pre-first behavior can explicitly pass
+`automation_compatibility="first_point_v0"`; this is not inferred from the
+Prism version.
 
 Every stock-effect setting is automatable. Uniwave exposes its global numeric
 sound controls plus `wave_N_level` and `wave_N_detune_cents` for each wave in

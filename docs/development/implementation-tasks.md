@@ -109,7 +109,7 @@ Done describes implementation completion; check the linked PR for merge state.
 | 05 | [Render each VST instrument track through one continuous instance](implementation-prompts.md#task-05) | 03, 04 | Done | [PR #31](https://github.com/SeucheAchat9115/Prism/pull/31) |
 | 06 | [Preserve sample and audio releases across arrangement boundaries](implementation-prompts.md#task-06) | 02, 04 | Done | [PR #32](https://github.com/SeucheAchat9115/Prism/pull/32) |
 | 07 | [Fix native voice lifetime and remove accidental song-length limits](implementation-prompts.md#task-07) | 02, 04, 06 | Done | [PR #33](https://github.com/SeucheAchat9115/Prism/pull/33) |
-| 08 | [Define parameter automation boundaries and canonical targets](implementation-prompts.md#task-08) | 02, 03, 04, 07 | Planned | — |
+| 08 | [Define parameter automation boundaries and canonical targets](implementation-prompts.md#task-08) | 02, 03, 04, 07 | In progress | PR pending |
 | 09 | [Harden VST workers, cancellation, diagnostics, and state saving](implementation-prompts.md#task-09) | 03, 05, 08 | Planned | — |
 | 10 | [Strengthen real VST tests and verify latency compensation](implementation-prompts.md#task-10) | 04, 05, 09 | Planned | — |
 | 11 | [Add explicit export profiles, clipping policy, and dither](implementation-prompts.md#task-11) | 01, 02, 06, 07, 08 | Planned | — |

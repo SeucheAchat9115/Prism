@@ -62,6 +62,8 @@ tone = lead.effect(
     mix=1,
 )
 
+volume = lead.effect("gain", name="Volume", gain_db=-12)
+
 song.section("Intro", bars=2, tracks=[lead])
 song.section("Beat", bars=2, tracks=[kick, lead])
 song.section("Build", bars=2, tracks=[kick, lead])
@@ -88,6 +90,14 @@ song.automation(
     points=[(0, 5000), (6, 5000), (8, 400)],
 )
 
+song.automation(
+    "Volume entry",
+    target=volume,
+    parameter="gain_db",
+    points=[(0.5, -6), (2, 0)],
+    curve="hold",
+)
+
 print(song.validate())
 print(song.export_midi("renders/song.mid"))
 print(song.render("renders/song.wav"))
@@ -99,7 +109,9 @@ Run the command Prism printed for your timestamped tutorial project. Open
 `renders/song.wav` inside that folder.
 
 Listen for the lead becoming brighter through the Build, the echo becoming
-stronger around bar 6, and the final filter closing during the Outro.
+stronger around bar 6, the volume entering at bar 0.5, and the final filter
+closing during the Outro. Before bar 0.5, the volume stays at its configured
+base value of -12 dB.
 
 ## 4. Try stepped automation
 
@@ -116,7 +128,10 @@ song.automation(
 ```
 
 `linear` moves smoothly between points. `hold` keeps each value until the next
-point, producing an immediate change there.
+point, producing an immediate change there. The final value is held after the
+last point. A first point later than bar zero does not replace the configured
+base value; use `automation_compatibility="first_point_v0"` only when migrating
+a project that deliberately depended on the historical behavior.
 
 Checkpoint: you can identify the MIDI part, instrument plugin, ordered effect
 chain, and three independent automation tracks in one readable project file.
