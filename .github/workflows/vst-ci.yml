@@ -16,6 +16,9 @@ permissions:
   contents: read
 
 env:
+  # The real qualification fixtures are built from this exact upstream SDK
+  # revision; no platform-specific plugin binary is committed to Prism.
+  VST3_SDK_COMMIT: 3cdf9ca5d1f5b1b21e0a86832aa4abe55607bd96
   # SHA-256 observed from the fixed upstream release URLs in CI run 33977585860.
   # Update URLs and hashes together in a reviewed PR; never learn hashes at runtime.
   SURGE_LINUX_SHA256: a6e55064487f624147d515b9ae5fc79a568b69746675b2083abde628ca7bb151
@@ -69,6 +72,52 @@ jobs:
       - name: Install the locked VST3 environment
         run: uv sync --locked --extra dev --extra vst3
 
+      - name: Build pinned Prism VST3 fixtures
+        shell: bash
+        run: |
+          sdk="$RUNNER_TEMP/vst3sdk"
+          build="$RUNNER_TEMP/prism-vst3-fixtures-build"
+          git clone --recursive --depth 1 https://github.com/steinbergmedia/vst3sdk.git "$sdk"
+          git -C "$sdk" fetch --depth 1 origin "$VST3_SDK_COMMIT"
+          git -C "$sdk" checkout --detach "$VST3_SDK_COMMIT"
+          git -C "$sdk" submodule update --init --recursive
+          test "$(git -C "$sdk" rev-parse HEAD)" = "$VST3_SDK_COMMIT"
+          cmake -S "$GITHUB_WORKSPACE/tests/fixtures/vst3" -B "$build" \
+            -DPRISM_VST3_SDK_ROOT="$sdk" \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$build" --config Release \
+            --target prism-fixture-delay prism-fixture-instrument
+
+      - name: Configure Linux fixture paths
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          build="$RUNNER_TEMP/prism-vst3-fixtures-build"
+          delay="$(find "$build" -type d -name 'prism-fixture-delay.vst3' -print -quit)"
+          instrument="$(find "$build" -type d -name 'prism-fixture-instrument.vst3' -print -quit)"
+          test -n "$delay"
+          test -n "$instrument"
+          echo "PRISM_FIXTURE_EFFECT_VST3=$delay" >> "$GITHUB_ENV"
+          echo "PRISM_FIXTURE_INSTRUMENT_VST3=$instrument" >> "$GITHUB_ENV"
+          echo "PRISM_VST_DIAGNOSTICS_DIR=$RUNNER_TEMP/prism-vst-diagnostics" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/prism-vst-diagnostics"
+
+      - name: Configure Windows fixture paths
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $build = Join-Path $env:RUNNER_TEMP 'prism-vst3-fixtures-build'
+          $delay = Get-ChildItem -Path $build -Directory -Filter 'prism-fixture-delay.vst3' -Recurse | Select-Object -First 1
+          $instrument = Get-ChildItem -Path $build -Directory -Filter 'prism-fixture-instrument.vst3' -Recurse | Select-Object -First 1
+          if ($null -eq $delay -or $null -eq $instrument) {
+            throw 'Could not locate the built Prism VST3 fixture bundles.'
+          }
+          "PRISM_FIXTURE_EFFECT_VST3=$($delay.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "PRISM_FIXTURE_INSTRUMENT_VST3=$($instrument.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          $diagnostics = Join-Path $env:RUNNER_TEMP 'prism-vst-diagnostics'
+          New-Item -ItemType Directory -Force -Path $diagnostics | Out-Null
+          "PRISM_VST_DIAGNOSTICS_DIR=$diagnostics" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Install Surge XT on Linux
         if: runner.os == 'Linux'
         shell: bash
@@ -120,4 +169,12 @@ jobs:
 
       - name: Run real VST3 smoke tests
         run: uv run pytest tests/test_real_vst.py -q
+
+      - name: Upload VST audio diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: prism-vst-diagnostics-${{ matrix.os }}
+          path: ${{ runner.temp }}/prism-vst-diagnostics
+          if-no-files-found: ignore
 
