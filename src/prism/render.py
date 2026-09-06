@@ -530,10 +530,9 @@ def _arrange_midi_track(
 ) -> np.ndarray:
     """Render one track from the same compiled stream used by MIDI export.
 
-    Native instruments consume the complete stream in one pass. VST3 placement
-    renders remain scoped until task 05 so this task does not change instance
-    lifetime or clip-gain semantics; each scoped render is still derived from
-    the one track compilation.
+    Native instruments and VST3 instruments consume the complete stream in one
+    pass.  A VST3 track is rendered by one isolated worker/plugin instance;
+    clip gain is applied only once when every placement declares the same value.
     """
 
     stream = compile_track_events(
@@ -549,18 +548,16 @@ def _arrange_midi_track(
     if instrument is not None and instrument.vst3 is not None:
         from prism.vst_host import render_vst3_instrument
 
-        for boundary in stream.boundaries:
-            segment = stream.for_boundary(boundary, timing=project.timing)
-            if not segment.notes:
-                continue
-            rendered = render_vst3_instrument(
-                project,
-                instrument,
-                segment,
-                total_frames,
-            )
-            arranged += rendered * db_gain(boundary.gain_db)
-        return arranged
+        if not stream.notes:
+            return arranged
+        rendered = render_vst3_instrument(project, instrument, stream, total_frames)
+        arranged[:] = rendered
+        return _apply_output_gain(
+            project,
+            track,
+            arranged,
+            base_gain_db=track._vst_clip_gain_db(),
+        )
 
     automation = _synth_automation(project, track, total_frames)
     notes = tuple(
@@ -602,7 +599,39 @@ def _arrange_midi_track(
         gain_db=0.0,
     )
     arranged += _synth_audio(project, spec)
-    return arranged
+    return _apply_output_gain(project, track, arranged)
+
+
+def _apply_output_gain(
+    project: Project,
+    track: Track,
+    samples: np.ndarray,
+    *,
+    base_gain_db: float = 0.0,
+) -> np.ndarray:
+    """Apply common clip gain plus an optional shared track gain envelope."""
+
+    lane = track.output_gain_lane
+    if lane is None:
+        if math.isclose(base_gain_db, 0.0, abs_tol=1e-12):
+            return samples
+        return samples * db_gain(base_gain_db)
+    point_frames = np.asarray(
+        [project.timing.bar_to_frame(point.bar) for point in lane.points],
+        dtype=np.float64,
+    )
+    point_values = np.asarray(
+        [point.value for point in lane.points],
+        dtype=np.float64,
+    )
+    positions = np.arange(samples.shape[0], dtype=np.float64)
+    if lane.curve == "linear":
+        values = np.interp(positions, point_frames, point_values)
+    else:
+        indices = np.searchsorted(point_frames, positions, side="right") - 1
+        indices = np.clip(indices, 0, len(point_values) - 1)
+        values = point_values[indices]
+    return samples * np.power(10.0, (base_gain_db + values) / 20.0)[:, np.newaxis]
 
 
 def _synth_automation(project: Project, track: Track, frames: int) -> dict[str, np.ndarray]:

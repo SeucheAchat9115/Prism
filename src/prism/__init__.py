@@ -10,7 +10,7 @@ from prism.arrangement import (  # noqa: F401
 from prism.errors import PrismError, ProjectError, RenderError
 from prism.midi import MidiResult
 from prism.music import ControlPoint, Note  # noqa: F401
-from prism.plugins import AutomationLane, AutomationPoint, Plugin
+from prism.plugins import AutomationLane, AutomationPoint, OutputGainLane, Plugin
 from prism.project import Bus, Project, ProjectSummary, Section, Send, Track
 from prism.render import RenderResult, StemFile, StemRenderResult
 from prism.sample_library import SampleLibrary
@@ -24,6 +24,7 @@ __all__ = [
     "Bus",
     "MidiResult",
     "Note",
+    "OutputGainLane",
     "Plugin",
     "PrismError",
     "Project",

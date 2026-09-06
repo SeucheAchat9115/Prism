@@ -130,6 +130,41 @@ range, the replacement is rejected before the track is changed. The resolved
 configuration records the effective relative state/preset paths, parameters,
 and stable instance ID, but never the machine-specific plugin path.
 
+## Render one continuous instrument track
+
+Every VST3 instrument track is compiled into one absolute MIDI event stream and
+sent to one isolated worker for one offline render. Leading silence, section
+boundaries, overlapping notes, controller continuity, the requested export tail,
+and global parameter automation all stay in that stream. Track insert effects
+then process the completed instrument buffer. This preserves plugin voice
+allocation, legato behavior, internal effects, and nonlinear processing across
+clips and sections. Master and stem exports use the same rendered track buffer
+within one stem generation.
+
+Clip gain has an important limitation for a shared polyphonic plugin instance.
+All MIDI clips on a VST instrument track must declare the same `gain_db`; Prism
+applies that common gain once after the instrument and before track insert
+effects. Prism rejects independently scaled clip gains even when note intervals
+look non-overlapping, because plugin voices and release/internal-effect tails can
+still overlap. It never converts clip decibels into MIDI velocity and never
+multiplies a whole track once per clip.
+
+To migrate a track that used different clip gains, normalize the clips with an
+explicit whole-track replacement and author one shared output envelope:
+
+```python
+lead.instrument(lead_patch, gain_db=0.0)
+lead.output_gain(
+    [(0.0, -6.0), (4.0, -3.0), (8.0, -3.0)],
+    name="Lead shared output",
+)
+```
+
+`Track.output_gain(...)` is a single post-instrument lane in dB. It controls the
+whole track at each time and cannot recreate independent overlapping voice
+gains. If the parts need truly independent levels, put them on separate tracks
+or use a plugin/voice-level mechanism that supports that operation.
+
 ## Save settings that parameters cannot express
 
 Some plugins keep wavetable selections, modulation routings, sample data, or

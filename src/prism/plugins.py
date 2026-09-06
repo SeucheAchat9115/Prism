@@ -144,6 +144,18 @@ class AutomationLane:
         return f"{self.name}: {self.target.name}.{self.parameter} ({len(self.points)} points)"
 
 
+@dataclass(frozen=True, slots=True)
+class OutputGainLane:
+    """One explicit, shared post-instrument gain envelope for a track."""
+
+    name: str
+    points: tuple[AutomationPoint, ...]
+    curve: AutomationCurve
+
+    def __str__(self) -> str:
+        return f"{self.name}: shared track output gain ({len(self.points)} points)"
+
+
 def effect_plugin(
     preset: EffectPreset,
     *,
@@ -258,6 +270,27 @@ def automation_points(
     return tuple(points)
 
 
+def output_gain_points(
+    values: Sequence[tuple[float, float]], *, label: str
+) -> tuple[AutomationPoint, ...]:
+    """Validate producer-authored output-gain points expressed in dB."""
+
+    if not values:
+        raise ProjectError("Output gain needs at least one (bar, value) point.")
+    points: list[AutomationPoint] = []
+    previous = -1.0
+    for bar, value in values:
+        if not math.isfinite(bar) or bar < 0.0:
+            raise ProjectError("Output-gain point bars must be finite and zero or greater.")
+        if bar <= previous:
+            raise ProjectError("Output-gain point bars must be in strictly increasing order.")
+        if not math.isfinite(value) or not -60.0 <= value <= 12.0:
+            raise ProjectError(f"{label} values must be between -60 and +12 dB.")
+        points.append(AutomationPoint(float(bar), float(value)))
+        previous = bar
+    return tuple(points)
+
+
 def vst3_plugin(
     specification: VST3,
     *,
@@ -297,10 +330,12 @@ __all__ = [
     "AutomationLane",
     "AutomationPoint",
     "EffectPreset",
+    "OutputGainLane",
     "Parameter",
     "Plugin",
     "PluginDefinition",
     "PluginRegistry",
     "STOCK_PLUGINS",
     "vst3_plugin",
+    "output_gain_points",
 ]

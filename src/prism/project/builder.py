@@ -25,10 +25,12 @@ from prism.plugins import (
     AutomationCurve,
     AutomationLane,
     EffectPreset,
+    OutputGainLane,
     Plugin,
     automation_points,
     effect_plugin,
     instrument_plugin,
+    output_gain_points,
     vst3_plugin,
 )
 from prism.sample_library import SampleLibrary
@@ -198,6 +200,7 @@ class Track:
         self._instrument: Plugin | None = None
         self._instrument_specification: InstrumentSpecification | None = None
         self._instrument_instance_id = f"track:{self.name}:instrument"
+        self._output_gain_lane: OutputGainLane | None = None
         self._pitch_bend_range: float | None = None
         self.effects: list[Plugin] = []
         self.output_bus: Bus | None = None
@@ -245,6 +248,42 @@ class Track:
         """Compatibility alias for :attr:`instrument_specification`."""
 
         return self._instrument_specification
+
+    @property
+    def output_gain_lane(self) -> OutputGainLane | None:
+        """Return the explicit shared post-instrument gain envelope, if any."""
+
+        return self._output_gain_lane
+
+    def output_gain(
+        self,
+        points: Sequence[tuple[float, float]],
+        *,
+        name: str = "Shared output gain",
+        curve: AutomationCurve = "linear",
+    ) -> OutputGainLane:
+        """Add one shared post-instrument output-gain lane in dB.
+
+        This is a track-level envelope, not independent gain for individual
+        clips or voices.  It is therefore safe to use with one continuous
+        polyphonic VST instance after normalizing all of that track's clip
+        gains to a common value.
+        """
+
+        if self._output_gain_lane is not None:
+            raise ProjectError(f"Track {self.name!r} already has an output-gain lane.")
+        if curve not in {"linear", "hold"}:
+            raise ProjectError("Output-gain curve must be linear or hold.")
+        lane = OutputGainLane(
+            name=_name(name, "Output gain"),
+            points=output_gain_points(
+                points,
+                label=f"Output gain lane on track {self.name!r}",
+            ),
+            curve=curve,
+        )
+        self._output_gain_lane = lane
+        return lane
 
     @property
     def instrument_instance_id(self) -> str:
@@ -795,6 +834,37 @@ class Track:
             "Use track.instrument(...) to replace it for the whole track."
         )
 
+    def _vst_clip_gain_db(self) -> float:
+        """Return the common VST clip gain or reject independent scaling."""
+
+        if self._instrument is None or self._instrument.vst3 is None:
+            return 0.0
+        gains = tuple(
+            placement.clip.gain_db
+            for placement in self._clips
+            if isinstance(placement.clip, MidiClip)
+        )
+        if not gains:
+            return 0.0
+        common = gains[0]
+        if all(math.isclose(value, common, rel_tol=0.0, abs_tol=1e-9) for value in gains[1:]):
+            return common
+        raise ProjectError(
+            f"VST instrument track {self.name!r} has independently scaled MIDI clip gains "
+            f"{gains!r}. One continuous polyphonic VST instance cannot preserve those gains "
+            "for overlapping voices or release/internal-effect tails. Normalize every VST "
+            "clip to one common gain (usually 0 dB) and use track.output_gain(...) for a "
+            "shared output envelope, or move differently scaled parts to separate tracks."
+        )
+
+    def _validate_output_gain_lane(self, total_bars: int) -> None:
+        lane = self._output_gain_lane
+        if lane is not None and lane.points[-1].bar > total_bars:
+            raise ProjectError(
+                f"Output-gain lane {lane.name!r} ends at bar {lane.points[-1].bar:g}, "
+                f"after the song's {total_bars} bars."
+            )
+
     def _add_clip(
         self,
         clip: TrackClip,
@@ -1185,6 +1255,9 @@ class Project:
                         f"VST file is missing for {plugin.name!r}: {state_relative}."
                     )
         bars = sum(section.bars for section in self.sections)
+        for track in self.tracks:
+            track._validate_output_gain_lane(bars)
+            track._vst_clip_gain_db()
         for lane in self.automation_lanes:
             if not self._owns_plugin(lane.target):
                 raise ProjectError(
@@ -1310,11 +1383,22 @@ class Project:
                         track.instrument_plugin,
                     ),
                     "instrument": _plugin_configuration(track.instrument_plugin),
+                    "output_gain": (
+                        None
+                        if track.output_gain_lane is None
+                        else {
+                            "name": track.output_gain_lane.name,
+                            "curve": track.output_gain_lane.curve,
+                            "points": [
+                                asdict(point) for point in track.output_gain_lane.points
+                            ],
+                        }
+                    ),
                     "effects": [_plugin_configuration(effect) for effect in track.effects],
                 }
             )
         return {
-            "schema_version": 9,
+            "schema_version": 10,
             "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,

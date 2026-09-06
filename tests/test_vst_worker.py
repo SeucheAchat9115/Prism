@@ -55,6 +55,7 @@ class _FakePlugin:
         return None
 
     def load_midi(self, path: str) -> bool:
+        self.engine.midi_load_count += 1
         return True
 
     def get_latency_samples(self) -> int:
@@ -70,10 +71,14 @@ class _FakePlayback:
 
 
 class _FakeEngine:
+    instances: list[_FakeEngine] = []
+
     def __init__(self, sample_rate: int, block_size: int) -> None:
+        self.__class__.instances.append(self)
         self.sample_rate = sample_rate
         self.frames = 0
         self.render_count = 0
+        self.midi_load_count = 0
         self.plugin = _FakePlugin(self)
 
     def set_bpm(self, tempo: float) -> None:
@@ -167,6 +172,33 @@ def test_worker_renders_stereo_and_applies_parameters_and_automation(
     assert response == {"frames": 10, "latency_samples": 2}
     assert audio.shape == (10, 2)
     assert np.allclose(audio, 0.6)
+
+
+def test_worker_renders_one_complete_instrument_graph_once(
+    tmp_path: Path, fake_daw: None
+) -> None:
+    _FakeEngine.instances.clear()
+    output = tmp_path / "output.npy"
+    midi = tmp_path / "complete-track.mid"
+    midi.write_bytes(b"leading silence, sections, overlap, and tail")
+
+    response = vst_worker._execute(
+        {
+            "action": "instrument",
+            "plugin_path": "test.vst3",
+            "midi_path": str(midi),
+            "output_path": str(output),
+            "sample_rate": 10,
+            "frames": 100,
+            "tempo": 120,
+        }
+    )
+
+    assert response == {"frames": 100, "latency_samples": 2}
+    assert len(_FakeEngine.instances) == 1
+    engine = _FakeEngine.instances[0]
+    assert engine.midi_load_count == 1
+    assert engine.render_count == 1
 
 
 def test_worker_main_reports_plugin_errors(
