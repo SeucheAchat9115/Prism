@@ -70,10 +70,15 @@ Run the command printed when you created the tutorial project, then listen to
 `transpose_semitones` changes pitch in semitones. Positive transposition makes
 the source faster as a natural sampler-style pitch shift. `stretch_bars` then
 resizes the edited source to an exact musical length before `audio(...)` loops
-or pads it to its `bars=` value.
+or plays it to its `bars=` placement length. With the default natural release
+policy, a non-looping source is not discarded when a trigger lands near the end
+of a section. Set `release_policy="cut"` when the placement is an intentional
+arrangement cut.
 
-Fades are measured in milliseconds and are applied to each prepared source.
-That keeps loop boundaries smooth and makes repeated sample hits clean.
+Fades are measured in milliseconds. Fade-in is applied to each prepared source;
+fade-out is applied at each voice's actual natural endpoint or explicit cut
+endpoint. That keeps repeated sample hits and deliberate arrangement cuts
+clean instead of leaving a fade stranded in a discarded clip buffer.
 
 Try these changes one at a time:
 

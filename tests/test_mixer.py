@@ -92,7 +92,7 @@ def test_bus_send_master_configuration_and_automation_are_inspectable(
     track = configuration["tracks"][0]  # type: ignore[index]
     buses = configuration["buses"]  # type: ignore[assignment]
 
-    assert configuration["schema_version"] == 10
+    assert configuration["schema_version"] == 11
     assert track["output_bus"] == "Drums"  # type: ignore[index]
     assert track["sends"][0]["bus"] == "Room"  # type: ignore[index]
     assert buses[0]["effects"][0]["name"] == "Glue"  # type: ignore[index]

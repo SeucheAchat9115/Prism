@@ -10,7 +10,7 @@ import re
 import shutil
 import tempfile
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Literal, Mapping
 
@@ -29,6 +29,7 @@ from prism.errors import ProjectError, RenderError
 from prism.music import Note, db_gain
 from prism.project.builder import (
     AudioClip,
+    AudioReleasePolicy,
     DrumClip,
     MidiClip,
     Project,
@@ -125,6 +126,26 @@ class _StemManifest:
     generation: int
     directory: Path
     files: tuple[tuple[str, str], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class _ScheduledVoice:
+    """One non-MIDI source voice placed on the absolute render timeline.
+
+    The schedule deliberately contains prepared source data and resolved frame
+    endpoints.  Track rendering consumes this data without walking sections or
+    interpreting ``loop``/``repeat`` again, leaving one reusable boundary for a
+    future block renderer.
+    """
+
+    start_frame: int
+    end_frame: int
+    source: np.ndarray
+    loop: bool
+    gain_db: float
+    fade_out_frames: int
+    release_policy: AudioReleasePolicy
+    order: int
 
 
 _STEM_MANIFEST_SCHEMA_VERSION = 1
@@ -340,39 +361,8 @@ def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _Rendered
         if isinstance(track.clip, MidiClip):
             arranged = _arrange_midi_track(project, track, total_frames, summary.bars)
         else:
-            clip_buffers = {
-                id(placement): _clip_buffer(project, track, placement.clip)
-                for placement in track.clips
-            }
-            arranged = np.zeros((total_frames, 2), dtype=np.float64)
-            cursor_bar = 0.0
-            for section in project.sections:
-                section_start = timing.bar_to_frame(cursor_bar)
-                section_end = timing.bar_to_frame(cursor_bar + section.bars)
-                frames = section_end - section_start
-                active = (
-                    {item.name for item in project.tracks}
-                    if section.tracks is None
-                    else set(section.tracks)
-                )
-                if track.name in active:
-                    for placement in track.clips_for(section):
-                        offset = (
-                            timing.bar_to_frame(cursor_bar + placement.start_bar)
-                            - section_start
-                        )
-                        available = frames - offset
-                        if available <= 0:
-                            continue
-                        source = clip_buffers[id(placement)]
-                        placed = (
-                            _loop_to(source, available)
-                            if placement.repeat
-                            else _fit_to(source, available)
-                        )
-                        start = section_start + offset
-                        arranged[start : start + available] += placed
-                cursor_bar += section.bars
+            schedule = _schedule_audio_voices(project, track, total_frames)
+            arranged = _render_voice_schedule(schedule, total_frames)
         processed = process_track_plugins(project, track, arranged)
         track_outputs[track.name] = _mix_channel(
             processed, gain_db=track.gain_db, pan=track.pan
@@ -412,7 +402,293 @@ def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _Rendered
     )
 
 
+def _schedule_audio_voices(
+    project: Project,
+    track: Track,
+    total_frames: int,
+) -> tuple[_ScheduledVoice, ...]:
+    """Resolve sample, audio, and drum placements into absolute source voices.
+
+    ``AudioClip.loop`` repeats its prepared source only inside one placement.
+    ``ClipPlacement.repeat`` creates another placement in the active section.
+    Natural one-shot/sample/percussion voices can outlive either boundary and
+    are clipped only by the requested output duration.  ``cut`` and ``legacy``
+    use the owning placement/section boundary; ``choke`` additionally ends a
+    prior voice when a later voice on this track starts.
+    """
+
+    timing = project.timing
+    prepared: dict[int, np.ndarray] = {}
+    voices: list[_ScheduledVoice] = []
+    order = 0
+    cursor_bar = 0.0
+
+    for section in project.sections:
+        section_end = timing.bar_to_frame(cursor_bar + section.bars)
+        active = section.tracks is None or track.name in section.tracks
+        if active:
+            for placement in track.clips_for(section):
+                clip = placement.clip
+                if isinstance(clip, MidiClip):
+                    continue
+                clip_frames = timing.bars_to_frames(clip.bars)
+                placement_start = timing.bar_to_frame(
+                    cursor_bar + placement.start_bar
+                )
+                available = section_end - placement_start
+                if available <= 0:
+                    continue
+                repeats = (
+                    max(1, math.ceil(available / clip_frames))
+                    if placement.repeat
+                    else 1
+                )
+                source = None
+                if isinstance(clip, SampleClip | AudioClip):
+                    source = prepared.get(id(clip))
+                    if source is None:
+                        source = _prepare_audio(project, clip)
+                        prepared[id(clip)] = source
+
+                for repeat_index in range(repeats):
+                    occurrence_start = placement_start + repeat_index * clip_frames
+                    if occurrence_start >= section_end or occurrence_start >= total_frames:
+                        continue
+                    occurrence_end = min(
+                        section_end,
+                        occurrence_start + clip_frames,
+                        total_frames,
+                    )
+                    if occurrence_end <= occurrence_start:
+                        continue
+                    release_policy = (
+                        clip.release_policy or project.audio_release_policy
+                    )
+                    if isinstance(clip, SampleClip):
+                        assert source is not None
+                        boundaries = np.rint(
+                            np.linspace(0, clip_frames, len(clip.pattern) + 1)
+                        ).astype(np.int64)
+                        for step_index, step in enumerate(clip.pattern):
+                            if step == "-":
+                                continue
+                            voice_start = occurrence_start + int(boundaries[step_index])
+                            if voice_start >= occurrence_end:
+                                continue
+                            _append_scheduled_voice(
+                                voices,
+                                source=source,
+                                start_frame=voice_start,
+                                natural_end=voice_start + source.shape[0],
+                                boundary_end=occurrence_end,
+                                total_frames=total_frames,
+                                loop=False,
+                                gain_db=clip.gain_db,
+                                fade_out_frames=_fade_out_frames(
+                                    clip.fade_out_ms, project.sample_rate
+                                ),
+                                release_policy=release_policy,
+                                order=order,
+                            )
+                            order += 1
+                    elif isinstance(clip, AudioClip):
+                        assert source is not None
+                        _append_scheduled_voice(
+                            voices,
+                            source=source,
+                            start_frame=occurrence_start,
+                            natural_end=(
+                                occurrence_end
+                                if clip.loop
+                                else occurrence_start + source.shape[0]
+                            ),
+                            boundary_end=occurrence_end,
+                            total_frames=total_frames,
+                            loop=clip.loop,
+                            gain_db=clip.gain_db,
+                            fade_out_frames=_fade_out_frames(
+                                clip.fade_out_ms, project.sample_rate
+                            ),
+                            release_policy=release_policy,
+                            order=order,
+                        )
+                        order += 1
+                    else:
+                        assert isinstance(clip, DrumClip)
+                        boundaries = np.rint(
+                            np.linspace(0, clip_frames, len(clip.pattern) + 1)
+                        ).astype(np.int64)
+                        for step_index, step in enumerate(clip.pattern):
+                            if step == "-":
+                                continue
+                            voice_start = occurrence_start + int(boundaries[step_index])
+                            if voice_start >= occurrence_end:
+                                continue
+                            hit = _drum_hit_source(
+                                project,
+                                clip,
+                                step,
+                                seed=(
+                                    clip.seed
+                                    + 1_000_003 * repeat_index
+                                    + step_index
+                                )
+                                % 4_294_967_296,
+                            )
+                            boundary_end = (
+                                occurrence_start + int(boundaries[step_index + 1])
+                                if release_policy == "legacy"
+                                else occurrence_end
+                            )
+                            _append_scheduled_voice(
+                                voices,
+                                source=hit,
+                                start_frame=voice_start,
+                                natural_end=voice_start + hit.shape[0],
+                                boundary_end=boundary_end,
+                                total_frames=total_frames,
+                                loop=False,
+                                gain_db=0.0,
+                                fade_out_frames=0,
+                                release_policy=release_policy,
+                                order=order,
+                            )
+                            order += 1
+        cursor_bar += section.bars
+
+    return _apply_choke_policy(tuple(voices))
+
+
+def _append_scheduled_voice(
+    voices: list[_ScheduledVoice],
+    *,
+    source: np.ndarray,
+    start_frame: int,
+    natural_end: int,
+    boundary_end: int,
+    total_frames: int,
+    loop: bool,
+    gain_db: float,
+    fade_out_frames: int,
+    release_policy: AudioReleasePolicy,
+    order: int,
+) -> None:
+    end_frame = natural_end
+    if release_policy in {"cut", "legacy"}:
+        end_frame = min(end_frame, boundary_end)
+    end_frame = min(end_frame, total_frames)
+    if end_frame <= start_frame:
+        return
+    voices.append(
+        _ScheduledVoice(
+            start_frame=start_frame,
+            end_frame=end_frame,
+            source=source,
+            loop=loop,
+            gain_db=gain_db,
+            fade_out_frames=fade_out_frames,
+            release_policy=release_policy,
+            order=order,
+        )
+    )
+
+
+def _apply_choke_policy(
+    voices: tuple[_ScheduledVoice, ...],
+) -> tuple[_ScheduledVoice, ...]:
+    """End choke-mode voices at the next trigger on their track."""
+
+    ordered = tuple(sorted(voices, key=lambda voice: (voice.start_frame, voice.order)))
+    future_starts = sorted({voice.start_frame for voice in ordered})
+    next_start: dict[int, int | None] = {
+        start: future_starts[index + 1] if index + 1 < len(future_starts) else None
+        for index, start in enumerate(future_starts)
+    }
+    result: list[_ScheduledVoice] = []
+    for voice in ordered:
+        if voice.release_policy != "choke":
+            result.append(voice)
+            continue
+        next_trigger = next_start[voice.start_frame]
+        if next_trigger is None:
+            result.append(voice)
+            continue
+        result.append(replace(voice, end_frame=min(voice.end_frame, next_trigger)))
+    return tuple(voice for voice in result if voice.end_frame > voice.start_frame)
+
+
+def _render_voice_schedule(
+    voices: tuple[_ScheduledVoice, ...],
+    total_frames: int,
+) -> np.ndarray:
+    """Render a resolved voice schedule before track effects and mixing."""
+
+    arranged = np.zeros((total_frames, 2), dtype=np.float64)
+    for voice in voices:
+        end_frame = min(voice.end_frame, total_frames)
+        length = end_frame - voice.start_frame
+        if length <= 0:
+            continue
+        placed = (
+            _loop_to(voice.source, length)
+            if voice.loop
+            else _fit_to(voice.source, length)
+        )
+        if not math.isclose(voice.gain_db, 0.0, abs_tol=1e-12):
+            placed *= db_gain(voice.gain_db)
+        _apply_fade_out(placed, voice.fade_out_frames)
+        arranged[voice.start_frame:end_frame] += placed
+    return arranged
+
+
+def _fade_out_frames(duration_ms: float, sample_rate: int) -> int:
+    return max(0, int(round(duration_ms * sample_rate / 1_000.0)))
+
+
+def _apply_fade_out(samples: np.ndarray, fade_frames: int) -> None:
+    length = min(samples.shape[0], fade_frames)
+    if length:
+        samples[-length:] *= np.linspace(1.0, 0.0, length, endpoint=True)[:, np.newaxis]
+
+
+_DRUM_RELEASE_SECONDS = {"kick": 0.42, "snare": 0.24, "hihat": 0.085}
+
+
+def _drum_hit_source(
+    project: Project,
+    clip: DrumClip,
+    token: str,
+    *,
+    seed: int,
+) -> np.ndarray:
+    """Render one percussion envelope without imposing a pattern-step choke."""
+
+    duration = max(
+        1,
+        int(round(_DRUM_RELEASE_SECONDS.get(clip.preset, 0.085) * project.sample_rate)),
+    )
+    return _synth_audio(
+        project,
+        NativeSynthSpec(
+            preset=clip.preset,
+            sequence=(token,),
+            bars=1,
+            frame_count=duration,
+            gain_db=clip.gain_db,
+            seed=seed,
+        ),
+    )
+
+
 def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
+    """Build one clip-local buffer for compatibility with older callers.
+
+    The arrangement renderer no longer uses this helper: it uses
+    ``_schedule_audio_voices`` so source voices can cross section boundaries.
+    Keeping the helper makes the old clip-level shape useful to diagnostics and
+    preserves a small, deterministic unit of source preparation.
+    """
+
     timing = project.timing
     if isinstance(clip, SampleClip):
         source = _prepare_audio(project, clip)
@@ -425,13 +701,17 @@ def _clip_buffer(project: Project, track: Track, clip: TrackClip) -> np.ndarray:
                 continue
             start = int(boundaries[index])
             length = min(source.shape[0], frames - start)
-            output[start : start + length] += source[:length]
+            placed = source[:length].copy()
+            _apply_fade_out(placed, _fade_out_frames(clip.fade_out_ms, project.sample_rate))
+            output[start : start + length] += placed
         return output
     if isinstance(clip, AudioClip):
         source = _prepare_audio(project, clip)
-        source *= db_gain(clip.gain_db)
         frames = timing.bars_to_frames(clip.bars)
-        return _loop_to(source, frames) if clip.loop else _fit_to(source, frames)
+        output = _loop_to(source, frames) if clip.loop else _fit_to(source, frames)
+        output *= db_gain(clip.gain_db)
+        _apply_fade_out(output, _fade_out_frames(clip.fade_out_ms, project.sample_rate))
+        return output
     if isinstance(clip, DrumClip):
         spec = NativeSynthSpec(
             preset=clip.preset,
@@ -499,14 +779,9 @@ def _prepare_audio(project: Project, clip: SampleClip | AudioClip) -> np.ndarray
             source[:fade_frames] *= np.linspace(
                 0.0, 1.0, fade_frames, endpoint=True
             )[:, np.newaxis]
-    if clip.fade_out_ms > 0.0:
-        fade_frames = min(
-            source.shape[0], int(round(clip.fade_out_ms * project.sample_rate / 1_000.0))
-        )
-        if fade_frames:
-            source[-fade_frames:] *= np.linspace(
-                1.0, 0.0, fade_frames, endpoint=True
-            )[:, np.newaxis]
+    # Fade-out is applied by the voice scheduler at the selected natural or
+    # cut endpoint.  Applying it here would place the fade at the prepared
+    # source endpoint even when a deliberate arrangement cut happens earlier.
     return np.asarray(source, dtype=np.float64)
 
 

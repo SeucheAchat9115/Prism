@@ -27,6 +27,52 @@ song.track("Texture").audio(
 With `loop=True`, Prism repeats the prepared source through the clip. With
 `loop=False`, it plays once and leaves silence afterward.
 
+`loop` and placement `repeat` answer different questions. `loop=True` repeats
+the prepared source inside one placement; `repeat=True` (the default) creates
+another placement when the active section is longer than `bars=`. For example,
+`loop=False, repeat=False` is exactly one source playback at one timeline
+position. A looping placement stops at its own `bars=` boundary; a one-shot can
+continue beyond that boundary when its release policy is `natural`.
+
+## Keep or cut releases
+
+New projects use natural releases. A sample hit, one-shot, or native percussion
+voice remains audible until its prepared source or synthesized envelope ends,
+including across a section where its track is inactive, and into an export tail.
+The track and bus/master effects are applied after those voices are scheduled.
+
+Use an explicit per-placement policy when a musical cut is intentional:
+
+```python
+song.track("Vocal Shot").audio(
+    "sounds/vocal-shot.wav",
+    bars=1,
+    loop=False,
+    repeat=False,
+    release_policy="cut",
+)
+
+song.track("Closed Hat").sample(
+    "sounds/hat.wav",
+    "x-x-x-x-",
+    bars=1,
+    release_policy="choke",
+)
+```
+
+`natural` keeps each voice through its actual endpoint. `cut` ends it at the
+owning placement/section boundary. `choke` lets a later trigger on the same
+track end an earlier voice while allowing the final trigger to release
+naturally. Native drum envelopes are natural by default instead of being
+silently truncated at pattern steps.
+
+For a whole project, set `audio_release_policy="cut"` or
+`audio_release_policy="choke"` on `Project(...)`. The explicit
+`audio_release_policy="legacy"` compatibility mode restores the former
+placement-boundary behavior, including pattern-step truncation for native
+percussion. Prism records this choice in `configuration()` (schema 11); it
+does not infer it from `prism_version`.
+
 ## Prepare the source before placement
 
 Both `sample()` and `audio()` support the same deterministic editing stages:
@@ -36,7 +82,8 @@ Both `sample()` and `audio()` support the same deterministic editing stages:
 3. Apply `playback_rate` and `transpose_semitones`.
 4. Optionally resize to `stretch_bars`.
 5. Apply `fade_in_ms` and `fade_out_ms`.
-6. Loop or fit the result into its placement.
+6. Loop or fit the result into its placement. A requested fade-out is applied
+   at the voice's actual natural or deliberate cut endpoint.
 
 ```python
 song.track("Edited Loop").audio(

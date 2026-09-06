@@ -9,6 +9,70 @@ Original audit IDs and historical test results below are retained. Tasks 17, 18,
 The task suffix /35 in historical entries refers to the original audit plan.
 
 
+## Task 06/35 — preserve sample and audio releases across arrangement boundaries
+
+Status: Done; [PR #32](https://github.com/SeucheAchat9115/Prism/pull/32) is open.
+The implementation is on `task-06/preserve-audio-releases`. Done describes
+implementation completion, not pull-request merge state.
+
+### Completed scope
+
+- Sample, one-shot audio, looping audio, and native percussion are resolved into
+  one absolute `_ScheduledVoice` timeline per non-MIDI track before track,
+  bus, send, and master effects run. The schedule includes prepared source,
+  frame endpoints, looping, gain, fade-out, and policy metadata so a future
+  block renderer can reuse it without a second placement algorithm.
+- Natural sample/audio releases continue through placement and section
+  boundaries, including a following inactive section, and are retained when
+  `tail_seconds` provides output frames. `AudioClip.loop` repeats a source only
+  inside one placement; `ClipPlacement.repeat` creates another placement in an
+  active section.
+- Native percussion now renders its intended synthesized envelope beyond a
+  pattern step by default. It is deliberately truncated only by `cut`, or by
+  the explicit `legacy` compatibility policy; `choke` ends earlier voices at
+  later triggers.
+- Track, bus, master, and stem rendering continue to consume the same aligned
+  total-frame buffers after scheduling. Fade-out is applied at the actual
+  natural or deliberate cut endpoint.
+
+### Compatibility decisions
+
+- New projects default to `audio_release_policy="natural"`. A placement can
+  override the project with `release_policy="natural"`, `"cut"`, or
+  `"choke"`; `audio_release_policy="legacy"` restores the former
+  placement/section boundary behavior and native pattern-step truncation.
+- The policy is explicit and serialized in configuration schema 11. Prism does
+  not infer compatibility from `prism_version`; projects needing byte-stable
+  pre-task-06 output must declare the legacy policy.
+
+### Verification
+
+- Focused render regressions pass for late triggers, inactive-section
+  transitions, overlap/choke behavior, one-shots, source looping versus
+  placement repeat, trim/fades, percussion envelopes, explicit cuts, and
+  aligned master/stems.
+- `uv run --extra dev pytest --cov --cov-report=term-missing`: 210 passed,
+  3 skipped, coverage 87.77%.
+- `uv run --extra dev mypy src/prism`: passed; 35 source files checked.
+- `uv run --extra dev ruff check .`: passed.
+- `uv run --extra docs mkdocs build --strict`: the local connector-reconstructed
+  tree lacked the unchanged binary `docs/assets/prism-logo.jpg`, but the
+  published Documentation workflow #108 passed its strict build on the full
+  repository tree.
+- Published CI workflow #141, VST3 integration workflow #79, and CodeQL
+  workflow #64 all passed. The separate real-VST qualification workflow remains
+  distinct from offline test mocks.
+- The separate real-VST workflow is unchanged; this task does not claim
+  third-party/plugin qualification.
+
+### Concrete limitations
+
+- A natural voice cannot be audible beyond the requested output frame count;
+  callers must request enough `tail_seconds` for the source or effect to finish.
+- `choke` is track-scoped: a later scheduled voice on that track ends an earlier
+  choke-policy voice. Cross-track sidechain/choke groups remain future work.
+
+
 ## Task 05/35 — render each VST instrument track through one continuous instance
 
 Status: Done; [PR #31](https://github.com/SeucheAchat9115/Prism/pull/31) is open.

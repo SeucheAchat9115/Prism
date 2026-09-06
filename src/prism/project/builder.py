@@ -63,6 +63,7 @@ class SampleClip:
     playback_rate: float = 1.0
     transpose_semitones: int = 0
     stretch_bars: float | None = None
+    release_policy: AudioReleasePolicy | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +80,7 @@ class AudioClip:
     playback_rate: float = 1.0
     transpose_semitones: int = 0
     stretch_bars: float | None = None
+    release_policy: AudioReleasePolicy | None = None
 
 
 class _AudioEditing(TypedDict):
@@ -99,6 +101,7 @@ class DrumClip:
     bars: int
     gain_db: float
     seed: int
+    release_policy: AudioReleasePolicy | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +133,8 @@ class MidiClip:
 
 TrackClip = SampleClip | AudioClip | DrumClip | MidiClip
 InstrumentSpecification = str | Uniwave | VST3
+AudioReleasePolicy = Literal["natural", "cut", "choke", "legacy"]
+DEFAULT_AUDIO_RELEASE_POLICY: AudioReleasePolicy = "natural"
 
 
 @dataclass(frozen=True, slots=True)
@@ -309,8 +314,17 @@ class Track:
         playback_rate: float = 1.0,
         transpose_semitones: int = 0,
         stretch_bars: float | None = None,
+        release_policy: AudioReleasePolicy | None = None,
     ) -> Self:
-        """Add a placed project-local sample pattern to this track."""
+        """Add a placed project-local sample pattern to this track.
+
+        ``release_policy`` controls what happens when a triggered source reaches
+        an arrangement boundary.  ``None`` inherits the project's
+        ``audio_release_policy``; ``natural`` keeps the prepared source alive,
+        ``cut`` stops it at the owning placement/section boundary, and
+        ``choke`` stops an earlier voice when a later voice on this track starts.
+        ``legacy`` is the pre-task-06 boundary-truncated behavior.
+        """
 
         self._add_clip(
             SampleClip(
@@ -327,6 +341,9 @@ class Track:
                     playback_rate=playback_rate,
                     transpose_semitones=transpose_semitones,
                     stretch_bars=stretch_bars,
+                ),
+                release_policy=_optional_audio_release_policy(
+                    release_policy, f"Sample track {self.name!r}"
                 ),
             ),
             section=section,
@@ -364,8 +381,16 @@ class Track:
         playback_rate: float = 1.0,
         transpose_semitones: int = 0,
         stretch_bars: float | None = None,
+        release_policy: AudioReleasePolicy | None = None,
     ) -> Self:
-        """Add a placed project-local audio loop or one-shot to this track."""
+        """Add a placed project-local audio loop or one-shot to this track.
+
+        ``loop`` repeats the prepared source inside one clip placement.
+        ``repeat`` repeats that placement through the active section.  They are
+        independent: ``loop=False, repeat=False`` is one source playback at one
+        timeline position.  ``release_policy`` controls source voices that would
+        otherwise cross the placement or section boundary.
+        """
 
         self._add_clip(
             AudioClip(
@@ -382,6 +407,9 @@ class Track:
                     playback_rate=playback_rate,
                     transpose_semitones=transpose_semitones,
                     stretch_bars=stretch_bars,
+                ),
+                release_policy=_optional_audio_release_policy(
+                    release_policy, f"Audio track {self.name!r}"
                 ),
             ),
             section=section,
@@ -412,8 +440,14 @@ class Track:
         section: str | None = None,
         start_bar: float = 0.0,
         repeat: bool = True,
+        release_policy: AudioReleasePolicy | None = None,
     ) -> Self:
-        """Add a placed built-in drum clip without needing an external sample."""
+        """Add a placed built-in drum clip without needing an external sample.
+
+        Native percussion envelopes are natural by default.  Use ``choke`` when
+        deliberately stopping a previous hit at the next hit, or ``cut`` when
+        the arrangement boundary should stop the voice.
+        """
 
         drum_definition = STOCK_PLUGINS.get("instrument", preset)
         if drum_definition.drum_note is None:
@@ -427,6 +461,9 @@ class Track:
                 bars=_synth_bars(bars, f"Drum track {self.name!r}", self._project),
                 gain_db=validate_gain(gain_db, label=f"Drum track {self.name!r} clip gain"),
                 seed=seed,
+                release_policy=_optional_audio_release_policy(
+                    release_policy, f"Drum track {self.name!r}"
+                ),
             ),
             section=section,
             start_bar=start_bar,
@@ -1010,6 +1047,7 @@ class Project:
         beat_unit: Literal[1, 2, 4, 8, 16] = 4,
         timing_compatibility: TimingCompatibility = CANONICAL_TIMING_VERSION,
         controller_boundary: ControllerBoundaryMode = "reset",
+        audio_release_policy: AudioReleasePolicy = DEFAULT_AUDIO_RELEASE_POLICY,
         master_gain_db: float = -3.0,
         normalize: bool = True,
         _script: str | Path | None = None,
@@ -1034,6 +1072,9 @@ class Project:
                 "Controller boundary must be 'reset', 'retain', or 'legacy'."
             )
         self.controller_boundary: ControllerBoundaryMode = controller_boundary
+        self.audio_release_policy = _audio_release_policy(
+            audio_release_policy, "Project audio_release_policy"
+        )
         self.tempo = self.timing.tempo_bpm
         self.sample_rate = self.timing.sample_rate
         self.beats_per_bar = self.timing.numerator
@@ -1206,6 +1247,11 @@ class Project:
                 if section.tracks is None or track.name in section.tracks
             ]
             for placement in track.clips:
+                if isinstance(placement.clip, SampleClip | AudioClip | DrumClip):
+                    _optional_audio_release_policy(
+                        placement.clip.release_policy,
+                        f"Track {track.name!r} clip",
+                    )
                 if placement.section is not None:
                     target_section = section_by_name.get(placement.section)
                     if target_section is None:
@@ -1398,7 +1444,7 @@ class Project:
                 }
             )
         return {
-            "schema_version": 10,
+            "schema_version": 11,
             "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,
@@ -1408,6 +1454,7 @@ class Project:
             "timing_compatibility": self.timing.compatibility,
             "quarter_notes_per_bar": self.timing.quarter_notes_per_bar,
             "controller_boundary": self.controller_boundary,
+            "audio_release_policy": self.audio_release_policy,
             "master_gain_db": self.master_gain_db,
             "normalize": self.normalize,
             "sample_folders": self.samples.folders,
@@ -1895,6 +1942,27 @@ def _audio_editing(
         "stretch_bars": None if stretch_bars is None else float(stretch_bars),
     }
     return result
+
+
+def _audio_release_policy(value: str, label: str) -> AudioReleasePolicy:
+    """Validate one explicit sample/audio voice lifetime policy."""
+
+    if value not in {"natural", "cut", "choke", "legacy"}:
+        raise ProjectError(
+            f"{label} must be 'natural', 'cut', 'choke', or 'legacy'."
+        )
+    return value  # type: ignore[return-value]
+
+
+def _optional_audio_release_policy(
+    value: AudioReleasePolicy | None,
+    label: str,
+) -> AudioReleasePolicy | None:
+    """Validate an optional per-placement policy that inherits at render time."""
+
+    if value is None:
+        return None
+    return _audio_release_policy(value, f"{label} release_policy")
 
 
 def _finite_range(value: float, low: float, high: float, label: str) -> None:

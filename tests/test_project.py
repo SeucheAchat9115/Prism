@@ -63,6 +63,40 @@ def test_project_requires_a_readable_prism_version(
         Project("Versioned", prism_version=version, _script=project_script)
 
 
+def test_audio_release_policy_is_explicit_and_serialized(project_script: Path) -> None:
+    song = Project(
+        "Release policy",
+        prism_version="test",
+        audio_release_policy="legacy",
+        _script=project_script,
+    )
+    track = song.track("Shot").audio(
+        "sounds/shot.wav",
+        loop=False,
+        repeat=False,
+        release_policy="choke",
+    )
+    song.section("Only", bars=1, tracks=[track])
+
+    configuration = song.configuration()
+    assert configuration["schema_version"] == 11
+    assert configuration["audio_release_policy"] == "legacy"
+    assert configuration["tracks"][0]["part"]["release_policy"] == "choke"  # type: ignore[index]
+
+    with pytest.raises(ProjectError, match="audio_release_policy"):
+        Project(
+            "Invalid policy",
+            prism_version="test",
+            audio_release_policy="crossfade",  # type: ignore[arg-type]
+            _script=project_script,
+        )
+    with pytest.raises(ProjectError, match="release_policy"):
+        song.track("Other").audio(
+            "sounds/shot.wav",
+            release_policy="crossfade",  # type: ignore[arg-type]
+        )
+
+
 def test_tracks_accept_only_one_clear_part(project_script: Path) -> None:
     song = Project("One Part", prism_version="test", _script=project_script)
     track = song.track("Lead").midi("C4 -")
