@@ -215,10 +215,19 @@ def _automation_file(
     lanes = [lane for lane in project.automation_lanes if lane.target is plugin]
     if not lanes:
         return None
-    arrays = {
-        lane.parameter: parameter_values(project, plugin, lane.parameter, frames)
-        for lane in lanes
-    }
+    arrays: dict[str, np.ndarray] = {}
+    identities: dict[str, str] = {}
+    for lane in lanes:
+        identity = lane.parameter_identity
+        selector = identity.selector if identity.index is not None else lane.parameter
+        previous = identities.get(identity.parameter_id)
+        if previous is not None:
+            raise RenderError(
+                f"Automation selectors {previous!r} and {lane.parameter!r} target the "
+                f"same physical VST parameter {identity.parameter_id!r}."
+            )
+        identities[identity.parameter_id] = lane.parameter
+        arrays[selector] = parameter_values(project, plugin, lane.parameter, frames)
     path = root / "automation.npz"
     np.savez(path, **arrays)  # type: ignore[arg-type]
     return str(path)

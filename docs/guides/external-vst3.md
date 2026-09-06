@@ -104,6 +104,15 @@ Use the exact names printed by `inspect`; manufacturers choose their own names.
 The loading order is plugin default, state or preset, `parameters`, then Prism
 automation. This makes the visible values in `main.py` authoritative.
 
+Automation selectors are checked against the plugin's inspected parameter list
+before the render graph is started. A unique readable name remains the clearest
+authoring form; an indexed selector such as `"#123: Filter Cutoff"` is the
+canonical escape hatch for duplicate names. The compiled lane retains the
+readable selector but also records the stable track-instance and inspected
+parameter-index identities, so a name and an index cannot silently create two
+lanes for one physical control. Unknown, ambiguous, or duplicate selectors are
+reported before expensive audio processing begins.
+
 ## Keep one VST3 configuration per track
 
 An instrument track owns one immutable VST3 declaration and one stable instrument

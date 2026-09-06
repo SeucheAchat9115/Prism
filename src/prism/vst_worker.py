@@ -12,6 +12,8 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from prism.vst import CanonicalVSTParameter, canonical_vst_parameter
+
 
 def main(arguments: list[str] | None = None) -> int:
     args = sys.argv[1:] if arguments is None else arguments
@@ -67,8 +69,16 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
     if action not in {"instrument", "effect"}:
         raise ValueError(f"Unknown VST3 worker action: {action}")
 
-    _set_parameters(plugin, parameters, request.get("parameters", {}))
-    _set_automation(plugin, parameters, request.get("automation"))
+    requested_parameters = request.get("parameters", {})
+    automation_path = request.get("automation")
+    parameter_selectors = _parameter_selectors(requested_parameters)
+    automation_selectors = _automation_selectors(automation_path)
+    targets = {
+        **_resolve_parameter_targets(parameter_selectors, parameters),
+        **_resolve_parameter_targets(automation_selectors, parameters),
+    }
+    _set_parameters(plugin, requested_parameters, targets)
+    _set_automation(plugin, automation_path, targets)
     frames = int(request["frames"])
     latency = _latency(plugin)
     duration = (frames + latency) / sample_rate
@@ -244,21 +254,24 @@ def _parameters(plugin: Any) -> list[dict[str, object]]:
 
 
 def _set_parameters(
-    plugin: Any, descriptions: list[dict[str, object]], values: object
+    plugin: Any,
+    values: object,
+    targets: Mapping[str, CanonicalVSTParameter],
 ) -> None:
     if not isinstance(values, dict):
         raise ValueError("VST3 parameters must be an object.")
     for selector, value in values.items():
+        clean_selector = str(selector)
         _succeeded(
-            plugin.set_parameter(
-                _parameter_index(str(selector), descriptions), float(value)
-            ),
+            plugin.set_parameter(targets[clean_selector].index, float(value)),
             f"set VST3 parameter {selector!r}",
         )
 
 
 def _set_automation(
-    plugin: Any, descriptions: list[dict[str, object]], path: object
+    plugin: Any,
+    path: object,
+    targets: Mapping[str, CanonicalVSTParameter],
 ) -> None:
     if not path:
         return
@@ -266,7 +279,7 @@ def _set_automation(
         for selector in arrays.files:
             _succeeded(
                 plugin.set_automation(
-                    _parameter_index(selector, descriptions),
+                    targets[selector].index,
                     np.asarray(arrays[selector], dtype=np.float32),
                 ),
                 f"automate VST3 parameter {selector!r}",
@@ -274,29 +287,47 @@ def _set_automation(
 
 
 def _parameter_index(selector: str, descriptions: list[dict[str, object]]) -> int:
-    if selector.startswith("#"):
-        raw = selector[1:].split(":", 1)[0]
-        try:
-            requested = int(raw)
-        except ValueError as error:
-            raise ValueError(f"Invalid indexed VST parameter selector {selector!r}.") from error
-        if any(_description_index(item) == requested for item in descriptions):
-            return requested
-        raise ValueError(f"VST parameter index #{requested} does not exist.")
-    matches = [
-        _description_index(item)
-        for item in descriptions
-        if str(item["name"]).casefold() == selector.casefold()
-    ]
-    if not matches:
-        raise ValueError(
-            f"VST parameter {selector!r} does not exist. Run prism plugins inspect."
-        )
-    if len(matches) > 1:
-        raise ValueError(
-            f"VST parameter {selector!r} is ambiguous; use '#INDEX: Name' from inspect."
-        )
-    return matches[0]
+    target = canonical_vst_parameter(selector, descriptions)
+    if target.index is None:
+        raise ValueError(f"VST parameter {selector!r} has no inspected index.")
+    return target.index
+
+
+def _parameter_selectors(values: object) -> list[str]:
+    if not isinstance(values, dict):
+        raise ValueError("VST3 parameters must be an object.")
+    return [str(selector) for selector in values]
+
+
+def _automation_selectors(path: object) -> list[str]:
+    if not path:
+        return []
+    with np.load(str(path), allow_pickle=False) as arrays:
+        return list(arrays.files)
+
+
+def _resolve_parameter_targets(
+    selectors: list[str], descriptions: list[dict[str, object]]
+) -> dict[str, CanonicalVSTParameter]:
+    """Resolve and de-duplicate every request before audio processing."""
+
+    targets: dict[str, CanonicalVSTParameter] = {}
+    by_identity: dict[str, str] = {}
+    for selector in selectors:
+        if selector in targets:
+            raise ValueError(f"VST parameter selector {selector!r} is duplicated.")
+        target = canonical_vst_parameter(selector, descriptions)
+        previous = by_identity.get(target.parameter_id)
+        if previous is not None:
+            raise ValueError(
+                f"VST parameter selectors {previous!r} and {selector!r} target the "
+                f"same physical parameter #{target.index}; keep one lane."
+            )
+        if target.index is None:
+            raise ValueError(f"VST parameter {selector!r} has no inspected index.")
+        targets[selector] = target
+        by_identity[target.parameter_id] = selector
+    return targets
 
 
 def _description_index(description: Mapping[str, object]) -> int:

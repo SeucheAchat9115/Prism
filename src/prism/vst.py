@@ -11,13 +11,49 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from types import MappingProxyType
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 from prism.errors import ProjectError
 
 REGISTRY_FILENAME = "vst.json"
 REGISTRY_SCHEMA_VERSION = 1
 _ALIAS = re.compile(r"[a-z0-9][a-z0-9_-]*")
+
+
+@dataclass(frozen=True, slots=True)
+class VSTParameterDescription:
+    """Inspected metadata for one exposed VST3 parameter.
+
+    VST3 names are producer-facing labels and are not guaranteed to be unique.
+    The inspected index is therefore the canonical identity used after a
+    selector has been resolved.  ``steps`` is retained for display and future
+    quantized-control handling; Prism currently sends normalized float values.
+    """
+
+    index: int
+    name: str
+    label: str = ""
+    steps: int = 0
+
+    def __post_init__(self) -> None:
+        if isinstance(self.index, bool) or self.index < 0:
+            raise ValueError("VST parameter indices must be non-negative integers.")
+        if not self.name.strip():
+            raise ValueError("VST parameter names cannot be empty.")
+        if isinstance(self.steps, bool) or self.steps < 0:
+            raise ValueError("VST parameter steps must be a non-negative integer.")
+        object.__setattr__(self, "name", self.name.strip())
+        object.__setattr__(self, "label", self.label.strip())
+
+
+@dataclass(frozen=True, slots=True)
+class CanonicalVSTParameter:
+    """The resolved identity of one readable VST3 parameter selector."""
+
+    parameter_id: str
+    selector: str
+    name: str
+    index: int | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,6 +64,9 @@ class VST3:
     state: str | None = None
     preset: str | None = None
     parameters: Mapping[str, float] = field(default_factory=dict)
+    parameter_metadata: tuple[
+        VSTParameterDescription | Mapping[str, object], ...
+    ] = ()
 
     def __post_init__(self) -> None:
         alias = normalize_alias(self.alias)
@@ -46,10 +85,137 @@ class VST3:
                     f"VST parameter {clean!r} must be a normalized value between 0 and 1."
                 )
             values[clean] = resolved
+        metadata = _coerce_parameter_descriptions(self.parameter_metadata)
         object.__setattr__(self, "alias", alias)
         object.__setattr__(self, "state", state)
         object.__setattr__(self, "preset", preset)
         object.__setattr__(self, "parameters", MappingProxyType(values))
+        object.__setattr__(self, "parameter_metadata", metadata)
+
+    def with_parameter_metadata(
+        self,
+        descriptions: Sequence[VSTParameterDescription | Mapping[str, object]],
+    ) -> "VST3":
+        """Return this declaration with metadata from ``plugins inspect``.
+
+        Metadata is an optional authoring-time cache.  It is deliberately not
+        required for readable VST declarations so projects can remain portable
+        when they are authored on a machine without the plugin installed.
+        Real rendering still validates every selector against the live
+        inspected plugin before audio processing starts.
+        """
+
+        return VST3(
+            self.alias,
+            state=self.state,
+            preset=self.preset,
+            parameters=self.parameters,
+            parameter_metadata=tuple(descriptions),
+        )
+
+
+def canonical_vst_parameter(
+    selector: str,
+    descriptions: Sequence[VSTParameterDescription | Mapping[str, object]] = (),
+) -> CanonicalVSTParameter:
+    """Resolve a readable selector to one inspected VST parameter identity.
+
+    ``"Cutoff"`` is convenient when the name is unique.  ``"#4"`` and
+    ``"#4: Cutoff"`` explicitly select inspected index 4.  Without metadata a
+    named selector keeps a deterministic name identity and an indexed selector
+    keeps its explicit index; the worker repeats this resolution against the
+    live plugin before setting any values.  With metadata, unknown names,
+    duplicate names, and missing indices fail immediately.
+    """
+
+    clean = str(selector).strip()
+    if not clean:
+        raise ValueError("VST parameter selectors cannot be empty.")
+    metadata = _coerce_parameter_descriptions(descriptions)
+    by_index = {item.index: item for item in metadata}
+    if clean.startswith("#"):
+        raw_index, separator, readable_name = clean[1:].partition(":")
+        try:
+            index = int(raw_index.strip())
+        except ValueError as error:
+            raise ValueError(f"Invalid indexed VST parameter selector {selector!r}.") from error
+        if index < 0:
+            raise ValueError(f"VST parameter index #{index} is invalid.")
+        description = by_index.get(index)
+        if metadata and description is None:
+            raise ValueError(f"VST parameter index #{index} does not exist.")
+        name = (
+            description.name
+            if description is not None
+            else readable_name.strip()
+            if separator and readable_name.strip()
+            else f"#{index}"
+        )
+        return CanonicalVSTParameter(
+            parameter_id=f"index:{index}",
+            selector=f"#{index}: {name}" if name != f"#{index}" else f"#{index}",
+            name=name,
+            index=index,
+        )
+
+    folded = clean.casefold()
+    matches = [item for item in metadata if item.name.casefold() == folded]
+    if len(matches) > 1:
+        indexes = ", ".join(f"#{item.index}" for item in matches)
+        raise ValueError(
+            f"VST parameter {selector!r} is ambiguous; use one of {indexes}."
+        )
+    if len(matches) == 1:
+        item = matches[0]
+        return CanonicalVSTParameter(
+            parameter_id=f"index:{item.index}",
+            selector=f"#{item.index}: {item.name}",
+            name=item.name,
+            index=item.index,
+        )
+    if metadata:
+        raise ValueError(
+            f"VST parameter {selector!r} does not exist. Run prism plugins inspect."
+        )
+    return CanonicalVSTParameter(
+        parameter_id=f"name:{folded}",
+        selector=clean,
+        name=clean,
+        index=None,
+    )
+
+
+def _coerce_parameter_descriptions(
+    descriptions: Sequence[VSTParameterDescription | Mapping[str, object]],
+) -> tuple[VSTParameterDescription, ...]:
+    result: list[VSTParameterDescription] = []
+    indexes: set[int] = set()
+    for item in descriptions:
+        if isinstance(item, VSTParameterDescription):
+            description = item
+        elif isinstance(item, Mapping):
+            try:
+                raw_index = item["index"]
+                raw_steps = item.get("steps", item.get("numSteps", 0))
+                if not isinstance(raw_index, int) or isinstance(raw_index, bool):
+                    raise TypeError
+                if not isinstance(raw_steps, int) or isinstance(raw_steps, bool):
+                    raw_steps = int(str(raw_steps or 0))
+                description = VSTParameterDescription(
+                    index=raw_index,
+                    name=str(item["name"]),
+                    label=str(item.get("label", "")),
+                    steps=raw_steps,
+                )
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError("VST3 returned invalid parameter metadata.") from error
+        else:
+            raise ValueError("VST3 returned invalid parameter metadata.")
+        if description.index in indexes:
+            raise ValueError(f"VST3 returned duplicate parameter index #{description.index}.")
+        indexes.add(description.index)
+        result.append(description)
+    return tuple(result)
 
 
 @dataclass(frozen=True, slots=True)
@@ -284,4 +450,13 @@ def _safe_project_file(value: str | None, label: str) -> str | None:
     return posix.as_posix()
 
 
-__all__ = ["VST3", "VSTRegistry", "VSTRegistryEntry", "hash_vst3", "platform_key"]
+__all__ = [
+    "CanonicalVSTParameter",
+    "VST3",
+    "VSTParameterDescription",
+    "VSTRegistry",
+    "VSTRegistryEntry",
+    "canonical_vst_parameter",
+    "hash_vst3",
+    "platform_key",
+]

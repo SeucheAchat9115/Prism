@@ -9,11 +9,15 @@ from typing import TYPE_CHECKING, Callable, Literal, Mapping, Sequence
 
 from prism.errors import ProjectError
 from prism.synthesis.types import SynthPatch
-from prism.vst import VST3
+from prism.vst import VST3, canonical_vst_parameter
 
 PluginKind = Literal["instrument", "effect"]
 AutomationCurve = Literal["linear", "hold"]
+AutomationCompatibility = Literal["initial_value_v1", "first_point_v0"]
 EffectPreset = str
+
+CANONICAL_AUTOMATION_VERSION: AutomationCompatibility = "initial_value_v1"
+LEGACY_AUTOMATION_VERSION: AutomationCompatibility = "first_point_v0"
 
 if TYPE_CHECKING:
     import numpy as np
@@ -121,6 +125,12 @@ class Plugin:
     def __str__(self) -> str:
         return f"{self.track} → {self.name} ({self.preset} {self.kind})"
 
+    @property
+    def stable_instance_id(self) -> str:
+        """Return the compiled identity of this concrete plugin instance."""
+
+        return self.instance_id or f"{self.track}:{self.kind}:{self.name}"
+
 
 @dataclass(frozen=True, slots=True)
 class AutomationPoint:
@@ -140,6 +150,12 @@ class AutomationLane:
     points: tuple[AutomationPoint, ...]
     curve: AutomationCurve
 
+    @property
+    def parameter_identity(self) -> "ParameterIdentity":
+        """Resolve the lane to the target's current physical parameter identity."""
+
+        return parameter_identity(self.target, self.parameter)
+
     def __str__(self) -> str:
         return f"{self.name}: {self.target.name}.{self.parameter} ({len(self.points)} points)"
 
@@ -156,12 +172,49 @@ class OutputGainLane:
         return f"{self.name}: shared track output gain ({len(self.points)} points)"
 
 
+@dataclass(frozen=True, slots=True)
+class ParameterIdentity:
+    """Stable identity plus readable selector for one plugin parameter."""
+
+    instance_id: str
+    parameter_id: str
+    selector: str
+    display_name: str
+    index: int | None = None
+
+
+def parameter_identity(target: Plugin, parameter_name: str) -> ParameterIdentity:
+    """Return a canonical identity without discarding the authored selector."""
+
+    instance_id = target.stable_instance_id
+    if target.vst3 is None:
+        clean = str(parameter_name).strip()
+        return ParameterIdentity(
+            instance_id=instance_id,
+            parameter_id=f"stock:{clean}",
+            selector=clean,
+            display_name=clean,
+        )
+    try:
+        resolved = canonical_vst_parameter(parameter_name, target.vst3.parameter_metadata)
+    except ValueError as error:
+        raise ProjectError(str(error)) from error
+    return ParameterIdentity(
+        instance_id=instance_id,
+        parameter_id=f"vst3:{resolved.parameter_id}",
+        selector=resolved.selector,
+        display_name=resolved.name,
+        index=resolved.index,
+    )
+
+
 def effect_plugin(
     preset: EffectPreset,
     *,
     name: str,
     track: str,
     settings: Mapping[str, float],
+    instance_id: str | None = None,
 ) -> Plugin:
     """Validate and create one stock effect plugin."""
 
@@ -187,6 +240,7 @@ def effect_plugin(
         preset=preset,
         settings=MappingProxyType(resolved),
         automatable=MappingProxyType(parameters),
+        instance_id=instance_id,
     )
 
 
@@ -251,6 +305,11 @@ def automation_points(
             f"Plugin {target.name!r} parameter {parameter_name!r} cannot be automated. "
             f"Automatable parameters: {available}."
         )
+    if target.vst3 is not None:
+        # With cached inspect metadata this rejects unknown/ambiguous names at
+        # authoring time.  Without it, the isolated worker repeats the same
+        # check against the live plugin before loading audio into its graph.
+        parameter_identity(target, parameter_name)
     if not values:
         raise ProjectError("Automation needs at least one (bar, value) point.")
     points: list[AutomationPoint] = []
@@ -329,13 +388,18 @@ def _parameter_value(value: float, parameter: Parameter, label: str) -> float:
 __all__ = [
     "AutomationLane",
     "AutomationPoint",
+    "AutomationCompatibility",
+    "CANONICAL_AUTOMATION_VERSION",
     "EffectPreset",
+    "LEGACY_AUTOMATION_VERSION",
     "OutputGainLane",
     "Parameter",
+    "ParameterIdentity",
     "Plugin",
     "PluginDefinition",
     "PluginRegistry",
     "STOCK_PLUGINS",
+    "parameter_identity",
     "vst3_plugin",
     "output_gain_points",
 ]

@@ -59,6 +59,30 @@ value against the plugin's registered parameter range. Bars are converted
 through the project's canonical timing map, so automation agrees with audio
 and MIDI in meters such as 6/8 and 7/8 and does not drift after long sequences.
 
+The compiled envelope has explicit boundaries: before the first point it holds
+the plugin's configured base value, at a point it uses that point immediately,
+between points it follows the selected curve, and after the last point it holds
+the last value. This makes a late first point unambiguous:
+
+```python
+volume = lead.effect("gain", name="Volume", gain_db=-12)
+song.automation(
+    "Volume entry",
+    target=volume,
+    parameter="gain_db",
+    points=[(0.5, -6), (2, 0)],
+    curve="hold",
+)
+```
+
+Existing scripts that intentionally relied on the old pre-first behavior can
+declare `automation_compatibility="first_point_v0"` when constructing the
+project. New projects use `initial_value_v1`; the policy is serialized in the
+resolved configuration and is never inferred from `prism_version`. The legacy
+mode is a migration aid, not a smoothing setting: an authored `hold` remains
+an immediate step. Any smoothing applied to a future live controller is a
+separate runtime concern and does not rewrite the authored envelope.
+
 See [Plugins and automation](../tutorial/11-plugins-and-automation.md) and
 [Buses, sends, and master effects](../tutorial/13-buses-sends-and-master-effects.md)
 for complete projects.

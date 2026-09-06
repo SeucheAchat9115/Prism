@@ -21,7 +21,10 @@ from prism.music import (
     validate_pan,
 )
 from prism.plugins import (
+    CANONICAL_AUTOMATION_VERSION,
+    LEGACY_AUTOMATION_VERSION,
     STOCK_PLUGINS,
+    AutomationCompatibility,
     AutomationCurve,
     AutomationLane,
     EffectPreset,
@@ -31,6 +34,7 @@ from prism.plugins import (
     effect_plugin,
     instrument_plugin,
     output_gain_points,
+    parameter_identity,
     vst3_plugin,
 )
 from prism.sample_library import SampleLibrary
@@ -819,6 +823,13 @@ class Track:
                         "new instrument does not expose. Remove or retarget that lane "
                         "before replacing the instrument."
                     )
+                if plugin.vst3 is not None:
+                    # A replacement may expose a different set of indexed
+                    # parameters.  If inspected metadata is available, reject
+                    # an orphan before mutating the track; the live worker
+                    # repeats this check for portable declarations without a
+                    # metadata cache.
+                    parameter_identity(plugin, lane.parameter)
                 if parameter is not None and any(
                     point.value < parameter.minimum or point.value > parameter.maximum
                     for point in lane.points
@@ -1048,6 +1059,7 @@ class Project:
         beat_unit: Literal[1, 2, 4, 8, 16] = 4,
         timing_compatibility: TimingCompatibility = CANONICAL_TIMING_VERSION,
         controller_boundary: ControllerBoundaryMode = "reset",
+        automation_compatibility: str = CANONICAL_AUTOMATION_VERSION,
         audio_release_policy: AudioReleasePolicy = DEFAULT_AUDIO_RELEASE_POLICY,
         master_gain_db: float = -3.0,
         normalize: bool = True,
@@ -1073,6 +1085,9 @@ class Project:
                 "Controller boundary must be 'reset', 'retain', or 'legacy'."
             )
         self.controller_boundary: ControllerBoundaryMode = controller_boundary
+        self.automation_compatibility: AutomationCompatibility = _automation_compatibility(
+            automation_compatibility
+        )
         self.audio_release_policy = _audio_release_policy(
             audio_release_policy, "Project audio_release_policy"
         )
@@ -1196,12 +1211,15 @@ class Project:
             raise ProjectError(f"Automation names must be unique; {clean!r} is already used.")
         if not self._owns_plugin(target):
             raise ProjectError("Automation target must be a plugin from this project.")
+        requested_identity = parameter_identity(target, parameter)
         if any(
-            lane.target is target and lane.parameter == parameter
+            lane.target is target
+            and lane.parameter_identity.parameter_id == requested_identity.parameter_id
             for lane in self.automation_lanes
         ):
             raise ProjectError(
-                f"Plugin {target.name!r} parameter {parameter!r} already has automation."
+                f"Plugin {target.name!r} parameter {parameter!r} already has automation "
+                f"for physical target {requested_identity.parameter_id!r}."
             )
         lane = AutomationLane(
             name=clean,
@@ -1291,6 +1309,16 @@ class Project:
         verified_aliases: set[str] = set()
         for plugin in self._external_plugins():
             assert plugin.vst3 is not None
+            if plugin.vst3.parameter_metadata:
+                seen_parameters: set[str] = set()
+                for selector in plugin.vst3.parameters:
+                    identity = parameter_identity(plugin, selector)
+                    if identity.parameter_id in seen_parameters:
+                        raise ProjectError(
+                            f"VST plugin {plugin.name!r} declares duplicate physical "
+                            f"parameter target {identity.parameter_id!r}; use one selector."
+                        )
+                    seen_parameters.add(identity.parameter_id)
             if plugin.vst3.alias not in verified_aliases:
                 self.vsts.resolve(plugin.vst3.alias)
                 verified_aliases.add(plugin.vst3.alias)
@@ -1305,11 +1333,20 @@ class Project:
         for track in self.tracks:
             track._validate_output_gain_lane(bars)
             track._vst_clip_gain_db()
+        lane_targets: set[tuple[str, str]] = set()
         for lane in self.automation_lanes:
             if not self._owns_plugin(lane.target):
                 raise ProjectError(
                     f"Automation {lane.name!r} targets a plugin that was replaced."
                 )
+            identity = lane.parameter_identity
+            target_key = (identity.instance_id, identity.parameter_id)
+            if target_key in lane_targets:
+                raise ProjectError(
+                    f"Automation {lane.name!r} duplicates physical parameter target "
+                    f"{identity.parameter_id!r} on instance {identity.instance_id!r}."
+                )
+            lane_targets.add(target_key)
             if lane.points[-1].bar > bars:
                 raise ProjectError(
                     f"Automation {lane.name!r} ends at bar {lane.points[-1].bar:g}, "
@@ -1455,6 +1492,7 @@ class Project:
             "timing_compatibility": self.timing.compatibility,
             "quarter_notes_per_bar": self.timing.quarter_notes_per_bar,
             "controller_boundary": self.controller_boundary,
+            "automation_compatibility": self.automation_compatibility,
             "audio_release_policy": self.audio_release_policy,
             "master_gain_db": self.master_gain_db,
             "normalize": self.normalize,
@@ -1494,6 +1532,9 @@ class Project:
                     "track": lane.target.track,
                     "target": lane.target.name,
                     "parameter": lane.parameter,
+                    "instance_id": lane.parameter_identity.instance_id,
+                    "parameter_id": lane.parameter_identity.parameter_id,
+                    "resolved_selector": lane.parameter_identity.selector,
                     "curve": lane.curve,
                     "points": [asdict(point) for point in lane.points],
                 }
@@ -1696,11 +1737,24 @@ def _chain_effect(
     while plugin_name.casefold() in used:
         plugin_name = f"{base_name} {suffix}"
         suffix += 1
+    instance_id = f"{channel}:effect:{plugin_name}"
     if isinstance(preset, VST3):
         if settings:
             raise ProjectError("Put VST3 parameters inside VST3(parameters={...}).")
-        return vst3_plugin(preset, name=plugin_name, track=channel, kind="effect")
-    return effect_plugin(preset, name=plugin_name, track=channel, settings=settings)
+        return vst3_plugin(
+            preset,
+            name=plugin_name,
+            track=channel,
+            kind="effect",
+            instance_id=instance_id,
+        )
+    return effect_plugin(
+        preset,
+        name=plugin_name,
+        track=channel,
+        settings=settings,
+        instance_id=instance_id,
+    )
 
 
 def _name(value: str, label: str) -> str:
@@ -1724,6 +1778,26 @@ def _version(value: str) -> str:
     if not clean or len(clean) > 64:
         raise ProjectError("Prism version must be a non-empty value from the project template.")
     return clean
+
+
+def _automation_compatibility(value: str) -> AutomationCompatibility:
+    aliases: dict[str, AutomationCompatibility] = {
+        CANONICAL_AUTOMATION_VERSION: CANONICAL_AUTOMATION_VERSION,
+        "canonical": CANONICAL_AUTOMATION_VERSION,
+        "base_value": CANONICAL_AUTOMATION_VERSION,
+        "initial_value": CANONICAL_AUTOMATION_VERSION,
+        LEGACY_AUTOMATION_VERSION: LEGACY_AUTOMATION_VERSION,
+        "legacy": LEGACY_AUTOMATION_VERSION,
+        "legacy_first_point": LEGACY_AUTOMATION_VERSION,
+    }
+    clean = str(value).strip().casefold()
+    try:
+        return aliases[clean]
+    except KeyError as error:
+        choices = ", ".join((CANONICAL_AUTOMATION_VERSION, LEGACY_AUTOMATION_VERSION))
+        raise ProjectError(
+            f"automation_compatibility must be one of {choices}; got {value!r}."
+        ) from error
 
 
 def _project_script(value: str | Path | None) -> Path:

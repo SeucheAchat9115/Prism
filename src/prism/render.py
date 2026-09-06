@@ -20,6 +20,7 @@ import soxr
 
 from prism.arrangement import compile_track_events
 from prism.effects import (
+    automation_values,
     has_automation,
     parameter_values,
     process_effect_chain,
@@ -895,21 +896,13 @@ def _apply_output_gain(
         if math.isclose(base_gain_db, 0.0, abs_tol=1e-12):
             return samples
         return samples * db_gain(base_gain_db)
-    point_frames = np.asarray(
-        [project.timing.bar_to_frame(point.bar) for point in lane.points],
-        dtype=np.float64,
+    values = automation_values(
+        project,
+        lane.points,
+        lane.curve,
+        base_value=0.0,
+        frames=samples.shape[0],
     )
-    point_values = np.asarray(
-        [point.value for point in lane.points],
-        dtype=np.float64,
-    )
-    positions = np.arange(samples.shape[0], dtype=np.float64)
-    if lane.curve == "linear":
-        values = np.interp(positions, point_frames, point_values)
-    else:
-        indices = np.searchsorted(point_frames, positions, side="right") - 1
-        indices = np.clip(indices, 0, len(point_values) - 1)
-        values = point_values[indices]
     return samples * np.power(10.0, (base_gain_db + values) / 20.0)[:, np.newaxis]
 
 
