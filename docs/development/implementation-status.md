@@ -36,6 +36,9 @@ Implementation commit: `8b9810667820759fcd4256e5432c4310cf07dbbc`
   The existing mixing guide already uses the canonical `time_beats` delay
   parameter, so no contradictory delay example remains.
 
+- Updated the standalone pinned VST3 fixture's source-root wiring so its SDK
+  platform entry point is included when built outside the SDK source tree.
+
 ### Compatibility decisions
 
 - The existing automatic main.py discovery remains the default for direct
@@ -58,7 +61,7 @@ Implementation commit: `8b9810667820759fcd4256e5432c4310cf07dbbc`
 - Focused Task 14 tests and the repository CI/type/lint/docs gates are included
   in this PR.
 - `uv run pytest --cov --cov-report=term-missing`: **255 passed, 5 skipped**;
-  total coverage **86.79%** on Ubuntu and **87.00%** on Windows.
+  total coverage **86.71%** on Ubuntu and **86.92%** on Windows.
 - `uv run ruff check .`: passed on Ubuntu and Windows.
 - `uv run mypy src/prism`: passed on Ubuntu and Windows.
 - Release packaging completed on both Python CI platforms.
