@@ -28,6 +28,7 @@ from prism.effects import (
     process_track_plugins,
 )
 from prism.errors import ProjectError, RenderError
+from prism.fingerprint import RENDER_MANIFEST_SCHEMA_VERSION, migrate_render_manifest
 from prism.music import Note, db_gain
 from prism.project.builder import (
     AudioClip,
@@ -212,6 +213,7 @@ class RenderResult:
     vst_backend: Mapping[str, object] | None = None
     export_profile: Mapping[str, object] | None = None
     diagnostics: ExportDiagnostics | None = None
+    fingerprint: Mapping[str, object] | None = None
 
     def __str__(self) -> str:
         return f"Rendered {self.duration_seconds:.2f}s to {self.path}"
@@ -250,6 +252,7 @@ class StemRenderResult:
     diagnostics: Mapping[str, ExportDiagnostics] | None = None
     delivery: StemDeliveryContract | None = None
     master_processing: Mapping[str, object] | None = None
+    fingerprint: Mapping[str, object] | None = None
 
     @property
     def files(self) -> tuple[StemFile, ...]:
@@ -306,6 +309,7 @@ class _StemManifest:
     export_profile: Mapping[str, object] = field(default_factory=dict)
     delivery: Mapping[str, object] = field(default_factory=dict)
     master_processing: Mapping[str, object] = field(default_factory=dict)
+    fingerprint: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -328,7 +332,7 @@ class _ScheduledVoice:
     order: int
 
 
-_STEM_MANIFEST_SCHEMA_VERSION = 1
+_STEM_MANIFEST_SCHEMA_VERSION = RENDER_MANIFEST_SCHEMA_VERSION
 _STEM_METADATA_DIRECTORY = ".prism-stems"
 _STEM_MANIFEST_FILENAME = "manifest.json"
 
@@ -355,7 +359,12 @@ def render_project(
             tail_seconds=tail_seconds,
             profile=profile,
         )
-        rendered = _render_buffers(project, tail_seconds=settings.tail_seconds)
+        fingerprint = project.fingerprint(profile=settings.profile)
+        rendered = _render_buffers(
+            project,
+            tail_seconds=settings.tail_seconds,
+            verify_vst=False,
+        )
         prepared = _prepare_export_diagnostics(
             rendered.master,
             project.sample_rate,
@@ -382,6 +391,7 @@ def render_project(
             vst_backend=project.vst_backend.as_dict(),
             export_profile=settings.profile.as_dict(resolved_sample_rate=settings.sample_rate),
             diagnostics=prepared.diagnostics,
+            fingerprint=fingerprint.as_dict(),
         )
     except (ProjectError, RenderError):
         raise
@@ -425,6 +435,7 @@ def render_stems(
     )
     delivery = _stem_delivery_contract(project, settings, stem_mode)
     master_processing = _master_processing_metadata(project, settings, delivery)
+    fingerprint = project.fingerprint(profile=settings.profile, stem_mode=stem_mode)
     previous: _StemManifest | None = None
     staging: Path | None = None
     staging_created = False
@@ -432,7 +443,11 @@ def render_stems(
         protected = project._protected_project_files()
         _validate_stem_output(project, directory, protected)
         previous = _read_stem_manifest(project, directory, protected)
-        rendered = _render_buffers(project, tail_seconds=settings.tail_seconds)
+        rendered = _render_buffers(
+            project,
+            tail_seconds=settings.tail_seconds,
+            verify_vst=False,
+        )
 
         metadata = directory / _STEM_METADATA_DIRECTORY
         generations = metadata / "generations"
@@ -521,6 +536,7 @@ def render_stems(
             export_profile=settings.profile.as_dict(resolved_sample_rate=settings.sample_rate),
             delivery=delivery.as_dict(),
             master_processing=master_processing,
+            fingerprint=fingerprint.as_dict(),
         )
         staging_root = staging
         os.replace(staging, generation)
@@ -561,6 +577,7 @@ def render_stems(
             },
             delivery=delivery,
             master_processing=master_processing,
+            fingerprint=manifest.fingerprint,
         )
     except ProjectError:
         raise
@@ -583,8 +600,13 @@ def render_stems(
             shutil.rmtree(staging, ignore_errors=True)
 
 
-def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _RenderedProject:
-    summary = project.validate()
+def _render_buffers(
+    project: Project,
+    *,
+    tail_seconds: float = 0.0,
+    verify_vst: bool = True,
+) -> _RenderedProject:
+    summary = project.validate(verify_vst=verify_vst)
     timing = project.timing
     song_frames = timing.bar_to_frame(summary.bars)
     tail_frames = timing.seconds_to_frames(tail_seconds)
@@ -1606,10 +1628,11 @@ def _read_stem_manifest(
         raise ProjectError(
             f"Could not read stem ownership manifest {manifest_path}: {error}"
         ) from error
-    if not isinstance(data, dict) or data.get("schema_version") != _STEM_MANIFEST_SCHEMA_VERSION:
+    if not isinstance(data, dict):
         raise ProjectError(
             f"Stem ownership manifest has an unsupported schema: {manifest_path}"
         )
+    data = migrate_render_manifest(data)
 
     generation_value = data.get("generation")
     if (
@@ -1667,14 +1690,17 @@ def _read_stem_manifest(
     master_processing = (
         dict(raw_master_processing) if isinstance(raw_master_processing, Mapping) else {}
     )
+    raw_fingerprint = data.get("fingerprint", {})
+    fingerprint = dict(raw_fingerprint) if isinstance(raw_fingerprint, Mapping) else {}
     return _StemManifest(
-        generation_value,
-        generation,
-        tuple(files),
-        backend,
-        export_profile,
-        delivery,
-        master_processing,
+        generation=generation_value,
+        directory=generation,
+        files=tuple(files),
+        vst_backend=backend,
+        export_profile=export_profile,
+        delivery=delivery,
+        master_processing=master_processing,
+        fingerprint=fingerprint,
     )
 
 
@@ -1708,6 +1734,7 @@ def _manifest_data(manifest: _StemManifest, metadata: Path) -> dict[str, object]
         "export_profile": dict(manifest.export_profile),
         "delivery": dict(manifest.delivery),
         "master_processing": dict(manifest.master_processing),
+        "fingerprint": dict(manifest.fingerprint),
         "files": [
             {"path": relative, "sha256": sha256}
             for relative, sha256 in sorted(manifest.files)
@@ -1793,6 +1820,7 @@ def _sha256(path: Path) -> str:
 __all__ = [
     "ExportDiagnostics",
     "ExportProfile",
+    "StemDeliveryContract",
     "RenderResult",
     "StemFile",
     "StemRenderResult",

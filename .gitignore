@@ -27,6 +27,7 @@ env/
 
 # Prism generated project state and media
 **/renders/
+**/.prism-cache/
 /projects/
 /examples/
 .test-tmp-*/

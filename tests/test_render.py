@@ -85,6 +85,8 @@ def test_render_is_non_silent_and_deterministic(project_script: Path) -> None:
 
     assert first.path.read_bytes() == second.path.read_bytes()
     assert first.sha256 == hashlib.sha256(first.path.read_bytes()).hexdigest()
+    assert first.fingerprint is not None
+    assert first.fingerprint["portable_sha256"]
     assert sample_rate == 8_000
     assert samples.shape == (96_000, 2)
     assert np.max(np.abs(samples)) > 0.05
@@ -156,9 +158,11 @@ def test_render_stems_exports_aligned_tracks_buses_and_exact_master(
 
     manifest_path = project_script.parent / "renders" / "stems" / ".prism-stems" / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    assert manifest["schema_version"] == 1
+    assert manifest["schema_version"] == 2
     assert manifest["generation"] == rerendered.generation
     assert manifest["vst_backend"]["render_block_size"] == 512
+    assert rerendered.fingerprint is not None
+    assert manifest["fingerprint"] == rerendered.fingerprint
     assert {entry["path"] for entry in manifest["files"]} == {
         "tracks/01-kick.wav",
         "tracks/02-lead-main.wav",
@@ -166,6 +170,9 @@ def test_render_stems_exports_aligned_tracks_buses_and_exact_master(
         "buses/02-room-return.wav",
         "master.wav",
     }
+    for entry in manifest["files"]:
+        path = rerendered.directory / entry["path"]
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == entry["sha256"]
 
 
 def test_master_input_stems_avoid_group_double_count_and_record_contract(

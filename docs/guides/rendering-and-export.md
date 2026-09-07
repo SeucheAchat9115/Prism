@@ -203,5 +203,39 @@ states/presets, the VST registry, symlink escapes, and other registered project
 files. Choose a separate output container such as `renders/stems/` rather than
 `sounds/` or `plugin-states/`.
 
+## Project fingerprints and sharing
+
+Every completed render carries a `ProjectFingerprint`. It separates two useful
+identities:
+
+- `portable_sha256` is based on the project script, resolved configuration,
+  referenced audio, plugin states/presets, registered VST binary hashes, seeds,
+  delivery settings, and stem routing. It does not contain absolute machine
+  paths, so moving an otherwise identical project preserves this identity.
+- `render_key` adds the installed Prism/Python/audio-library runtime and backend
+  metadata. It is the safer key for a local preview or cache because the same
+  project can render differently under a different runtime or external plugin.
+
+```python
+fingerprint = song.fingerprint()
+print(fingerprint.portable_sha256)
+print(fingerprint.render_key)
+print(fingerprint.deterministic)
+```
+
+Native Prism processing is marked deterministic for a fixed project and runtime
+contract. A project that references a VST3 is marked as using a conditional
+external backend; the fingerprint records the installed binary identity but does
+not promise bit-identical output for every third-party plugin. Share the source
+script, every referenced recording, plugin state or preset, `vst.json`, and the
+registered VST binaries (or a documented installation) alongside the fingerprint.
+The local JSON change-detection cache is only an optimization and is safe to
+delete; it is never the source of project truth.
+
+Render results and stem ownership manifests include the fingerprint used for
+that successful generation. Older project configuration and stem manifests are
+migrated when their semantics are known; a future schema is rejected clearly
+instead of being interpreted as if it were current.
+
 Follow [Export quality and effect tails](../tutorial/18-export-quality-and-tails.md)
 for a complete runnable project.

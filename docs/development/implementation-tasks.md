@@ -114,7 +114,7 @@ Done describes implementation completion; check the linked PR for merge state.
 | 10 | [Strengthen real VST tests and verify latency compensation](implementation-prompts.md#task-10) | 04, 05, 09 | Done | [PR #36](https://github.com/SeucheAchat9115/Prism/pull/36) |
 | 11 | [Add explicit export profiles, clipping policy, and dither](implementation-prompts.md#task-11) | 01, 02, 06, 07, 08 | Done | [PR #37](https://github.com/SeucheAchat9115/Prism/pull/37) |
 | 12 | [Make stem delivery modes and reconstruction guarantees explicit](implementation-prompts.md#task-12) | 01, 05, 11 | Done | [PR #38](https://github.com/SeucheAchat9115/Prism/pull/38) |
-| 13 | [Add project fingerprints, render manifests, and version compatibility](implementation-prompts.md#task-13) | 03, 09, 11, 12 | Planned | — |
+| 13 | [Add project fingerprints, render manifests, and version compatibility](implementation-prompts.md#task-13) | 03, 09, 11, 12 | Done | [PR #39](https://github.com/SeucheAchat9115/Prism/pull/39) |
 | 14 | [Create a public project build contract and executable CLI tutorials](implementation-prompts.md#task-14) | 02, 03, 11, 13 | Planned | — |
 | A01 | [Expose musical context and a versioned agent tool contract](implementation-prompts.md#task-a01) | 04, 08, 13, 14 | Planned | — |
 | A02 | [Implement scoped edits, source persistence and recoverable revisions](implementation-prompts.md#task-a02) | A01 | Planned | — |

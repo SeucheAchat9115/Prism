@@ -9,6 +9,71 @@ Original audit IDs and historical test results below are retained. Tasks 17, 18,
 The task suffix /35 in historical entries refers to the original audit plan.
 
 
+## Task 13/35 — add project fingerprints, render manifests, and version compatibility
+
+Status: Done; [PR #39](https://github.com/SeucheAchat9115/Prism/pull/39) open. Done describes implementation completion, not pull-request merge state.
+
+Implementation branch: `task-13/project-fingerprints`
+Implementation commit: `5a81b8a647f9376dd1b85b920916ef15403101c8`
+
+### Completed scope
+
+- Added the public `ProjectFingerprint` and `FingerprintedFile` APIs. A
+  portable SHA-256 identity covers the effective script/configuration,
+  referenced source audio, plugin states/presets, registered VST3 binary
+  identities, discovered seeds, delivery settings, and stem routing without
+  persisting absolute machine paths.
+- Added a runtime-aware `render_key` with the installed Prism/Python/audio
+  library versions, VST backend policy, native DSP version, and explicit
+  deterministic versus conditional-external backend metadata.
+- Added a JSON-only `.prism-cache/fingerprints.json` change-detection cache.
+  File and bundle hashes are reused only when size, timestamps, inode, and
+  bundle membership signatures still match; hashing rechecks an asset if it
+  changes during the read.
+- Added fingerprint metadata to single-file render results and stem results.
+  Stem manifests are now schema 2 and include the exact successful generation's
+  fingerprint alongside each generated WAV checksum.
+- Added explicit migrations for supported older project configuration and
+  schema-1 stem manifests. Unsupported future schemas fail with a
+  producer-facing error instead of being treated as current.
+
+### Compatibility decisions
+
+- `Project.prism_version` remains the requested project compatibility label;
+  runtime Prism and dependency versions are recorded separately and are not
+  inferred from that label.
+- Native processing is identified as deterministic for the recorded contract.
+  Any registered VST3 makes the result conditional on the external backend and
+  installed binary; a binary hash is evidence of identity, not a universal
+  bit-identical guarantee.
+- Older configurations receive explicit legacy timing, automation, audio
+  release, and controller-boundary semantics during migration. The cache is
+  disposable and never replaces `main.py`, project assets, or `vst.json`.
+
+### Verification
+
+- `uv run pytest --cov --cov-report=term-missing`: **246 passed, 5 skipped**;
+  total coverage **87.47%**. The skips are the existing real-VST
+  qualification tests without plugin-path environment variables.
+- `uv run ruff check .`: passed.
+- `uv run mypy src/prism`: passed.
+- `uv run --extra docs mkdocs build --strict`: passed with the same temporary
+  local placeholder for the reconstructed checkout's missing binary logo; the
+  placeholder was removed and is not part of this change.
+- The separate real-VST workflow remains unchanged.
+
+### Concrete limitations
+
+- The cache's safe change detector uses filesystem metadata and bundle member
+  membership; deleting it forces rehashing but does not change project identity.
+- External VST output remains conditional on the host, plugin, platform, and
+  backend. Prism records those identities but does not package third-party
+  binaries or claim hardware-independent equality.
+- The reconstructed local checkout lacks the published binary docs logo, so
+  strict docs verification needs the same temporary local placeholder used by
+  the preceding task; that placeholder is not part of the implementation.
+
+
 ## Task 11/35 — add explicit export profiles, clipping policy, and dither
 
 Status: Done; [PR #37](https://github.com/SeucheAchat9115/Prism/pull/37) open. Done describes implementation completion, not

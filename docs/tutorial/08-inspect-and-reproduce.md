@@ -35,6 +35,7 @@ pprint(song.configuration())
 
 midi = song.export_midi("renders/song.mid")
 render = song.render("renders/song.wav")
+fingerprint = song.fingerprint()
 
 print(summary)
 print("MIDI:", midi.path, midi.tracks, midi.ticks_per_beat, midi.sha256)
@@ -48,6 +49,7 @@ print(
     render.peak_dbfs,
     render.sha256,
 )
+print("Project fingerprint:", fingerprint.portable_sha256)
 ```
 
 Run the command Prism printed for your timestamped tutorial project.
@@ -55,7 +57,8 @@ Run the command Prism printed for your timestamped tutorial project.
 The output includes a long SHA-256 value for the WAV. Run the same command a
 second time. The WAV SHA-256 is identical when nothing changed. The printed
 configuration shows the resolved tracks, parts, sections, tempo, meter, and
-Prism version.
+Prism version. The project fingerprint identifies the authored content and
+referenced assets independently of the folder where the project lives.
 The MIDI and WAV result lines show their paths and hashes; the WAV line also
 shows its format, duration, and peak level.
 
