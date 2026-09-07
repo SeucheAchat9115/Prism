@@ -111,7 +111,9 @@ def _execute(request: Mapping[str, Any]) -> dict[str, object]:
     }
     _set_parameters(plugin, requested_parameters, targets)
     _set_stage(request, "parameters_applied")
-    _set_automation(plugin, automation_path, targets)
+    _set_automation(
+        plugin, automation_path, targets, request.get("automation_initial_frames", {})
+    )
     _set_stage(request, "automation_applied")
     frames = int(request["frames"])
     latency_before_graph = _latency(plugin)
@@ -187,6 +189,12 @@ def _set_stage(request: Mapping[str, Any], stage: str) -> None:
 
     if isinstance(request, dict):
         request["_last_stage"] = stage
+        progress = request.get("_progress_path")
+        if progress:
+            path = Path(str(progress))
+            temporary = path.with_suffix(".tmp")
+            temporary.write_text(json.dumps({"last_stage": stage}), encoding="utf-8")
+            os.replace(temporary, path)
 
 
 def _validated_block_size(raw_backend: object) -> int:
@@ -437,15 +445,29 @@ def _set_automation(
     plugin: Any,
     path: object,
     targets: Mapping[str, CanonicalVSTParameter],
+    initial_frames: object = None,
 ) -> None:
     if not path:
         return
+    if initial_frames is None:
+        initial_frames = {}
+    if not isinstance(initial_frames, dict):
+        raise ValueError("VST automation initial frames must be an object.")
     with np.load(str(path), allow_pickle=False) as arrays:
         for selector in arrays.files:
+            values = np.asarray(arrays[selector], dtype=np.float32).copy()
+            first = initial_frames.get(selector, 0)
+            if isinstance(first, bool) or not isinstance(first, int) or first < 0:
+                raise ValueError("VST automation initial frame must be a nonnegative integer.")
+            if first:
+                base = float(plugin.get_parameter(targets[selector].index))
+                if not math.isfinite(base):
+                    raise ValueError("VST parameter has a non-finite initial value.")
+                values[:first] = base
             _succeeded(
                 plugin.set_automation(
                     targets[selector].index,
-                    np.asarray(arrays[selector], dtype=np.float32),
+                    values,
                 ),
                 f"automate VST3 parameter {selector!r}",
             )

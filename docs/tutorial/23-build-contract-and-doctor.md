@@ -78,3 +78,10 @@ Older top-level-export scripts remain runnable directly with their printed
 command. When the CLI sees one, it reports the migration: move construction
 into build(), return the Project, and put validation and exports under the
 Python main guard. Prism does not rewrite arbitrary Python source for you.
+
+You can keep supporting Python modules and settings files beside `main.py`.
+Imports and relative file reads inside `build()` run from that project folder,
+even when you launch `prism render` elsewhere. Finish editing source audio or
+plugin patches before exporting: if a fingerprinted input changes during the
+export, Prism rejects that generation and preserves the previous output. Render
+again after the edit finishes.

@@ -262,6 +262,7 @@ def render_vst3_instrument(
                 "tempo": project.tempo,
                 "automation": _automation_file(project, plugin, frames, root),
                 "backend": project.vst_backend.as_dict(),
+                "automation_initial_frames": _automation_initial_frames(project, plugin),
             }
         )
         _invoke_worker(
@@ -300,6 +301,7 @@ def process_vst3_effect(
                     project, plugin, samples.shape[0], root
                 ),
                 "backend": project.vst_backend.as_dict(),
+                "automation_initial_frames": _automation_initial_frames(project, plugin),
             }
         )
         _invoke_worker(
@@ -354,6 +356,20 @@ def _automation_file(
     return str(path)
 
 
+def _automation_initial_frames(project: Project, plugin: Plugin) -> dict[str, int]:
+    """Defer the pre-first value to the worker's loaded state and overrides."""
+
+    if project.automation_compatibility == "first_point_v0":
+        return {}
+    result: dict[str, int] = {}
+    for lane in project.automation_lanes:
+        if lane.target is plugin and lane.points:
+            identity = lane.parameter_identity
+            selector = identity.selector if identity.index is not None else lane.parameter
+            result[selector] = project.timing.bar_to_frame(lane.points[0].bar)
+    return result
+
+
 def _project_file(
     project: Project, value: str, *, must_exist: bool = True
 ) -> Path:
@@ -403,7 +419,9 @@ def _run_worker(
         root = Path(temporary)
         request_path = root / "request.json"
         response_path = root / "response.json"
-        request_path.write_text(json.dumps(dict(request)), encoding="utf-8")
+        progress_path = root / "progress.json"
+        payload = {**request, "_progress_path": str(progress_path)}
+        request_path.write_text(json.dumps(payload), encoding="utf-8")
         process = _start_worker(request_path, response_path)
         stdout = _BoundedOutput(config.diagnostic_limit)
         stderr = _BoundedOutput(config.diagnostic_limit)
@@ -430,8 +448,21 @@ def _run_worker(
             _terminate_process_tree(process, force=True)
             polled = process.poll()
             returncode = -9 if polled is None else polled
+        # The group can outlive its leader: always finish cancellation with a
+        # group kill, even when wait() already observed the leader's exit.
+        if cancelled or timed_out or returncode != 0:
+            _terminate_process_tree(process, force=True)
+        try:
+            progress = json.loads(progress_path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            progress = {}
+        if isinstance(progress, dict) and isinstance(progress.get("last_stage"), str):
+            request = {**request, "_last_stage": progress["last_stage"]}
         for reader in readers:
             reader.join(timeout=1.0)
+        job = getattr(process, "_prism_job", None)
+        if job is not None:
+            job.close()
         stdout_text = stdout.text()
         stderr_text = stderr.text()
 
@@ -515,13 +546,22 @@ def _start_worker(request_path: Path, response_path: Path) -> subprocess.Popen[b
         str(response_path),
     ]
     if os.name == "nt":
-        return subprocess.Popen(
+        from prism._windows_job import WindowsJob
+
+        process = subprocess.Popen(
             command,
             stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0),
+            creationflags=getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | 0x4,
         )
+        try:
+            setattr(process, "_prism_job", WindowsJob(process))
+        except BaseException:
+            process.kill()
+            process.wait()
+            raise
+        return process
     return subprocess.Popen(
         command,
         stdin=subprocess.DEVNULL,
@@ -553,6 +593,10 @@ def _terminate_process_tree(process: subprocess.Popen[bytes], *, force: bool = F
     """Stop a worker and descendants without leaving an orphaned plugin host."""
 
     if os.name == "nt":
+        job = getattr(process, "_prism_job", None)
+        if job is not None:
+            job.close()
+            return
         if process.poll() is None:
             subprocess.run(
                 ["taskkill", "/PID", str(process.pid), "/T", "/F"],
@@ -562,11 +606,10 @@ def _terminate_process_tree(process: subprocess.Popen[bytes], *, force: bool = F
             )
         return
     killpg = getattr(os, "killpg", None)
-    getpgid = getattr(os, "getpgid", None)
-    if callable(killpg) and callable(getpgid):
+    if callable(killpg):
         try:
             killpg(
-                getpgid(process.pid),
+                process.pid,
                 getattr(signal, "SIGKILL" if force else "SIGTERM"),
             )
             return
@@ -592,7 +635,7 @@ def _worker_diagnostics(
     operation = str(parsed.get("operation", request.get("action", "unknown")))
     alias_value = parsed.get("plugin_alias", request.get("plugin_alias"))
     track_value = parsed.get("track", request.get("track"))
-    last_stage = str(parsed.get("last_stage", "worker_exit"))
+    last_stage = str(parsed.get("last_stage", request.get("_last_stage", "worker_exit")))
     detail = message or str(parsed.get("message", "unknown plugin error"))
     return VSTWorkerDiagnostics(
         operation=operation,

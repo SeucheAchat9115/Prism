@@ -152,3 +152,12 @@ Continue with task 03 from the latest integrated main branch. The September 6
 roadmap revision adds planned work; it does not mark agent features implemented.
 Each implementation PR must update its task row and the implementation-status
 record with actual verification and merge information.
+
+## Audit follow-up before A01
+
+The 2026-09-07 review of merged steps 01–14 found timing, controller chase, VST
+initial automation, descendant cleanup, fingerprint consistency and build-context
+regressions, plus missing real-latency qualification cases. The
+[follow-up record](implementation-status.md#steps-0114-audit-follow-up-2026-09-07)
+describes the corrections and verification. Integrate the follow-up PR and check
+its Windows/Linux qualification results before starting A01.

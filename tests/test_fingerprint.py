@@ -166,3 +166,39 @@ def test_fingerprint_reports_missing_assets(tmp_path: Path) -> None:
     song = _sample_song(script)
     with pytest.raises(ProjectError, match="missing"):
         song.fingerprint()
+
+
+@pytest.mark.parametrize("stems", [False, True])
+def test_input_edit_during_render_preserves_previous_export(tmp_path, monkeypatch, stems):
+    import prism.render as renderer
+
+    root = tmp_path / "song"
+    root.mkdir()
+    script = root / "main.py"
+    _write_script(script)
+    source = _write_source(root / "sounds" / "kick.wav")
+    song = _sample_song(script)
+    export = song.render_stems if stems else song.render
+    output = "renders/stems" if stems else "renders/song.wav"
+    previous = export(output)
+    previous_path = previous.master.path if stems else previous.path
+    previous_bytes = previous_path.read_bytes()
+    # Snapshot all ownership metadata without relying on a particular filename.
+    metadata = {p: p.read_bytes() for p in (root / "renders").rglob("*.json")}
+    original = renderer._render_buffers
+
+    def edit_then_render(*args, **kwargs):
+        _write_source(source, value=0.8)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(renderer, "_render_buffers", edit_then_render)
+    with pytest.raises(ProjectError, match="inputs changed"):
+        export(output)
+    assert previous_path.read_bytes() == previous_bytes
+    assert all(p.read_bytes() == content for p, content in metadata.items())
+    assert not list((root / "renders").rglob(".staging-*"))
+
+
+def test_negative_project_schema_is_rejected():
+    with pytest.raises(ProjectError, match="unsupported"):
+        migrate_project_configuration({"schema_version": -1})

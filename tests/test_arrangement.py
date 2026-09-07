@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import pytest
 import soundfile as sf
 
 from prism import Note, Project, compile_track_events
@@ -247,3 +248,21 @@ def test_bend_does_not_leak_into_an_unbent_following_clip(
     bar = 16_000
     assert np.allclose(bent[bar + 100 : 2 * bar - 100], flat[bar + 100 : 2 * bar - 100], atol=1e-12)
     assert not np.allclose(bent[:bar], flat[:bar], atol=1e-6)
+
+
+@pytest.mark.parametrize("curve, expected", [("linear", 1.0), ("hold", 0.0)])
+def test_controller_chase_evaluates_between_authored_points(project_script, curve, expected):
+    song = Project("Chase ramp", prism_version="test", _script=project_script)
+    lead = song.track("Lead").midi(
+        [Note("C4", 0.0, 3.0)],
+        pitch_bend=[(0.0, 0.0), (2.0, 2.0)],
+        modulation=[(0.0, 0.0), (2.0, 1.0)],
+        pitch_bend_curve=curve,
+        modulation_curve=curve,
+    )
+    song.section("A", bars=1)
+    stream = _stream(song, lead, 1)
+    values = {p.controller: p.value for p in stream.controller_chase(1.0, timing=song.timing)}
+    assert values == {"pitch_bend": expected, "modulation": expected / 2}
+    at_end = stream.controller_chase(2.0, timing=song.timing)
+    assert {p.controller: p.value for p in at_end} == {"pitch_bend": 2.0, "modulation": 1.0}

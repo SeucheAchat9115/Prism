@@ -270,3 +270,24 @@ When a real-plugin assertion fails, the workflow uploads a bounded WAV/JSON
 diagnostic bundle containing the plugin path, platform, latency metadata, and
 basic peak/RMS/onset/tail measurements. Serum is not part of this qualification;
 it remains an optional, legitimately installed producer-side plugin.
+
+### Initial automation values and worker cleanup
+
+With `initial_value_v1`, a lane that begins later holds the plugin's actual value
+after loading its state/preset and applying explicit parameter overrides. The
+worker resolves that value from the live plugin; cached parameter descriptions
+are not treated as current patch state. `first_point_v0` retains the explicit
+legacy behavior. The first authored frame takes the authored value.
+
+Workers report completed stages through a separate progress file, so a timeout
+can identify the last completed operation even if the plugin floods its logs.
+POSIX cancellation kills the entire process group, including descendants that
+ignore termination after their parent exits. Windows workers start suspended,
+join a kill-on-close Job Object, and resume only after containment succeeds.
+
+The separate real-VST CI matrix includes Prism gain fixtures with a fixed,
+reported 64-sample latency and stereo or mono output. It checks raw host latency,
+serial compensation, a parallel dry/wet sum, state/preset restoration, override
+and automation precedence, and mono-to-stereo output handling. These checks apply
+to the pinned host, fixtures and Surge XT on Windows/Linux; they do not qualify
+Serum, audio hardware or arbitrary third-party plugins.

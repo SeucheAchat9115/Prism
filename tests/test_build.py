@@ -151,3 +151,34 @@ def test_build_contract_tutorial_is_harnessed_without_render_side_effect(
     assert not (root / "renders").exists()
     project.render("renders/tutorial.wav")
     assert (root / "renders" / "tutorial.wav").is_file()
+
+
+def test_build_keeps_project_context_for_local_imports_and_reads(tmp_path, monkeypatch):
+    import sys
+
+    root = tmp_path / "song"
+    root.mkdir()
+    (root / "name.txt").write_text("Local Song", encoding="utf-8")
+    (root / "audit_helper.py").write_text("VALUE = 123\n", encoding="utf-8")
+    (root / "main.py").write_text(
+        'from prism import Project\nfrom pathlib import Path\n'
+        'def build():\n'
+        '    from audit_helper import VALUE\n'
+        '    return Project(Path("name.txt").read_text(), prism_version="test", tempo=VALUE)\n',
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    previous_path = list(sys.path)
+    try:
+        song = build_project(root)
+        assert song.name == "Local Song"
+        assert song.tempo == 123
+        assert Path.cwd() == tmp_path
+        assert sys.path == previous_path
+        (root / "name.txt").unlink()
+        with pytest.raises(ProjectError, match="FileNotFoundError"):
+            build_project(root)
+        assert Path.cwd() == tmp_path
+        assert sys.path == previous_path
+    finally:
+        sys.modules.pop("audit_helper", None)

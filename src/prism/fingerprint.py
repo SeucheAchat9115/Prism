@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 PROJECT_CONFIGURATION_SCHEMA_VERSION = 11
 RENDER_MANIFEST_SCHEMA_VERSION = 2
 FINGERPRINT_SCHEMA_VERSION = 1
-NATIVE_DSP_VERSION = "1"
+NATIVE_DSP_VERSION = "2"
 _CACHE_DIRECTORY = ".prism-cache"
 _CACHE_FILENAME = "fingerprints.json"
 
@@ -272,6 +272,53 @@ def fingerprint_project(
     )
 
 
+class RenderInputGuard:
+    """Reject changes to any fingerprinted input before publishing an export.
+
+    Capture before fingerprinting; verify after DSP and before publication.
+    Filesystem signatures include ctime so replacing/restoring input bytes is
+    detected as well. This is change detection, not a filesystem snapshot.
+    """
+
+    def __init__(self, project: Project) -> None:
+        self.project = project
+        self.signatures = self._signatures()
+
+    def _signatures(self) -> dict[str, object]:
+        project = self.project
+        files = {project.script, *project._sample_files()}
+        signatures: dict[str, object] = {
+            "configuration": _sha256_json(project.configuration(verify_vst=False))
+        }
+        for plugin in project._external_plugins():
+            assert plugin.vst3 is not None
+            path, _entry = project.vsts.resolve(plugin.vst3.alias, verify=False)
+            signatures[f"binary:{path}"] = (
+                _bundle_signature(path) if path.is_dir() else _file_signature(path)
+            )
+            for relative in (plugin.vst3.state, plugin.vst3.preset):
+                if relative is not None:
+                    files.add(project.root / relative)
+        for path in files:
+            _require_file(path, "render input")
+            signatures[str(path)] = _file_signature(path)
+        return signatures
+
+    def verify(self) -> None:
+        try:
+            current = self._signatures()
+        except (OSError, ProjectError) as error:
+            raise ProjectError(
+                "Render inputs changed during export; previous outputs were preserved. "
+                "Finish editing the source/assets and render again."
+            ) from error
+        if current != self.signatures:
+            raise ProjectError(
+                "Render inputs changed during export; previous outputs were preserved. "
+                "Finish editing the source/assets and render again."
+            )
+
+
 def migrate_project_configuration(
     configuration: Mapping[str, object],
 ) -> dict[str, object]:
@@ -280,6 +327,8 @@ def migrate_project_configuration(
     raw_schema = configuration.get("schema_version", 0)
     if isinstance(raw_schema, bool) or not isinstance(raw_schema, int):
         raise ProjectError("Project configuration has an invalid schema version.")
+    if raw_schema < 0:
+        raise ProjectError("Project configuration has an unsupported schema version.")
     if raw_schema > PROJECT_CONFIGURATION_SCHEMA_VERSION:
         raise ProjectError(
             "Project configuration schema "

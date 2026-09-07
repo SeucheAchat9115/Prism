@@ -239,3 +239,14 @@ instead of being interpreted as if it were current.
 
 Follow [Export quality and effect tails](../tutorial/18-export-quality-and-tails.md)
 for a complete runnable project.
+
+### Editing during export
+
+Prism records input signatures before fingerprinting and checks them again after
+rendering, before publishing the WAV or completed stem generation. Changes to the
+script, source audio, plugin state/preset, registered plugin binary, or effective
+configuration abort publication and preserve the previous output. Finish editing
+and render again. This detects filesystem changes; it does not lock external
+editors or claim to create an operating-system snapshot. The native DSP contract
+is version 2 because repeated audio triggers now use absolute musical positions
+without accumulating rounded clip durations.

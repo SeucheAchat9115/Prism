@@ -7,6 +7,8 @@ import importlib.metadata
 import os
 import runpy
 import sys
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, Mapping
@@ -125,13 +127,14 @@ def build_project(
             f"{inspection.script.name} does not define build() -> Project. "
             f"{_migration_message()}"
         )
-    namespace = _execute_source(inspection.script, root)
-    builder = namespace.get("build")
-    if not callable(builder):
-        raise ProjectError(
-            f"{inspection.script.name} must define a callable build() -> Project."
-        )
-    project_result = builder()
+    with _project_execution_context(root):
+        namespace = _execute_source(inspection.script, root)
+        builder = namespace.get("build")
+        if not callable(builder):
+            raise ProjectError(
+                f"{inspection.script.name} must define a callable build() -> Project."
+            )
+        project_result = builder()
     if not isinstance(project_result, Project):
         raise ProjectError(
             f"build() returned {type(project_result).__name__}; it must return Project."
@@ -280,26 +283,31 @@ def doctor_project(
     }
 
 
-def _execute_source(script: Path, root: Path) -> dict[str, Any]:
+@contextmanager
+def _project_execution_context(root: Path) -> Iterator[None]:
+    """Keep local imports and relative reads valid through build(), then restore."""
+
     old_cwd = Path.cwd()
     old_path = list(sys.path)
     try:
         os.chdir(root)
         sys.path.insert(0, str(root))
-        return runpy.run_path(str(script), run_name="prism_build")
+        yield
     except PrismError:
         raise
     except SystemExit as error:
-        raise ProjectError(
-            f"Executing {script.name} called SystemExit({error.code!r})."
-        ) from error
+        raise ProjectError(f"Building main.py called SystemExit({error.code!r}).") from error
     except Exception as error:
         raise ProjectError(
-            f"Executing {script.name} failed with {type(error).__name__}: {error}"
+            f"Building main.py failed with {type(error).__name__}: {error}"
         ) from error
     finally:
         os.chdir(old_cwd)
         sys.path[:] = old_path
+
+
+def _execute_source(script: Path, root: Path) -> dict[str, Any]:
+    return runpy.run_path(str(script), run_name="prism_build")
 
 
 def _inspect_source(script: Path) -> BuildInspection:

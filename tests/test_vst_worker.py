@@ -494,7 +494,7 @@ def test_host_cancellation_terminates_worker_and_bounds_diagnostics(
     assert len(diagnostics.stdout) <= 256 + 40
     assert len(diagnostics.stderr) <= 256 + 40
     assert process.terminated
-    assert terminated == [False]
+    assert terminated == [False, True]
 
 
 def test_worker_main_reports_plugin_errors(
@@ -605,3 +605,112 @@ def test_parameter_selectors_and_midi_payload_are_valid() -> None:
     )
     assert payload.startswith(b"MThd")
     assert b"MTrk" in payload
+
+
+@pytest.mark.parametrize("initial, override", [(0.7, None), (0.7, 0.3), (0.2, None)])
+def test_automation_holds_loaded_state_until_first_authored_frame(tmp_path, initial, override):
+    plugin = _FakePlugin(_FakeEngine(8000, 128))
+    plugin.value = initial  # effective state/preset value after loading
+    targets = vst_worker._resolve_parameter_targets(["Depth"], vst_worker._parameters(plugin))
+    if override is not None:
+        vst_worker._set_parameters(plugin, {"Depth": override}, targets)
+    path = tmp_path / "automation.npz"
+    np.savez(path, Depth=np.array([0.0, 0.0, 0.8, 0.9]))
+    vst_worker._set_automation(plugin, path, targets, {"Depth": 2})
+    expected = initial if override is None else override
+    assert plugin.automation == pytest.approx([expected, expected, 0.8, 0.9])
+    # Legacy requests keep their explicitly materialized first-point policy.
+    vst_worker._set_automation(plugin, path, targets, {})
+    assert plugin.automation == pytest.approx([0.0, 0.0, 0.8, 0.9])
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX process-group regression")
+def test_timeout_kills_descendant_even_after_group_leader_exits(tmp_path, monkeypatch):
+    import os
+    import signal
+    import time
+
+    ready = tmp_path / "ready"
+    child_pid = tmp_path / "child.pid"
+    child = (
+        'import os,signal,time\nfrom pathlib import Path\n'
+        'signal.signal(signal.SIGTERM, signal.SIG_IGN)\n'
+        f'Path({str(child_pid)!r}).write_text(str(os.getpid()))\n'
+        f'Path({str(ready)!r}).touch()\n'
+        'time.sleep(30)\n'
+    )
+    parent = (
+        'import subprocess,sys,time,json\nfrom pathlib import Path\n'
+        f'subprocess.Popen([sys.executable,"-c",{child!r}])\n'
+        f'while not Path({str(ready)!r}).exists(): time.sleep(.01)\n'
+        'request=json.loads(Path(sys.argv[1]).read_text())\n'
+        'Path(request["_progress_path"]).write_text(json.dumps({"last_stage":"plugin_loaded"}))\n'
+        'time.sleep(30)\n'
+    )
+
+    def start(request_path, response_path):
+        return subprocess.Popen([sys.executable, "-c", parent, str(request_path)],
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                start_new_session=True)
+
+    monkeypatch.setattr(vst_host, "_start_worker", start)
+    try:
+        with pytest.raises(vst_host.VSTWorkerError) as raised:
+            vst_host._run_worker({"action": "instrument"}, timeout_seconds=1.0)
+        assert raised.value.diagnostics.timed_out
+        assert raised.value.diagnostics.last_stage == "plugin_loaded"
+        pid = int(child_pid.read_text())
+        # A killed orphan can briefly remain a zombie until the init process reaps it.
+        deadline = time.monotonic() + 2
+        while time.monotonic() < deadline:
+            status = Path(f"/proc/{pid}/stat")
+            if not status.exists() or status.read_text().split()[2] == "Z":
+                break
+            time.sleep(.01)
+        else:
+            pytest.fail("VST worker descendant remained alive after timeout")
+    finally:
+        if child_pid.exists():
+            try:
+                os.kill(int(child_pid.read_text()), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows process-job regression")
+def test_windows_job_owns_descendants_after_worker_exit(tmp_path):
+    import ctypes
+    import time
+    from ctypes import wintypes
+
+    from prism._windows_job import WindowsJob
+
+    pidfile = tmp_path / "child.pid"
+    child = "import time; time.sleep(30)"
+    parent = (
+        "import subprocess,sys\nfrom pathlib import Path\n"
+        f"p=subprocess.Popen([sys.executable,'-c',{child!r}])\n"
+        f"Path({str(pidfile)!r}).write_text(str(p.pid))\n"
+    )
+    process = subprocess.Popen([sys.executable, "-c", parent], creationflags=0x4)
+    job = WindowsJob(process)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    kernel.OpenProcess.restype = wintypes.HANDLE
+    kernel.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+    kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+    handle = None
+    try:
+        process.wait(timeout=5)
+        deadline = time.monotonic() + 5
+        while not pidfile.exists() and time.monotonic() < deadline:
+            time.sleep(.01)
+        handle = kernel.OpenProcess(0x100000, False, int(pidfile.read_text()))
+        assert handle
+        assert kernel.WaitForSingleObject(handle, 0) == 258  # WAIT_TIMEOUT: alive
+        job.close()
+        assert kernel.WaitForSingleObject(handle, 5000) == 0  # signalled: exited
+    finally:
+        job.close()
+        if handle:
+            kernel.CloseHandle(handle)
