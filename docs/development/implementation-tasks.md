@@ -159,5 +159,6 @@ The 2026-09-07 review of merged steps 01–14 found timing, controller chase, VS
 initial automation, descendant cleanup, fingerprint consistency and build-context
 regressions, plus missing real-latency qualification cases. The
 [follow-up record](implementation-status.md#steps-0114-audit-follow-up-2026-09-07)
-describes the corrections and verification. Integrate the follow-up PR and check
+describes the corrections and verification. Integrate
+[PR #41](https://github.com/SeucheAchat9115/Prism/pull/41) and check
 its Windows/Linux qualification results before starting A01.

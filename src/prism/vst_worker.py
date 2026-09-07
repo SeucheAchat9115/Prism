@@ -228,6 +228,8 @@ def _backend_metadata(daw: Any, plugin: Any, block_size: int) -> dict[str, objec
         "name": "dawdreamer",
         "version": None if version is None else str(version),
         "render_block_size": block_size,
+        "automation_timing": "block_start",
+        "automation_max_delay_frames": block_size - 1,
         "backend_capabilities": backend_capabilities,
         "plugin_capabilities": plugin_capabilities,
     }
@@ -358,7 +360,14 @@ def _load_state(plugin: Any, request: Mapping[str, Any]) -> None:
     state = request.get("state_path")
     preset = request.get("preset_path")
     if state:
-        _succeeded(plugin.load_state(str(state)), "load the VST3 state")
+        try:
+            _succeeded(plugin.load_state(str(state)), "load the VST3 state")
+        except RuntimeError as error:
+            # DawDreamer 0.9 applies state and refreshes parameters, then
+            # constructs an editor as a compatibility workaround. A headless
+            # VST has already loaded successfully when that final step fails.
+            if str(error) != "Plugin has no available editor UI.":
+                raise
     elif preset:
         _succeeded(plugin.load_vst3_preset(str(preset)), "load the VST3 preset")
 

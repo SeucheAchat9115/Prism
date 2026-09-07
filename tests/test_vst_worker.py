@@ -714,3 +714,23 @@ def test_windows_job_owns_descendants_after_worker_exit(tmp_path):
         job.close()
         if handle:
             kernel.CloseHandle(handle)
+
+
+def test_headless_state_load_accepts_only_the_post_load_editor_error():
+    class Headless:
+        value = 0.0
+
+        def load_state(self, path):
+            self.value = 0.75
+            raise RuntimeError("Plugin has no available editor UI.")
+
+    plugin = Headless()
+    vst_worker._load_state(plugin, {"state_path": "patch.state"})
+    assert plugin.value == 0.75
+
+    class Broken:
+        def load_state(self, path):
+            raise RuntimeError("Corrupt state")
+
+    with pytest.raises(RuntimeError, match="Corrupt state"):
+        vst_worker._load_state(Broken(), {"state_path": "patch.state"})

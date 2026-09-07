@@ -927,7 +927,8 @@ Implementation commit: `2b8909c68924b37a0558c6b64e86e13bb4d9e2b0`
 ## Steps 01–14 audit follow-up — 2026-09-07
 
 Base: `a5ee5ff0b5bffb744cc02d966c4c6898479dfdd0`. Branch:
-`fix/steps-01-14-audit`. This follow-up addresses the review before A01:
+`fix/steps-01-14-audit`, [PR #41](https://github.com/SeucheAchat9115/Prism/pull/41).
+This follow-up addresses the review before A01:
 
 - 02/06: convert each audio/percussion occurrence and pattern step from its
   absolute musical position, preserving natural/cut/choke semantics.
@@ -950,3 +951,11 @@ controlled workers. Native/API/type/lint/docs/package checks and final hosted
 qualification results are recorded in the follow-up PR. Real VST qualification
 requires the pinned optional plugin environment; portable tests skip those cases.
 No A01 implementation, arbitrary source rewriting or live audio hosting is added.
+
+Local verification: 268 passed, 10 skipped, 86.09% coverage on the first complete
+follow-up run; subsequent headless-state regression passes separately. Ruff,
+mypy, strict MkDocs and wheel/sdist builds pass. Initial hosted tests confirmed
+reported latency, serial/parallel alignment and mono output on both platforms;
+state/preset qualification exposed and now covers the pinned host's post-load
+editor requirement. DawDreamer automation is block-start sampled, explicitly
+recorded in backend diagnostics and tested at a non-aligned authored boundary.

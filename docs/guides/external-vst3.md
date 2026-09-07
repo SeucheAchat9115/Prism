@@ -277,7 +277,16 @@ With `initial_value_v1`, a lane that begins later holds the plugin's actual valu
 after loading its state/preset and applying explicit parameter overrides. The
 worker resolves that value from the live plugin; cached parameter descriptions
 are not treated as current patch state. `first_point_v0` retains the explicit
-legacy behavior. The first authored frame takes the authored value.
+legacy behavior. The compiled envelope takes the authored value at the first
+point. DawDreamer 0.9 samples that envelope at block starts: a non-aligned point
+reaches the plugin at the next block, at most `render_block_size - 1` frames
+later. The real fixture test checks this exact block boundary. Lower the block
+size when finer automation resolution is needed; this backend does not promise
+sample-accurate parameter updates. Native envelopes remain sample-accurate.
+
+The pinned host applies state before trying to construct an editor. Prism accepts
+its specific post-load "no available editor UI" error for headless plugins; other
+state-load errors still fail. Real tests verify the resulting saved-state audio.
 
 Workers report completed stages through a separate progress file, so a timeout
 can identify the last completed operation even if the plugin floods its logs.

@@ -424,12 +424,16 @@ def test_real_state_preset_overrides_and_late_automation(tmp_path, asset):
     settings = {asset: relative}
     saved = process_vst3_effect(project, _gain_plugin(**settings), source)
     np.testing.assert_allclose(saved, source * 0.25, atol=1e-7)
-    plugin = _gain_plugin(**settings, parameters={"Gain": 0.75})
+    plugin = project.master_effect(VST3("latency", **settings, parameters={"Gain": 0.75}))
     overridden = process_vst3_effect(project, plugin, source)
     np.testing.assert_allclose(overridden, source * 0.75, atol=1e-7)
     project.automation("Late gain", target=plugin, parameter="Gain", points=[(0.25, 0.5)])
     automated = process_vst3_effect(project, plugin, source)
     first = project.timing.bar_to_frame(0.25)
+    # DawDreamer samples automation at each block start. Verify the exact
+    # block-quantized boundary, including the non-aligned authored frame.
+    block = project.vst_backend.render_block_size
+    first = ((first + block - 1) // block) * block
     _save_audio_diagnostics(
         _diagnostics_directory(tmp_path), f"{asset}-automation", automated, 8000
     )
@@ -437,7 +441,7 @@ def test_real_state_preset_overrides_and_late_automation(tmp_path, asset):
     np.testing.assert_allclose(automated[first:], source[first:] * 0.5, atol=1e-7)
     # Also hold the loaded state value when there is no explicit parameter override.
     project.automation_lanes.clear()
-    loaded = _gain_plugin(**settings)
+    loaded = project.master_effect(VST3("latency", **settings))
     project.automation("Late loaded gain", target=loaded, parameter="Gain", points=[(0.25, 0.5)])
     automated = process_vst3_effect(project, loaded, source)
     np.testing.assert_allclose(automated[:first], source[:first] * 0.25, atol=1e-7)
