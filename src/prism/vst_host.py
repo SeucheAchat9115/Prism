@@ -561,13 +561,21 @@ def _terminate_process_tree(process: subprocess.Popen[bytes], *, force: bool = F
                 stderr=subprocess.DEVNULL,
             )
         return
-    try:
-        os.killpg(os.getpgid(process.pid), signal.SIGKILL if force else signal.SIGTERM)
-    except (ProcessLookupError, PermissionError, OSError):
+    killpg = getattr(os, "killpg", None)
+    getpgid = getattr(os, "getpgid", None)
+    if callable(killpg) and callable(getpgid):
         try:
-            (process.kill if force else process.terminate)()
-        except (ProcessLookupError, OSError):
+            killpg(
+                getpgid(process.pid),
+                getattr(signal, "SIGKILL" if force else "SIGTERM"),
+            )
+            return
+        except (ProcessLookupError, PermissionError, OSError):
             pass
+    try:
+        (process.kill if force else process.terminate)()
+    except (ProcessLookupError, OSError):
+        pass
 
 
 def _worker_diagnostics(
