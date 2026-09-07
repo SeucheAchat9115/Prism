@@ -168,6 +168,82 @@ def test_render_stems_exports_aligned_tracks_buses_and_exact_master(
     }
 
 
+def test_master_input_stems_avoid_group_double_count_and_record_contract(
+    project_script: Path,
+) -> None:
+    song = Project(
+        "Production Stems",
+        prism_version="test",
+        tempo=240,
+        sample_rate=8_000,
+        normalize=False,
+        _script=project_script,
+    )
+    kick = song.track("Kick", gain_db=-4).drum("kick", "x---")
+    lead = song.track("Lead", gain_db=-8, pan=0.2).midi(
+        "C4 E4 G4 -", instrument="lead", bars=1
+    )
+    drums = song.bus("Drum Group", tracks=[kick], gain_db=-2)
+    drums.effect("gain", gain_db=-1)
+    room = song.bus("Room Return", gain_db=-8)
+    room.effect("reverb", mix=1)
+    lead.send(room, gain_db=-12)
+    song.master_effect("compressor", threshold_db=-30, ratio=4)
+    song.section("Loop", bars=1)
+    profile = ExportProfile(bit_depth=32, normalization="none")
+
+    taps = song.render_stems("renders/taps", profile=profile)
+    production = song.render_stems(
+        "renders/production", profile=profile, stem_mode="master_inputs"
+    )
+    normal = song.render("renders/normal.wav", profile=profile)
+
+    assert [item.name for item in taps.tracks] == ["Kick", "Lead"]
+    assert [item.name for item in production.tracks] == ["Lead"]
+    assert [item.name for item in production.buses] == ["Drum Group", "Room Return"]
+    assert production.delivery is not None
+    assert production.delivery.mode == "master_inputs"
+    assert production.delivery.reconstruction_target == "pre_master_mix"
+    assert production.delivery.reconstruction_guarantee == "pre_master_linear_sum"
+    assert production.delivery.reconstruction_includes_master_gain is False
+    assert production.delivery.reconstruction_includes_master_effects is False
+    assert production.delivery.master_reference == "same_generation"
+    assert all(item.stage == "pre_master" for item in (*production.tracks, *production.buses))
+    assert production.master.stage == "master"
+    assert production.master.path.read_bytes() == normal.path.read_bytes()
+    assert production.master_processing is not None
+    assert production.master_processing["may_be_signal_dependent"] is True
+
+    rendered = render_module._render_buffers(song)
+    reconstructed = np.zeros_like(rendered.pre_master)
+    for item in production.tracks + production.buses:
+        samples, rate = sf.read(item.path, dtype="float64", always_2d=True)
+        assert rate == 8_000
+        reconstructed += samples
+    assert np.allclose(reconstructed, rendered.pre_master, atol=2e-7)
+    mastered, _ = sf.read(production.master.path, dtype="float64", always_2d=True)
+    assert not np.allclose(mastered, reconstructed, atol=1e-6)
+
+    manifest_path = production.directory.parent.parent / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["delivery"]["mode"] == "master_inputs"
+    assert manifest["delivery"]["reconstruction_target"] == "pre_master_mix"
+    assert manifest["master_processing"]["excluded_from_reconstruction_target"] is True
+
+
+def test_master_input_stems_reject_independent_normalization(
+    project_script: Path,
+) -> None:
+    song = _mini_song(project_script)
+    profile = ExportProfile(bit_depth=32, normalization="peak", normalize_stems=True)
+    with pytest.raises(ProjectError, match="independently normalize"):
+        song.render_stems(
+            "renders/invalid-production-stems",
+            profile=profile,
+            stem_mode="master_inputs",
+        )
+
+
 @pytest.mark.parametrize(
     ("bit_depth", "subtype"),
     ((16, "PCM_16"), (24, "PCM_24"), (32, "FLOAT")),

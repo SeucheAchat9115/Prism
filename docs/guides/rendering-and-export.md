@@ -94,6 +94,35 @@ stems are deliberately wanted. Otherwise only the master follows the
 profile's peak-normalization setting, preserving the existing aligned stem
 behavior.
 
+Stem delivery mode is a separate choice from file format. The default
+`stem_mode="channel_taps"` exports every post-track and post-bus tap for
+mixer inspection. For a production delivery set, use
+`stem_mode="master_inputs"`:
+
+```python
+stems = song.render_stems(
+    "renders/production-stems",
+    profile=ExportProfile(
+        name="production-stems",
+        bit_depth=32,
+        normalization="none",
+    ),
+    stem_mode="master_inputs",
+)
+```
+
+This mode exports ungrouped track outputs plus group and return bus outputs. A
+track routed into a group is omitted because its signal is already present in
+that bus, so importing the whole set does not double the group. The stem
+metadata labels these files `pre_master` and declares the reconstruction target
+as the pre-master mix before master gain, master effects, and final delivery
+normalization. The `master.wav` in the same generation is the finished
+reference, so it does not require rerunning plugins separately. Sum the
+pre-master stems before integer quantization to reconstruct that target; a
+nonlinear compressor or limiter on the master cannot be recreated by running
+each stem through that processor independently. Independent stem normalization
+is rejected in this production mode.
+
 ## Bit depth
 
 | Value | WAV storage | Good use |

@@ -38,9 +38,18 @@ and `generation` is its manifest generation number. Every file has the
 result's sample rate, channel count, frame count, bit depth, tail length, and
 duration.
 
+`StemRenderResult.delivery` is a `StemDeliveryContract`. In
+`master_inputs` mode it names the pre-master reconstruction target, records
+that master processing is excluded from that target, and identifies whether
+stem dither was requested.
+
 ## StemFile
 
 ::: prism.StemFile
+
+## StemDeliveryContract
+
+::: prism.StemDeliveryContract
 
 ## MidiResult
 
