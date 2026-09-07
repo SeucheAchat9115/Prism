@@ -41,3 +41,11 @@ target_include_directories(prism-fixture-instrument PRIVATE
 
 target_compile_features(prism-fixture-instrument PRIVATE cxx_std_17)
 target_link_libraries(prism-fixture-instrument PRIVATE sdk)
+
+foreach(variant latency mono)
+    smtg_add_vst3plugin(prism-fixture-${variant} latency.cpp)
+    target_include_directories(prism-fixture-${variant} PRIVATE "${PRISM_VST3_SDK_ROOT}")
+    target_compile_features(prism-fixture-${variant} PRIVATE cxx_std_17)
+    target_link_libraries(prism-fixture-${variant} PRIVATE sdk)
+endforeach()
+target_compile_definitions(prism-fixture-mono PRIVATE PRISM_MONO=1)

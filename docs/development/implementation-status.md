@@ -923,3 +923,39 @@ Implementation commit: `2b8909c68924b37a0558c6b64e86e13bb4d9e2b0`
   continuous state across the whole track is intentionally task 05.
 - Standard MIDI channel note messages do not carry Prism's stable per-note IDs;
   a receiving device may apply its own same-pitch voice-stealing policy.
+
+## Steps 01–14 audit follow-up — 2026-09-07
+
+Base: `a5ee5ff0b5bffb744cc02d966c4c6898479dfdd0`. Branch:
+`fix/steps-01-14-audit`, [PR #41](https://github.com/SeucheAchat9115/Prism/pull/41).
+This follow-up addresses the review before A01:
+
+- 02/06: convert each audio/percussion occurrence and pattern step from its
+  absolute musical position, preserving natural/cut/choke semantics.
+- 04: interpolate controller chase inside linear ramps and preserve hold/exact
+  boundary behavior.
+- 08: resolve pre-first VST automation from loaded state/preset and explicit
+  overrides in the worker; preserve the declared legacy policy.
+- 09: contain Windows workers in process jobs; terminate POSIX descendants even
+  after leader exit; retain the last stage through timeout/log flooding.
+- 10: add reported-latency stereo/mono gain fixtures and real-host serial,
+  parallel, state/preset and automation assertions to both CI platforms.
+- 13: detect changes to fingerprinted inputs before publishing; preserve the
+  previous master/stem generation on failure; reject negative schemas. Native
+  DSP contract advances to 2 for the corrected audio scheduling.
+- 14: keep project cwd/import context through build(), restore it on errors,
+  and report exceptions as ProjectError.
+
+Regression tests reproduce each audited defect using temporary assets and
+controlled workers. Native/API/type/lint/docs/package checks and final hosted
+qualification results are recorded in the follow-up PR. Real VST qualification
+requires the pinned optional plugin environment; portable tests skip those cases.
+No A01 implementation, arbitrary source rewriting or live audio hosting is added.
+
+Local verification: 268 passed, 10 skipped, 86.09% coverage on the first complete
+follow-up run; subsequent headless-state regression passes separately. Ruff,
+mypy, strict MkDocs and wheel/sdist builds pass. Initial hosted tests confirmed
+reported latency, serial/parallel alignment and mono output on both platforms;
+state/preset qualification exposed and now covers the pinned host's post-load
+editor requirement. DawDreamer automation is block-start sampled, explicitly
+recorded in backend diagnostics and tested at a non-aligned authored boundary.

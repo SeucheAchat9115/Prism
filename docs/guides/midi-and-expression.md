@@ -122,3 +122,8 @@ compiled = compile_track_events(
 print(compiled.notes[0].note_id, compiled.notes[0].on_frame)
 print(compiled.boundaries)
 ```
+
+Controller chase evaluates the authored curve at the requested position: linear
+ramps interpolate, hold curves retain their preceding value, and an exact point
+uses that point's value. Repeated sample, audio and percussion placements use the
+same absolute musical-to-frame boundary as MIDI, including fractional tempos.

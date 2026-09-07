@@ -1,6 +1,6 @@
 # Reproducible VST3 qualification fixtures
 
-The real-plugin workflow builds two small fixtures for every Windows and Linux
+The real-plugin workflow builds four small fixtures for every Windows and Linux
 run instead of checking platform binaries into Prism:
 
 - `prism-fixture-instrument.vst3` uses the upstream MDA Piano example for a
@@ -28,3 +28,12 @@ cmake --build build/vst3-fixtures --config Release \
 The portable Python suite never requires these binaries. The real VST suite is
 the qualification record: its diagnostics directory contains a small WAV and
 JSON metrics bundle for each executed fixture or Surge test.
+
+The audit follow-up adds `prism-fixture-latency.vst3` and
+`prism-fixture-mono.vst3`, built from Prism's `plugin/latency.cpp` (GPL-3.0-only)
+against the same pinned SDK. Both delay input by exactly 64 samples, report that
+latency, apply a normalized Gain parameter before the delay, and serialize the
+gain as a little-endian double component state. The mono variant averages stereo
+input and exposes one output channel. They are deliberately small measurement
+fixtures, not production effects. Build both additional targets when running the
+full qualification suite locally.

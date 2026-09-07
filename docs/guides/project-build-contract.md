@@ -105,3 +105,11 @@ Legacy files that construct a Project and call render(), render_stems(), or
 export_midi() at module scope still work when run directly. The render CLI
 identifies those top-level exports and prints the migration instruction; it
 never silently rewrites the source.
+
+During both source loading and `build()`, Prism keeps the project folder as the
+working directory and on the Python import path. Helpers imported inside
+`build()` and relative reads such as `Path("settings.json").read_text()` therefore
+work when the CLI is launched from another folder. The caller's working directory
+and import path are restored on success and on failure. Build exceptions are
+reported as project errors. Builds execute in-process; callers must serialize
+builds rather than invoke them concurrently in different threads.

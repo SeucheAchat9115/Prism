@@ -3,7 +3,9 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
+import numpy as np
 import pytest
+import soundfile as sf
 
 from prism import Project, ProjectError
 from prism.effects import parameter_values
@@ -254,3 +256,24 @@ def test_timing_conversion_rejects_invalid_ranges() -> None:
         timing.bar_range_to_frames(2, 1)
     with pytest.raises(ValueError, match="ticks_per_beat"):
         timing.quarter_notes_to_ticks(1, 0)
+
+
+@pytest.mark.parametrize("kind", ["sample", "audio", "drum"])
+def test_fractional_tempo_audio_voice_schedule_uses_absolute_positions(project_script, kind):
+    from prism.render import _schedule_audio_voices
+
+    song = Project("Long audio", prism_version="test", tempo=123.4,
+                   sample_rate=8_000, _script=project_script)
+    path = project_script.parent / "hit.wav"
+    sf.write(path, np.full(8, 0.1), 8_000)
+    track = song.track("Hits")
+    if kind == "sample":
+        track.sample("hit.wav", "x---")
+    elif kind == "audio":
+        track.audio("hit.wav", bars=1, loop=False)
+    else:
+        track.drum("hihat", "x---")
+    song.section("Long", bars=256)
+    voices = _schedule_audio_voices(song, track, song.timing.bar_to_frame(256))
+    assert len(voices) == 256
+    assert [v.start_frame for v in voices] == [song.timing.bar_to_frame(i) for i in range(256)]

@@ -178,11 +178,19 @@ class CompiledTrackEvents:
             points = [
                 point
                 for point in self.controllers
-                if point.controller == controller and point.beat <= beat + 1e-9
+                if point.controller == controller and point.beat <= beat
             ]
             if points:
                 current = max(points, key=lambda point: (point.beat, point.sequence))
                 value = current.value
+                following = [
+                    point for point in self.controllers
+                    if point.controller == controller and point.beat > beat
+                ]
+                if current.curve == "linear" and following:
+                    next_point = min(following, key=_controller_sort_key)
+                    fraction = (beat - current.beat) / (next_point.beat - current.beat)
+                    value += fraction * (next_point.value - current.value)
                 bend_range = current.pitch_bend_range
             else:
                 value = default

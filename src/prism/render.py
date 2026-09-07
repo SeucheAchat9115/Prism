@@ -28,7 +28,11 @@ from prism.effects import (
     process_track_plugins,
 )
 from prism.errors import ProjectError, RenderError
-from prism.fingerprint import RENDER_MANIFEST_SCHEMA_VERSION, migrate_render_manifest
+from prism.fingerprint import (
+    RENDER_MANIFEST_SCHEMA_VERSION,
+    RenderInputGuard,
+    migrate_render_manifest,
+)
 from prism.music import Note, db_gain
 from prism.project.builder import (
     AudioClip,
@@ -359,6 +363,7 @@ def render_project(
             tail_seconds=tail_seconds,
             profile=profile,
         )
+        input_guard = RenderInputGuard(project)
         fingerprint = project.fingerprint(profile=settings.profile)
         rendered = _render_buffers(
             project,
@@ -372,6 +377,7 @@ def render_project(
             normalize=settings.normalize_master,
         )
         output_samples = prepared.samples
+        input_guard.verify()
         _write_wav(
             output_path,
             output_samples,
@@ -435,6 +441,7 @@ def render_stems(
     )
     delivery = _stem_delivery_contract(project, settings, stem_mode)
     master_processing = _master_processing_metadata(project, settings, delivery)
+    input_guard = RenderInputGuard(project)
     fingerprint = project.fingerprint(profile=settings.profile, stem_mode=stem_mode)
     previous: _StemManifest | None = None
     staging: Path | None = None
@@ -538,6 +545,7 @@ def render_stems(
             master_processing=master_processing,
             fingerprint=fingerprint.as_dict(),
         )
+        input_guard.verify()
         staging_root = staging
         os.replace(staging, generation)
         staging = None
@@ -759,15 +767,12 @@ def _schedule_audio_voices(
                 clip = placement.clip
                 if isinstance(clip, MidiClip):
                     continue
-                clip_frames = timing.bars_to_frames(clip.bars)
-                placement_start = timing.bar_to_frame(
-                    cursor_bar + placement.start_bar
-                )
-                available = section_end - placement_start
+                placement_bar = cursor_bar + placement.start_bar
+                available = section.bars - placement.start_bar
                 if available <= 0:
                     continue
                 repeats = (
-                    max(1, math.ceil(available / clip_frames))
+                    max(1, math.ceil(available / clip.bars))
                     if placement.repeat
                     else 1
                 )
@@ -779,12 +784,13 @@ def _schedule_audio_voices(
                         prepared[id(clip)] = source
 
                 for repeat_index in range(repeats):
-                    occurrence_start = placement_start + repeat_index * clip_frames
+                    occurrence_bar = placement_bar + repeat_index * clip.bars
+                    occurrence_start = timing.bar_to_frame(occurrence_bar)
                     if occurrence_start >= section_end or occurrence_start >= total_frames:
                         continue
                     occurrence_end = min(
                         section_end,
-                        occurrence_start + clip_frames,
+                        timing.bar_to_frame(occurrence_bar + clip.bars),
                         total_frames,
                     )
                     if occurrence_end <= occurrence_start:
@@ -794,13 +800,16 @@ def _schedule_audio_voices(
                     )
                     if isinstance(clip, SampleClip):
                         assert source is not None
-                        boundaries = np.rint(
-                            np.linspace(0, clip_frames, len(clip.pattern) + 1)
-                        ).astype(np.int64)
+                        boundaries = [
+                            timing.bar_to_frame(
+                                occurrence_bar + index * clip.bars / len(clip.pattern)
+                            )
+                            for index in range(len(clip.pattern) + 1)
+                        ]
                         for step_index, step in enumerate(clip.pattern):
                             if step == "-":
                                 continue
-                            voice_start = occurrence_start + int(boundaries[step_index])
+                            voice_start = boundaries[step_index]
                             if voice_start >= occurrence_end:
                                 continue
                             _append_scheduled_voice(
@@ -843,13 +852,16 @@ def _schedule_audio_voices(
                         order += 1
                     else:
                         assert isinstance(clip, DrumClip)
-                        boundaries = np.rint(
-                            np.linspace(0, clip_frames, len(clip.pattern) + 1)
-                        ).astype(np.int64)
+                        boundaries = [
+                            timing.bar_to_frame(
+                                occurrence_bar + index * clip.bars / len(clip.pattern)
+                            )
+                            for index in range(len(clip.pattern) + 1)
+                        ]
                         for step_index, step in enumerate(clip.pattern):
                             if step == "-":
                                 continue
-                            voice_start = occurrence_start + int(boundaries[step_index])
+                            voice_start = boundaries[step_index]
                             if voice_start >= occurrence_end:
                                 continue
                             hit = _drum_hit_source(
@@ -864,7 +876,7 @@ def _schedule_audio_voices(
                                 % 4_294_967_296,
                             )
                             boundary_end = (
-                                occurrence_start + int(boundaries[step_index + 1])
+                                boundaries[step_index + 1]
                                 if release_policy == "legacy"
                                 else occurrence_end
                             )

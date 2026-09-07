@@ -338,3 +338,121 @@ def test_pinned_fixture_effect_has_configured_impulse_delay(tmp_path: Path) -> N
     except BaseException as error:
         _save_failure_diagnostics(diagnostics, "fixture-effect-failure", error)
         raise
+
+
+def _qualification_test(function):
+    from functools import wraps
+
+    @wraps(function)
+    def checked(*args, **kwargs):
+        try:
+            return function(*args, **kwargs)
+        except Exception as error:
+            directory = _diagnostics_directory(kwargs["tmp_path"])
+            _save_failure_diagnostics(directory, function.__name__ + "-failure", error)
+            raise
+    return checked
+
+
+def _latency_project(tmp_path, *, mono=False):
+    path = _required_path("PRISM_FIXTURE_MONO_VST3" if mono else "PRISM_FIXTURE_LATENCY_VST3")
+    root = tmp_path / "latency-project"
+    root.mkdir(exist_ok=True)
+    (root / "main.py").write_text("# controlled latency qualification\n", encoding="utf-8")
+    registry = VSTRegistry(root)
+    registry.initialize()
+    registry.add("latency", path)
+    return Project("Latency", prism_version="test", project_root=root, sample_rate=8000), path
+
+
+def _gain_plugin(**kwargs):
+    return vst3_plugin(VST3("latency", **kwargs), name="Gain", track="Test", kind="effect")
+
+
+@_qualification_test
+def test_real_reported_latency_serial_and_parallel_alignment(tmp_path):
+    project, path = _latency_project(tmp_path)
+    import dawdreamer as daw
+    source = np.zeros((4096, 2), dtype=np.float32)
+    source[173] = [0.5, -0.25]
+    engine = daw.RenderEngine(8000, 128)
+    plugin = engine.make_plugin_processor("gain", str(path))
+    playback = engine.make_playback_processor("input", np.pad(source.T, ((0, 0), (0, 64))))
+    engine.load_graph([(playback, []), (plugin, ["input"])])
+    assert plugin.get_latency_samples() == 64
+    engine.render((len(source) + 64) / 8000)
+    raw = np.asarray(plugin.get_audio()).T
+    _save_audio_diagnostics(_diagnostics_directory(tmp_path), "raw-latency", raw, 8000)
+    assert np.argmax(np.abs(raw[:, 0])) == 173 + 64
+    first = process_vst3_effect(project, _gain_plugin(parameters={"Gain": 0.5}), source)
+    second = process_vst3_effect(project, _gain_plugin(parameters={"Gain": 0.5}), first)
+    _save_audio_diagnostics(_diagnostics_directory(tmp_path), "serial-latency", second, 8000)
+    np.testing.assert_allclose(first, source * 0.5, atol=1e-7)
+    np.testing.assert_allclose(second, source * 0.25, atol=1e-7)
+    np.testing.assert_allclose(source + second, source * 1.25, atol=1e-7)
+
+
+@pytest.mark.parametrize("asset", ["state", "preset"])
+@_qualification_test
+def test_real_state_preset_overrides_and_late_automation(tmp_path, asset):
+    import struct
+
+    from prism.vst_worker import _save_state_atomically
+
+    project, path = _latency_project(tmp_path)
+    import dawdreamer as daw
+
+    relative = "patch.state" if asset == "state" else "patch.vstpreset"
+    destination = project.root / relative
+    if asset == "state":
+        engine = daw.RenderEngine(8000, 128)
+        raw = engine.make_plugin_processor("gain", str(path))
+        raw.set_parameter(0, 0.25)
+        playback = engine.make_playback_processor("input", np.zeros((2, 1024), np.float32))
+        engine.load_graph([(playback, []), (raw, ["input"])])
+        engine.render(1024 / 8000)
+        _save_state_atomically(raw, destination)
+    else:
+        # Standard VST3 preset: header, processor component state, chunk list.
+        class_id = b"42ABCC11221344556677889910111213"
+        destination.write_bytes(
+            b"VST3" + struct.pack("<i", 1) + class_id + struct.pack("<q", 56)
+            + struct.pack("<d", 0.25)
+            + b"List" + struct.pack("<i", 1) + b"Comp" + struct.pack("<qq", 48, 8)
+        )
+    source = np.full((8000, 2), 0.25, np.float32)
+    settings = {asset: relative}
+    saved = process_vst3_effect(project, _gain_plugin(**settings), source)
+    np.testing.assert_allclose(saved, source * 0.25, atol=1e-7)
+    plugin = project.master_effect(VST3("latency", **settings, parameters={"Gain": 0.75}))
+    overridden = process_vst3_effect(project, plugin, source)
+    np.testing.assert_allclose(overridden, source * 0.75, atol=1e-7)
+    project.automation("Late gain", target=plugin, parameter="Gain", points=[(0.25, 0.5)])
+    automated = process_vst3_effect(project, plugin, source)
+    first = project.timing.bar_to_frame(0.25)
+    # DawDreamer samples automation at each block start. Verify the exact
+    # block-quantized boundary, including the non-aligned authored frame.
+    block = project.vst_backend.render_block_size
+    first = ((first + block - 1) // block) * block
+    _save_audio_diagnostics(
+        _diagnostics_directory(tmp_path), f"{asset}-automation", automated, 8000
+    )
+    np.testing.assert_allclose(automated[:first], source[:first] * 0.75, atol=1e-7)
+    np.testing.assert_allclose(automated[first:], source[first:] * 0.5, atol=1e-7)
+    # Also hold the loaded state value when there is no explicit parameter override.
+    project.automation_lanes.clear()
+    loaded = project.master_effect(VST3("latency", **settings))
+    project.automation("Late loaded gain", target=loaded, parameter="Gain", points=[(0.25, 0.5)])
+    automated = process_vst3_effect(project, loaded, source)
+    np.testing.assert_allclose(automated[:first], source[:first] * 0.25, atol=1e-7)
+
+
+@_qualification_test
+def test_real_mono_plugin_output_is_aligned_and_energy_preserving(tmp_path):
+    project, _ = _latency_project(tmp_path, mono=True)
+    source = np.zeros((4096, 2), np.float32)
+    source[123] = [0.75, 0.25]
+    output = process_vst3_effect(project, _gain_plugin(parameters={"Gain": 1.0}), source)
+    expected = np.repeat(np.mean(source, axis=1, keepdims=True), 2, axis=1) / np.sqrt(2)
+    _save_audio_diagnostics(_diagnostics_directory(tmp_path), "mono-latency", output, 8000)
+    np.testing.assert_allclose(output, expected, atol=1e-7)

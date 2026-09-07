@@ -86,7 +86,7 @@ jobs:
             -DPRISM_VST3_SDK_ROOT="$sdk" \
             -DCMAKE_BUILD_TYPE=Release
           cmake --build "$build" --config Release \
-            --target prism-fixture-delay prism-fixture-instrument
+            --target prism-fixture-delay prism-fixture-instrument prism-fixture-latency prism-fixture-mono
 
       - name: Configure Linux fixture paths
         if: runner.os == 'Linux'
@@ -95,6 +95,12 @@ jobs:
           build="$RUNNER_TEMP/prism-vst3-fixtures-build"
           delay="$(find "$build" -type d -name 'prism-fixture-delay.vst3' -print -quit)"
           instrument="$(find "$build" -type d -name 'prism-fixture-instrument.vst3' -print -quit)"
+          latency="$(find "$build" -type d -name 'prism-fixture-latency.vst3' -print -quit)"
+          mono="$(find "$build" -type d -name 'prism-fixture-mono.vst3' -print -quit)"
+          test -n "$latency"
+          test -n "$mono"
+          echo "PRISM_FIXTURE_LATENCY_VST3=$latency" >> "$GITHUB_ENV"
+          echo "PRISM_FIXTURE_MONO_VST3=$mono" >> "$GITHUB_ENV"
           test -n "$delay"
           test -n "$instrument"
           echo "PRISM_FIXTURE_EFFECT_VST3=$delay" >> "$GITHUB_ENV"
@@ -114,6 +120,11 @@ jobs:
           }
           "PRISM_FIXTURE_EFFECT_VST3=$($delay.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "PRISM_FIXTURE_INSTRUMENT_VST3=$($instrument.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          foreach ($variant in @('latency', 'mono')) {
+            $fixture = Get-ChildItem -Path $build -Directory -Filter "prism-fixture-$variant.vst3" -Recurse | Select-Object -First 1
+            if ($null -eq $fixture) { throw "Missing $variant fixture" }
+            "PRISM_FIXTURE_$($variant.ToUpper())_VST3=$($fixture.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          }
           $diagnostics = Join-Path $env:RUNNER_TEMP 'prism-vst-diagnostics'
           New-Item -ItemType Directory -Force -Path $diagnostics | Out-Null
           "PRISM_VST_DIAGNOSTICS_DIR=$diagnostics" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
@@ -167,7 +178,7 @@ jobs:
           "PRISM_SURGE_INSTRUMENT_VST3=$($instrument.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "PRISM_SURGE_EFFECT_VST3=$($effect.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: Run real VST3 smoke tests
+      - name: Run real VST3 qualification tests
         run: uv run pytest tests/test_real_vst.py -q
 
       - name: Upload VST audio diagnostics
@@ -177,4 +188,3 @@ jobs:
           name: prism-vst-diagnostics-${{ matrix.os }}
           path: ${{ runner.temp }}/prism-vst-diagnostics
           if-no-files-found: ignore
-
