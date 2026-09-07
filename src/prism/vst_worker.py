@@ -370,6 +370,13 @@ def _load_state(plugin: Any, request: Mapping[str, Any]) -> None:
                 raise
     elif preset:
         _succeeded(plugin.load_vst3_preset(str(preset)), "load the VST3 preset")
+        # JUCE's preset loader restores the component/controller but does not
+        # reset its parameter cache. A native state round trip does, before
+        # inspection, explicit overrides, or automation read those values.
+        with tempfile.TemporaryDirectory(prefix="prism-preset-") as directory:
+            refreshed = Path(directory) / "loaded.state"
+            _save_state_atomically(plugin, refreshed)
+            _load_state(plugin, {"state_path": str(refreshed)})
 
 
 def _parameter_changes(

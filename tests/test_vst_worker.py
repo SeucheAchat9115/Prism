@@ -716,6 +716,27 @@ def test_windows_job_owns_descendants_after_worker_exit(tmp_path):
             kernel.CloseHandle(handle)
 
 
+def test_preset_load_refreshes_the_host_parameter_cache(tmp_path):
+    class PresetPlugin:
+        value = 0.5
+        component_value = 0.5
+
+        def load_vst3_preset(self, path):
+            self.component_value = 0.25
+
+        def save_state(self, path):
+            Path(path).write_text(str(self.component_value))
+
+        def load_state(self, path):
+            self.value = float(Path(path).read_text())
+            self.loaded_path = Path(path)
+
+    plugin = PresetPlugin()
+    vst_worker._load_state(plugin, {"preset_path": str(tmp_path / "patch.vstpreset")})
+    assert plugin.value == 0.25
+    assert not plugin.loaded_path.exists()
+
+
 def test_headless_state_load_accepts_only_the_post_load_editor_error():
     class Headless:
         value = 0.0
