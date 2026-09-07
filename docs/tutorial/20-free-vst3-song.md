@@ -103,4 +103,11 @@ Open `renders/song.wav`. Then change the normalized Depth values, rerun the same
 command, and compare the result. Your sound state, visible parameters, notes,
 automation, plugin checksums, and export settings now travel with the project.
 
+If a plugin hangs, Prism stops the isolated worker after the configured action
+deadline and reports the plugin alias, operation, and last completed stage. The
+editor command has a different policy: closing the plugin window completes the
+save, while an embedding application can cancel it explicitly. State files are
+written through a temporary sibling file, so a failed save keeps the previous
+state usable.
+
 [Next: use Serum on Windows →](21-serum-on-windows.md)

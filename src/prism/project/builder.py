@@ -46,7 +46,7 @@ from prism.synthesis.types import (
     Uniwave,
 )
 from prism.timing import CANONICAL_TIMING_VERSION, MusicalTiming, TimeSignature, TimingCompatibility
-from prism.vst import VST3, VSTRegistry
+from prism.vst import VST3, VSTBackendConfig, VSTRegistry
 
 if TYPE_CHECKING:
     from prism.arrangement import CompiledTrackEvents
@@ -1063,6 +1063,7 @@ class Project:
         audio_release_policy: AudioReleasePolicy = DEFAULT_AUDIO_RELEASE_POLICY,
         master_gain_db: float = -3.0,
         normalize: bool = True,
+        vst_backend: VSTBackendConfig | None = None,
         _script: str | Path | None = None,
     ) -> None:
         self.script = _project_script(_script)
@@ -1097,6 +1098,7 @@ class Project:
         self.beat_unit = self.timing.denominator
         self.master_gain_db = validate_gain(master_gain_db, label="Master gain")
         self.normalize = bool(normalize)
+        self.vst_backend = VSTBackendConfig() if vst_backend is None else vst_backend
         self.tracks: list[Track] = []
         self.buses: list[Bus] = []
         self.master_effects: list[Plugin] = []
@@ -1496,6 +1498,7 @@ class Project:
             "audio_release_policy": self.audio_release_policy,
             "master_gain_db": self.master_gain_db,
             "normalize": self.normalize,
+            "vst_backend": self.vst_backend.as_dict(),
             "sample_folders": self.samples.folders,
             "vst3": [
                 {

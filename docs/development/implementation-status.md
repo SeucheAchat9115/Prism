@@ -9,6 +9,69 @@ Original audit IDs and historical test results below are retained. Tasks 17, 18,
 The task suffix /35 in historical entries refers to the original audit plan.
 
 
+## Task 09/35 — harden VST workers, cancellation, diagnostics, and state saving
+
+Status: Done; [PR #35](https://github.com/SeucheAchat9115/Prism/pull/35) open. Done
+describes implementation completion, not pull-request merge state.
+
+Implementation branch: `task-09/vst-worker-hardening`  
+Implementation commit: `3d03110e84e666e4bbf10bbadc68273c3a3257cd`
+
+### Completed scope
+
+- Added `VSTBackendConfig` with validated render block size, action-specific
+  deadlines, editor close/cancel policy, and bounded diagnostic output. The
+  policy is included in project configuration and render/stem results.
+- Replaced unbounded `subprocess.run()` capture with a controlled worker
+  process, bounded stdout/stderr drains, prompt cancellation, timeout handling,
+  and process-tree termination. Worker invocation now passes the correct
+  request/response arguments.
+- Added structured `VSTWorkerDiagnostics` and `VSTWorkerError` details for the
+  operation, plugin alias, track, last completed stage, return code, and
+  cancellation/timeout state while retaining readable producer-facing errors.
+- Added worker stage reporting, backend/plugin capability separation, strict
+  input/output shape and finite-sample validation, and explicit block-size
+  metadata in worker responses.
+- State editing now saves to a sibling temporary file and atomically replaces
+  the prior state only after a successful, readable backend result. Failed saves
+  leave the previous state untouched.
+
+### Compatibility decisions
+
+- Existing VST host helper signatures and legacy low-level test doubles remain
+  usable. The default block size remains 512 samples.
+- Inspection and render actions use finite default deadlines. Editor sessions
+  have no automatic deadline by default and finish on an explicit window close;
+  callers can provide a cancellation event or explicit timeout.
+- Invalid or short plugin audio is rejected instead of silently padded. Backend
+  capability metadata describes the host/plugin methods present at runtime and
+  is not a third-party compatibility claim.
+
+### Verification
+
+- Focused VST, worker, and render regressions pass, including block-size
+  reporting, capability separation, short/non-finite audio rejection, atomic
+  failed-save recovery, cancellation, process cleanup, and bounded logs.
+- `uv run pytest --cov --cov-report=term-missing`: **232 passed, 3 skipped**;
+  total coverage **87.29%**. The skips are the existing real-VST qualification
+  tests without plugin-path environment variables.
+- `uv run mypy src/prism`: passed.
+- `uv run ruff check .`: passed.
+- `uv run --extra docs mkdocs build --strict`: passed locally with the existing
+  repository logo restored by the connector reconstruction.
+- The separate real-VST workflow is unchanged; fake workers and offline tests
+  do not establish third-party/plugin compatibility.
+
+### Concrete limitations
+
+- The worker deadline covers the complete isolated action; the diagnostic stage
+  identifies whether a failure occurred during loading, graph creation, or
+  rendering, but does not interrupt a backend call from inside its thread.
+- Process-tree termination uses a new POSIX session or Windows process-group
+  task termination; an external host may still leave its own OS-level cleanup
+  work after the bounded termination window.
+
+
 ## Task 08/35 — define parameter automation boundaries and canonical targets
 
 Status: Done; [PR #34](https://github.com/SeucheAchat9115/Prism/pull/34) is open.

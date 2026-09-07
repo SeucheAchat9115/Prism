@@ -219,5 +219,39 @@ deterministic output; third-party VST projects are externally reproducible but
 may not be byte-for-byte identical across plugin builds or computers.
 
 Plugins run in separate worker processes. A crash becomes a readable render
-error rather than crashing the main Prism process. Reported plugin latency is
-compensated during offline rendering.
+error rather than crashing the main Prism process. Inspection and offline
+rendering have bounded action-specific deadlines; editor sessions intentionally
+wait for an explicit window close unless a caller supplies a cancellation event.
+Cancellation stops the worker process tree and includes the plugin alias, track,
+operation, last completed stage, and bounded backend output in the diagnostic.
+Reported plugin latency is compensated during offline rendering.
+
+## Worker policy and backend metadata
+
+The worker policy is explicit and portable. It controls the DawDreamer render
+block size, action deadlines, and the maximum diagnostic output retained after a
+failure:
+
+```python
+from prism import Project, VSTBackendConfig
+
+song = Project(
+    "Controlled VST Song",
+    prism_version="0.2.0.dev0",
+    vst_backend=VSTBackendConfig(
+        render_block_size=256,
+        inspection_timeout_seconds=20,
+        render_timeout_seconds=90,
+    ),
+)
+```
+
+The block size and policy are included in the resolved project configuration,
+render results, and stem-generation manifest. Backend capability information is
+reported separately from the plugin's exposed operations; a worker test double
+or a capability flag is not evidence that a particular third-party plugin is
+compatible. Real plugin qualification remains the separate VST3 workflow.
+
+State editing saves to a sibling temporary file and replaces the previous state
+only after the backend reports success and the temporary output is readable. A
+failed or cancelled save therefore leaves the last usable state in place.

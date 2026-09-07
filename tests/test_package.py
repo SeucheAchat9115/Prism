@@ -33,8 +33,9 @@ def test_public_package_is_small_and_script_first() -> None:
         "SynthWave",
         "Track",
         "Uniwave",
-        "VST3",
-        "VSTRegistry",
+            "VST3",
+            "VSTBackendConfig",
+            "VSTRegistry",
         "__version__",
     }
 
