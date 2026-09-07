@@ -7,7 +7,7 @@
 #define stringCompanyWeb "https://github.com/SeucheAchat9115/Prism"
 #define stringCompanyEmail "prism@example.invalid"
 
-BEGIN_FACTORY_DEF(stringCompanyName, stringCompanyWeb, stringCompanyEmail, 1)
+BEGIN_FACTORY_DEF(stringCompanyName, stringCompanyWeb, stringCompanyEmail, 2)
 
 DEF_CLASS(
     Steinberg::Vst::ADelayProcessorUID,
