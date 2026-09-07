@@ -74,6 +74,7 @@ class _FakePlayback:
 
 class _FakeEngine:
     instances: list[_FakeEngine] = []
+    plugin_class = _FakePlugin
 
     def __init__(self, sample_rate: int, block_size: int) -> None:
         self.__class__.instances.append(self)
@@ -82,7 +83,7 @@ class _FakeEngine:
         self.frames = 0
         self.render_count = 0
         self.midi_load_count = 0
-        self.plugin = _FakePlugin(self)
+        self.plugin = self.plugin_class(self)
 
     def set_bpm(self, tempo: float) -> None:
         self.tempo = tempo
@@ -234,6 +235,158 @@ def test_worker_uses_validated_block_size_and_reports_capabilities(
         "playback_processor": True,
     }
     assert backend["plugin_capabilities"]["latency_query"] is True  # type: ignore[index]
+
+
+class _ChangingLatencyPlugin(_FakePlugin):
+    def __init__(self, engine: _FakeEngine) -> None:
+        super().__init__(engine)
+        self.latency_calls = 0
+
+    def get_latency_samples(self) -> int:
+        self.latency_calls += 1
+        return 2 if self.latency_calls == 1 else 4
+
+
+class _ChangingLatencyEngine(_FakeEngine):
+    plugin_class = _ChangingLatencyPlugin
+
+
+def test_worker_reconciles_latency_after_graph_preparation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(
+        sys.modules, "dawdreamer", SimpleNamespace(RenderEngine=_ChangingLatencyEngine)
+    )
+    output = tmp_path / "output.npy"
+    source = tmp_path / "input.npy"
+    np.save(source, np.zeros((10, 2), dtype=np.float32))
+
+    response = vst_worker._execute(
+        {
+            "action": "effect",
+            "plugin_path": "test.vst3",
+            "input_path": str(source),
+            "output_path": str(output),
+            "sample_rate": 10,
+            "frames": 10,
+            "backend": {"render_block_size": 128},
+        }
+    )
+
+    assert response["latency_samples_before_graph"] == 2
+    assert response["latency_samples"] == 4
+    assert response["latency_reconciled"] is True
+    assert len(_ChangingLatencyEngine.instances) >= 1
+    assert _ChangingLatencyEngine.instances[-1].render_count == 1
+
+
+class _ImpulsePlayback:
+    def __init__(self, audio: np.ndarray) -> None:
+        self.audio = audio
+
+    def get_name(self) -> str:
+        return "prism_input"
+
+
+class _LatencyImpulsePlugin(_FakePlugin):
+    def get_audio(self) -> np.ndarray:
+        playback = self.engine.playback
+        latency = self.get_latency_samples()
+        return np.concatenate(
+            (np.zeros((2, latency), dtype=np.float32), playback.audio), axis=1
+        )
+
+
+class _LatencyImpulseEngine(_FakeEngine):
+    plugin_class = _LatencyImpulsePlugin
+
+    def make_playback_processor(self, name: str, audio: np.ndarray) -> _ImpulsePlayback:
+        self.playback = _ImpulsePlayback(audio)
+        return self.playback
+
+
+def test_worker_compensates_one_known_effect_latency_without_moving_impulse(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(
+        sys.modules, "dawdreamer", SimpleNamespace(RenderEngine=_LatencyImpulseEngine)
+    )
+    output = tmp_path / "output.npy"
+    source = np.zeros((10, 2), dtype=np.float32)
+    source[0] = 1.0
+    input_path = tmp_path / "input.npy"
+    np.save(input_path, source)
+
+    vst_worker._execute(
+        {
+            "action": "effect",
+            "plugin_path": "test.vst3",
+            "input_path": str(input_path),
+            "output_path": str(output),
+            "sample_rate": 10,
+            "frames": 10,
+            "backend": {"render_block_size": 128},
+        }
+    )
+
+    rendered = np.load(output)
+    assert np.argmax(np.abs(rendered[:, 0])) == 0
+    assert rendered[0, 0] == pytest.approx(1.0)
+    assert np.count_nonzero(rendered) == 2
+
+
+def test_worker_precedence_is_state_then_parameters_then_automation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    order: list[str] = []
+    state = tmp_path / "saved.state"
+    preset = tmp_path / "ignored.vstpreset"
+    state.write_bytes(b"state")
+    preset.write_bytes(b"preset")
+    automation = tmp_path / "automation.npz"
+    np.savez(automation, Depth=np.linspace(0.2, 0.8, 10, dtype=np.float32))
+
+    class RecordingPlugin(_FakePlugin):
+        def load_state(self, path: str) -> bool:
+            order.append("state")
+            return True
+
+        def load_vst3_preset(self, path: str) -> bool:
+            order.append("preset")
+            return True
+
+        def set_parameter(self, index: int, value: float) -> bool:
+            order.append("parameter")
+            return super().set_parameter(index, value)
+
+        def set_automation(self, index: int, data: np.ndarray) -> bool:
+            order.append("automation")
+            return super().set_automation(index, data)
+
+    class RecordingEngine(_FakeEngine):
+        plugin_class = RecordingPlugin
+
+    monkeypatch.setitem(sys.modules, "dawdreamer", SimpleNamespace(RenderEngine=RecordingEngine))
+    output = tmp_path / "output.npy"
+    midi = tmp_path / "notes.mid"
+    midi.write_bytes(b"midi")
+    vst_worker._execute(
+        {
+            "action": "instrument",
+            "plugin_path": "test.vst3",
+            "midi_path": str(midi),
+            "output_path": str(output),
+            "sample_rate": 10,
+            "frames": 10,
+            "state_path": str(state),
+            "preset_path": str(preset),
+            "parameters": {"Depth": 0.9},
+            "automation": str(automation),
+        }
+    )
+
+    assert order == ["state", "parameter", "automation"]
+    assert "preset" not in order
 
 
 def test_failed_state_save_preserves_previous_state_and_cleans_temporary_file(

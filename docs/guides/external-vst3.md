@@ -255,3 +255,18 @@ compatible. Real plugin qualification remains the separate VST3 workflow.
 State editing saves to a sibling temporary file and replaces the previous state
 only after the backend reports success and the temporary output is readable. A
 failed or cancelled save therefore leaves the last usable state in place.
+
+## Real-plugin qualification
+
+The portable test suite does not pretend that a worker test double proves a
+third-party plugin works. The separate VST3 workflow builds the two small Prism
+fixtures from a pinned Steinberg SDK revision on both Windows and Linux, then
+runs the same checks against Surge XT. The fixture effect uses an impulse with a
+known delay; the fixture instrument uses a known MIDI note. The tests verify
+onset, RMS, duration, state/parameter precedence, latency reconciliation, and a
+configured effect change rather than only checking that a buffer is non-empty.
+
+When a real-plugin assertion fails, the workflow uploads a bounded WAV/JSON
+diagnostic bundle containing the plugin path, platform, latency metadata, and
+basic peak/RMS/onset/tail measurements. Serum is not part of this qualification;
+it remains an optional, legitimately installed producer-side plugin.

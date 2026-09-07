@@ -110,4 +110,10 @@ save, while an embedding application can cancel it explicitly. State files are
 written through a temporary sibling file, so a failed save keeps the previous
 state usable.
 
+The repository's real-plugin qualification is separate from this portable
+tutorial. CI builds a pinned deterministic fixture on Windows and Linux and
+stores small WAV/JSON diagnostics if a latency, onset, RMS, or effect-change
+assertion fails. A passing portable test does not claim compatibility with every
+installed VST3.
+
 [Next: use Serum on Windows →](21-serum-on-windows.md)
