@@ -9,6 +9,78 @@ Original audit IDs and historical test results below are retained. Tasks 17, 18,
 The task suffix /35 in historical entries refers to the original audit plan.
 
 
+## Task 14/35 — create a public project build contract and executable CLI tutorials
+
+Status: Done; [PR #40](https://github.com/SeucheAchat9115/Prism/pull/40) open. Done describes implementation completion, not
+pull-request merge state.
+
+Implementation branch: `task-14/project-build-contract`
+Implementation commit: `8b9810667820759fcd4256e5432c4310cf07dbbc`
+
+### Completed scope
+
+- Added explicit `project_root=` construction for notebook, agent, and tooling
+  callers, plus `resolve_project_root()` for folders and main.py paths.
+- Added static `build_contract_info()` / `inspect_project()`, executable
+  `build_project()`, structured `validate_project()`, and
+  `render_project()` operations. Build execution uses a non-main module name,
+  so a clean build does not run export code.
+- Updated scaffolds to define `build() -> Project` and keep validation, MIDI,
+  and WAV delivery under the Python main guard. Direct execution of existing
+  scripts remains compatible.
+- Added `prism render` with named or JSON export profiles and safe output
+  selection. Added `prism doctor` with metadata-only dependency, project,
+  plugin, and asset diagnostics plus opt-in build validation.
+- Added a focused tutorial harness and Level 23 tutorial covering the contract,
+  CLI operations, explicit roots, migration guidance, and execution boundary.
+  The existing mixing guide already uses the canonical `time_beats` delay
+  parameter, so no contradictory delay example remains.
+
+- Updated the standalone pinned VST3 fixture's source-root wiring so its SDK
+  platform entry point is included when built outside the SDK source tree.
+
+### Compatibility decisions
+
+- The existing automatic main.py discovery remains the default for direct
+  scripts. `project_root=` is explicit and supported for callers whose current
+  directory is unrelated to the project.
+- The render CLI accepts only the new contract. Legacy top-level export scripts
+  still run directly, but the CLI reports a migration instruction and never
+  rewrites arbitrary Python.
+- Doctor performs static parsing and filesystem/registry inspection by default.
+  `--build` is an explicit request to execute and validate user Python.
+  Building executes code in the current interpreter; it is not a security
+  sandbox. Missing optional VST hosting does not make native-only projects
+  unavailable.
+- Named `master`, `stem`, and `listening` profiles are CLI conveniences
+  over the existing serializable `ExportProfile`; direct API keyword calls
+  remain supported.
+
+### Verification
+
+- Focused Task 14 tests and the repository CI/type/lint/docs gates are included
+  in this PR.
+- `uv run pytest --cov --cov-report=term-missing`: **255 passed, 5 skipped**;
+  total coverage **86.71%** on Ubuntu and **86.92%** on Windows.
+- `uv run ruff check .`: passed on Ubuntu and Windows.
+- `uv run mypy src/prism`: passed on Ubuntu and Windows.
+- Release packaging completed on both Python CI platforms.
+- `uv run --extra docs mkdocs build --strict`: passed.
+- The separate real-VST workflow passed its pinned fixture and Surge smoke tests
+  on Ubuntu and Windows.
+- The local workspace executor became unavailable before a final local run; CI
+  is the authoritative verification for this branch.
+
+### Concrete limitations
+
+- The build contract intentionally executes arbitrary project Python in-process;
+  it is not an isolation boundary for untrusted source.
+- Static doctor cannot know dynamically referenced samples or plugin aliases
+  without executing the build. Use `--build` for full Project validation.
+- The local reconstructed workspace could not provide a final post-edit test
+  run because its process transport is offline; the published CI result is the
+  authoritative gate for this branch.
+
 ## Task 13/35 — add project fingerprints, render manifests, and version compatibility
 
 Status: Done; [PR #39](https://github.com/SeucheAchat9115/Prism/pull/39) open. Done describes implementation completion, not pull-request merge state.

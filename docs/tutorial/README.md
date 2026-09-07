@@ -47,6 +47,7 @@ in your normal music player. Keep the terminal in the repository root.
 | 20 | [Build a free VST3 song](20-free-vst3-song.md) | Surge XT, Xfer OTT, plugin state, and automation |
 | 21 | [Use Serum on Windows](21-serum-on-windows.md) | Parameter discovery and reproducible commercial-plugin state |
 | 22 | [Track-owned VST3 instruments](22-track-owned-vst3-instrument.md) | One continuous instrument instance, controller continuity, and shared output gain |
+| 23 | [Build contract and doctor](23-build-contract-and-doctor.md) | Explicit build, inspect, validate, render, and diagnostic workflows |
 
 Levels are independent: every page shows the whole `main.py`, not only a diff.
 You can replace the file at each level or put each level in a separate folder.
@@ -110,4 +111,5 @@ the Prism version used when that project was created.
 | Sample folders, short-name lookup, terminal listing, duplicates, and suggestions | Level 19 |
 | VST3 registry, inspection, states, instruments, effects, and automation | Levels 20 and 21 |
 | One continuous VST3 instrument instance and shared output-gain lanes | Level 22 |
+| Explicit project build contract, metadata-only doctor, and CLI render | Level 23 |
 | Exact defaults, ranges, and return values | Level 10 |

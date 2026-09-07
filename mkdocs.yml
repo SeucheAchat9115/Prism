@@ -110,11 +110,13 @@ nav:
       - "20 · Build a free VST3 song": tutorial/20-free-vst3-song.md
       - "21 · Use Serum on Windows": tutorial/21-serum-on-windows.md
       - "22 · Track-owned VST3 instruments": tutorial/22-track-owned-vst3-instrument.md
+      - "23 · Build contract and doctor": tutorial/23-build-contract-and-doctor.md
   - Guides:
       - How Prism thinks: guides/concepts.md
       - MIDI and expression: guides/midi-and-expression.md
       - Samples and audio: guides/samples-and-audio.md
       - Mixing and automation: guides/mixing-and-automation.md
+      - Project build contract: guides/project-build-contract.md
       - External VST3 plugins: guides/external-vst3.md
       - Rendering and export: guides/rendering-and-export.md
       - Troubleshooting: guides/troubleshooting.md

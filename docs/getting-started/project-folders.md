@@ -19,6 +19,20 @@ song.track("Kick").sample("kick.wav", "x--- x--- x--- x---")
 song.render("renders/song.wav")
 ```
 
+For notebook, agent, and tooling workflows, pass the project root
+explicitly instead of relying on the process location:
+
+~~~python
+from pathlib import Path
+from prism import Project
+
+song = Project(
+    "Notebook Song",
+    prism_version="0.2.0.dev0",
+    project_root=Path("/work/projects/notebook-song"),
+)
+~~~
+
 Prism searches `sounds/` and its subfolders when a unique filename is used.
 Run `uv run prism samples "projects/your-project-folder"` from the repository
 root to list project audio and identify duplicate names. Files outside

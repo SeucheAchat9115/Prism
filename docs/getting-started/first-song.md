@@ -22,6 +22,27 @@ Open the new `main.py` in any text editor. Change the tempo, notes, or rhythm,
 save it, and run the same command again. Prism replaces the generated files
 with the new version.
 
+## Build and render separately
+
+New projects expose a build() -> Project function. It only constructs the
+song, so agents and tools can inspect or validate it without creating output:
+
+~~~text
+uv run prism doctor projects/your-project
+uv run prism doctor projects/your-project --build --json
+~~~
+
+Render is explicit and lets you choose the output path and delivery profile:
+
+~~~text
+uv run prism render projects/your-project --profile listening
+uv run prism render projects/your-project --output renders/master.wav --profile master
+~~~
+
+The render command executes build(), validates the returned Project, and writes
+only the requested delivery file. Build validation executes project Python in
+the current interpreter; it is not a security sandbox.
+
 ## Start directly with the tutorial
 
 You can also ask Prism to create a tutorial starting point:

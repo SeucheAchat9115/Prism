@@ -7,6 +7,17 @@ from prism.arrangement import (  # noqa: F401
     CompiledTrackEvents,
     compile_track_events,
 )
+from prism.build import (
+    BuildInspection,
+    build,
+    build_contract_info,
+    build_project,
+    doctor_project,
+    inspect_project,
+    render_project,
+    resolve_project_root,
+    validate_project,
+)
 from prism.errors import PrismError, ProjectError, RenderError
 from prism.fingerprint import FingerprintedFile, ProjectFingerprint
 from prism.midi import MidiResult
@@ -29,7 +40,12 @@ from prism.vst import VST3, VSTBackendConfig, VSTRegistry
 __all__ = [
     "AutomationLane",
     "AutomationPoint",
+    "BuildInspection",
     "Bus",
+    "build",
+    "build_contract_info",
+    "build_project",
+    "doctor_project",
     "ExportDiagnostics",
     "ExportProfile",
     "FingerprintedFile",
@@ -37,6 +53,7 @@ __all__ = [
     "Note",
     "OutputGainLane",
     "Plugin",
+    "inspect_project",
     "PrismError",
     "Project",
     "ProjectError",
@@ -44,6 +61,8 @@ __all__ = [
     "ProjectFingerprint",
     "RenderError",
     "RenderResult",
+    "render_project",
+    "resolve_project_root",
     "SampleLibrary",
     "Section",
     "Send",
@@ -53,6 +72,7 @@ __all__ = [
     "SynthWave",
     "Track",
     "Uniwave",
+    "validate_project",
     "VST3",
     "VSTBackendConfig",
     "VSTRegistry",
