@@ -15,6 +15,8 @@ def test_public_package_is_small_and_script_first() -> None:
         "AutomationLane",
         "AutomationPoint",
         "Bus",
+        "ExportDiagnostics",
+        "ExportProfile",
         "MidiResult",
         "Note",
         "OutputGainLane",
@@ -274,4 +276,3 @@ def test_documentation_site_covers_tutorials_reference_and_deployment() -> None:
     assert "mkdocstrings:" in config
     assert "mkdocs build --strict" in workflow
     assert re.search(r"uses: actions/deploy-pages@[0-9a-f]{40}(?:\s|$)", workflow)
-

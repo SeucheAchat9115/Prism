@@ -8,6 +8,21 @@ for reproducibility checks and automation.
 delivered WAV. `bit_depth` is 16, 24, or 32; 32 means floating point.
 `tail_seconds` records the requested time added after the arrangement.
 
+`RenderResult.export_profile` and `StemRenderResult.export_profile` contain the
+JSON-safe delivery profile used for the export. `diagnostics` reports the
+delivery-domain peak before and after normalization plus overload and clipping
+counts. `ExportProfile` exposes peak normalization, explicit fixed-point
+clipping policy, and seeded integer-only TPDF dither; it does not implement
+loudness normalization.
+
+## ExportProfile
+
+::: prism.ExportProfile
+
+## ExportDiagnostics
+
+::: prism.ExportDiagnostics
+
 ## RenderResult
 
 ::: prism.RenderResult

@@ -10,6 +10,7 @@ import re
 import shutil
 import tempfile
 import uuid
+import warnings
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Literal, Mapping
@@ -43,6 +44,116 @@ from prism.synthesis.types import NativeSynthSpec
 
 OutputChannels = Literal["mono", "stereo"]
 BitDepth = Literal[16, 24, 32]
+ClippingPolicy = Literal["error", "warn", "clip"]
+NormalizationMode = Literal["none", "peak"]
+DitherPolicy = Literal["none", "tpdf"]
+
+
+@dataclass(frozen=True, slots=True)
+class ExportProfile:
+    """Serializable delivery settings for a deterministic WAV export.
+
+    ``delivery_sample_rate`` is intentionally separate from the project's
+    internal render rate. ``peak`` is peak normalization only; Prism does not
+    claim loudness normalization until a loudness implementation exists.
+    """
+
+    name: str = "custom"
+    bit_depth: BitDepth = 16
+    channels: OutputChannels = "stereo"
+    delivery_sample_rate: int | None = None
+    tail_seconds: float = 0.0
+    normalization: NormalizationMode = "none"
+    normalization_target_dbfs: float = -1.0
+    clipping: ClippingPolicy = "clip"
+    dither: DitherPolicy = "none"
+    dither_seed: int = 0
+    dither_stems: bool = False
+    normalize_stems: bool = False
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.name, str) or not self.name.strip():
+            raise ProjectError("Export profile name cannot be empty.")
+        if (
+            isinstance(self.bit_depth, bool)
+            or not isinstance(self.bit_depth, int)
+            or self.bit_depth not in {16, 24, 32}
+        ):
+            raise ProjectError("WAV bit_depth must be 16, 24, or 32.")
+        if self.channels not in {"mono", "stereo"}:
+            raise ProjectError("WAV channels must be 'mono' or 'stereo'.")
+        if self.delivery_sample_rate is not None and (
+            isinstance(self.delivery_sample_rate, bool)
+            or not isinstance(self.delivery_sample_rate, int)
+            or not 8_000 <= self.delivery_sample_rate <= 192_000
+        ):
+            raise ProjectError("Export delivery_sample_rate must be between 8000 and 192000 Hz.")
+        if not math.isfinite(self.tail_seconds) or not 0.0 <= self.tail_seconds <= 60.0:
+            raise ProjectError("tail_seconds must be between 0 and 60 seconds.")
+        if self.normalization not in {"none", "peak"}:
+            raise ProjectError("Export normalization must be 'none' or 'peak'.")
+        if (
+            not math.isfinite(self.normalization_target_dbfs)
+            or self.normalization_target_dbfs > 0.0
+        ):
+            raise ProjectError(
+                "Export normalization_target_dbfs must be finite and at most 0 dBFS."
+            )
+        if self.clipping not in {"error", "warn", "clip"}:
+            raise ProjectError("Export clipping must be 'error', 'warn', or 'clip'.")
+        if self.dither not in {"none", "tpdf"}:
+            raise ProjectError("Export dither must be 'none' or 'tpdf'.")
+        if isinstance(self.dither_seed, bool) or not isinstance(self.dither_seed, int):
+            raise ProjectError("Export dither_seed must be a non-negative integer.")
+        if self.dither_seed < 0:
+            raise ProjectError("Export dither_seed must be a non-negative integer.")
+        if self.dither == "tpdf" and self.bit_depth == 32:
+            raise ProjectError("TPDF dither is only available for integer WAV exports.")
+
+    def as_dict(self, *, resolved_sample_rate: int | None = None) -> dict[str, object]:
+        """Return a JSON-safe description, including the resolved delivery rate."""
+
+        return {
+            "schema_version": 1,
+            "name": self.name,
+            "bit_depth": self.bit_depth,
+            "channels": self.channels,
+            "delivery_sample_rate": (
+                self.delivery_sample_rate
+                if self.delivery_sample_rate is not None
+                else resolved_sample_rate
+            ),
+            "tail_seconds": float(self.tail_seconds),
+            "normalization": self.normalization,
+            "normalization_target_dbfs": float(self.normalization_target_dbfs),
+            "clipping": self.clipping,
+            "dither": self.dither,
+            "dither_seed": self.dither_seed,
+            "dither_stems": self.dither_stems,
+            "normalize_stems": self.normalize_stems,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ExportDiagnostics:
+    """Measured delivery-domain overload and quantization preparation facts."""
+
+    peak_before_normalization: float
+    preclip_peak: float
+    overload_samples: int
+    clipped_samples: int
+    normalized: bool
+    dithered: bool
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "peak_before_normalization": self.peak_before_normalization,
+            "preclip_peak": self.preclip_peak,
+            "overload_samples": self.overload_samples,
+            "clipped_samples": self.clipped_samples,
+            "normalized": self.normalized,
+            "dithered": self.dithered,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +170,8 @@ class RenderResult:
     bit_depth: BitDepth
     tail_seconds: float
     vst_backend: Mapping[str, object] | None = None
+    export_profile: Mapping[str, object] | None = None
+    diagnostics: ExportDiagnostics | None = None
 
     def __str__(self) -> str:
         return f"Rendered {self.duration_seconds:.2f}s to {self.path}"
@@ -73,6 +186,7 @@ class StemFile:
     path: Path
     sha256: str
     peak_dbfs: float | None
+    diagnostics: ExportDiagnostics | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,6 +205,8 @@ class StemRenderResult:
     master: StemFile
     generation: int = 0
     vst_backend: Mapping[str, object] | None = None
+    export_profile: Mapping[str, object] | None = None
+    diagnostics: Mapping[str, ExportDiagnostics] | None = None
 
     @property
     def files(self) -> tuple[StemFile, ...]:
@@ -116,10 +232,23 @@ class _RenderedProject:
 
 @dataclass(frozen=True, slots=True)
 class _ExportSettings:
+    profile: ExportProfile
     bit_depth: BitDepth
     channels: OutputChannels
     sample_rate: int
     tail_seconds: float
+    normalize_master: bool
+    normalize_stems: bool
+    clipping: ClippingPolicy
+    dither: DitherPolicy
+    dither_seed: int
+    dither_stems: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedExport:
+    samples: np.ndarray
+    diagnostics: ExportDiagnostics
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +259,7 @@ class _StemManifest:
     directory: Path
     files: tuple[tuple[str, str], ...]
     vst_backend: Mapping[str, object] = field(default_factory=dict)
+    export_profile: Mapping[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +295,7 @@ def render_project(
     channels: OutputChannels = "stereo",
     sample_rate: int | None = None,
     tail_seconds: float = 0.0,
+    profile: ExportProfile | None = None,
 ) -> RenderResult:
     """Render every named section in order to a WAV file."""
 
@@ -176,9 +307,16 @@ def render_project(
             channels=channels,
             sample_rate=sample_rate,
             tail_seconds=tail_seconds,
+            profile=profile,
         )
         rendered = _render_buffers(project, tail_seconds=settings.tail_seconds)
-        output_samples = _prepare_export(rendered.master, project.sample_rate, settings)
+        prepared = _prepare_export_diagnostics(
+            rendered.master,
+            project.sample_rate,
+            settings,
+            normalize=settings.normalize_master,
+        )
+        output_samples = prepared.samples
         _write_wav(
             output_path,
             output_samples,
@@ -196,6 +334,8 @@ def render_project(
             bit_depth=settings.bit_depth,
             tail_seconds=settings.tail_seconds,
             vst_backend=project.vst_backend.as_dict(),
+            export_profile=settings.profile.as_dict(resolved_sample_rate=settings.sample_rate),
+            diagnostics=prepared.diagnostics,
         )
     except (ProjectError, RenderError):
         raise
@@ -211,6 +351,7 @@ def render_stems(
     channels: OutputChannels = "stereo",
     sample_rate: int | None = None,
     tail_seconds: float = 0.0,
+    profile: ExportProfile | None = None,
 ) -> StemRenderResult:
     """Render aligned track, bus/return, and master WAV files.
 
@@ -227,6 +368,7 @@ def render_stems(
         channels=channels,
         sample_rate=sample_rate,
         tail_seconds=tail_seconds,
+        profile=profile,
     )
     previous: _StemManifest | None = None
     staging: Path | None = None
@@ -258,7 +400,13 @@ def render_stems(
                     staging / "tracks" / _stem_filename(index, name),
                     protected,
                 ),
-                _prepare_export(rendered.tracks[name], project.sample_rate, settings),
+                _prepare_export_diagnostics(
+                    rendered.tracks[name],
+                    project.sample_rate,
+                    settings,
+                    normalize=settings.normalize_stems,
+                    dither=settings.dither if settings.dither_stems else "none",
+                ),
                 settings,
                 name=name,
                 kind="track",
@@ -272,17 +420,28 @@ def render_stems(
                     staging / "buses" / _stem_filename(index, name),
                     protected,
                 ),
-                _prepare_export(rendered.buses[name], project.sample_rate, settings),
+                _prepare_export_diagnostics(
+                    rendered.buses[name],
+                    project.sample_rate,
+                    settings,
+                    normalize=settings.normalize_stems,
+                    dither=settings.dither if settings.dither_stems else "none",
+                ),
                 settings,
                 name=name,
                 kind="bus",
             )
             for index, name in enumerate(rendered.buses, start=1)
         )
-        master_samples = _prepare_export(rendered.master, project.sample_rate, settings)
+        master_prepared = _prepare_export_diagnostics(
+            rendered.master,
+            project.sample_rate,
+            settings,
+            normalize=settings.normalize_master,
+        )
         master = _write_stem(
             _safe_stem_destination(project, staging / "master.wav", protected),
-            master_samples,
+            master_prepared,
             settings,
             name="Master",
             kind="master",
@@ -299,6 +458,7 @@ def render_stems(
                 for item in staged_files
             ),
             vst_backend=project.vst_backend.as_dict(),
+            export_profile=settings.profile.as_dict(resolved_sample_rate=settings.sample_rate),
         )
         staging_root = staging
         os.replace(staging, generation)
@@ -322,8 +482,8 @@ def render_stems(
             directory=generation,
             sample_rate=settings.sample_rate,
             channels=1 if settings.channels == "mono" else 2,
-            frames=master_samples.shape[0],
-            duration_seconds=master_samples.shape[0] / settings.sample_rate,
+            frames=master_prepared.samples.shape[0],
+            duration_seconds=master_prepared.samples.shape[0] / settings.sample_rate,
             bit_depth=settings.bit_depth,
             tail_seconds=settings.tail_seconds,
             tracks=track_files,
@@ -331,6 +491,12 @@ def render_stems(
             master=master,
             generation=generation_number,
             vst_backend=manifest.vst_backend,
+            export_profile=manifest.export_profile,
+            diagnostics={
+                item.name: item.diagnostics
+                for item in (*track_files, *bus_files, master)
+                if item.diagnostics is not None
+            },
         )
     except ProjectError:
         raise
@@ -397,10 +563,6 @@ def _render_buffers(project: Project, *, tail_seconds: float = 0.0) -> _Rendered
 
     mix = process_effect_chain(project, project.master_effects, mix)
     mix *= db_gain(project.master_gain_db)
-    peak = float(np.max(np.abs(mix))) if mix.size else 0.0
-    target = 10.0 ** (-1.0 / 20.0)
-    if project.normalize and peak > target:
-        mix *= target / peak
     return _RenderedProject(
         frames=total_frames,
         tracks=track_outputs,
@@ -995,32 +1157,87 @@ def _export_settings(
     channels: OutputChannels,
     sample_rate: int | None,
     tail_seconds: float,
+    profile: ExportProfile | None = None,
 ) -> _ExportSettings:
-    if (
-        not isinstance(bit_depth, int)
-        or isinstance(bit_depth, bool)
-        or bit_depth not in {16, 24, 32}
-    ):
-        raise ProjectError("WAV bit_depth must be 16, 24, or 32.")
-    if channels not in {"mono", "stereo"}:
-        raise ProjectError("WAV channels must be 'mono' or 'stereo'.")
-    output_rate = project.sample_rate if sample_rate is None else sample_rate
+    if profile is None:
+        legacy_normalization: NormalizationMode = "peak" if project.normalize else "none"
+        profile = ExportProfile(
+            name="legacy-keywords",
+            bit_depth=bit_depth,
+            channels=channels,
+            delivery_sample_rate=sample_rate,
+            tail_seconds=tail_seconds,
+            normalization=legacy_normalization,
+            normalization_target_dbfs=-1.0,
+            clipping="clip",
+            dither="none",
+            dither_seed=0,
+            dither_stems=False,
+            normalize_stems=False,
+        )
+    else:
+        # The typed profile is the complete delivery contract. The keyword
+        # arguments remain accepted for source compatibility, but do not
+        # silently override a supplied profile.
+        profile = replace(profile)
+    output_rate = (
+        project.sample_rate
+        if profile.delivery_sample_rate is None
+        else profile.delivery_sample_rate
+    )
     if not isinstance(output_rate, int) or not 8_000 <= output_rate <= 192_000:
         raise ProjectError("Output sample_rate must be between 8000 and 192000 Hz.")
-    if not math.isfinite(tail_seconds) or not 0.0 <= tail_seconds <= 60.0:
-        raise ProjectError("tail_seconds must be between 0 and 60 seconds.")
     return _ExportSettings(
-        bit_depth=bit_depth,
-        channels=channels,
+        profile=profile,
+        bit_depth=profile.bit_depth,
+        channels=profile.channels,
         sample_rate=output_rate,
-        tail_seconds=float(tail_seconds),
+        tail_seconds=float(profile.tail_seconds),
+        normalize_master=profile.normalization == "peak",
+        normalize_stems=profile.normalize_stems and profile.normalization == "peak",
+        clipping=profile.clipping,
+        dither=profile.dither,
+        dither_seed=profile.dither_seed,
+        dither_stems=profile.dither_stems,
     )
 
 
 def _prepare_export(
     samples: np.ndarray, source_rate: int, settings: _ExportSettings
 ) -> np.ndarray:
+    """Prepare export samples while retaining the historical private helper."""
+
+    return _prepare_export_diagnostics(
+        samples,
+        source_rate,
+        settings,
+        normalize=settings.normalize_master,
+    ).samples
+
+
+def _prepare_export_diagnostics(
+    samples: np.ndarray,
+    source_rate: int,
+    settings: _ExportSettings,
+    *,
+    normalize: bool,
+    dither: DitherPolicy | None = None,
+) -> _PreparedExport:
+    """Convert an internal mix into delivery samples and measured diagnostics.
+
+    Normalization, overload detection, clipping, and dither are deliberately
+    ordered after channel conversion and sample-rate conversion. This keeps
+    the contract in the delivery domain and makes the same profile produce
+    the same bytes for repeated exports.
+    """
+
     output = np.asarray(samples, dtype=np.float64)
+    if output.ndim == 1:
+        output = output[:, np.newaxis]
+    if output.ndim != 2 or output.shape[1] not in {1, 2}:
+        raise RenderError("Rendered audio must be a one- or two-channel array.")
+    if not np.isfinite(output).all():
+        raise RenderError("Rendered audio contains non-finite samples.")
     if settings.channels == "mono":
         output = np.mean(output, axis=1, keepdims=True)
     if settings.sample_rate != source_rate:
@@ -1030,9 +1247,58 @@ def _prepare_export(
         )
         if output.ndim == 1:
             output = output[:, np.newaxis]
+    if not np.isfinite(output).all():
+        raise RenderError("Delivery sample-rate conversion produced non-finite samples.")
+
+    peak_before_normalization = float(np.max(np.abs(output))) if output.size else 0.0
+    normalized = False
+    if normalize and settings.profile.normalization == "peak" and peak_before_normalization:
+        target = 10.0 ** (settings.profile.normalization_target_dbfs / 20.0)
+        if peak_before_normalization > target:
+            output = output * (target / peak_before_normalization)
+            normalized = True
+
+    preclip_peak = float(np.max(np.abs(output))) if output.size else 0.0
+    overload_samples = int(np.count_nonzero(np.abs(output) > 1.0))
+    clipped_samples = 0
+    dithered = False
+    dither_policy = settings.dither if dither is None else dither
     if settings.bit_depth != 32:
-        output = np.clip(output, -1.0, 1.0)
-    return output
+        if overload_samples and settings.clipping == "error":
+            raise RenderError(
+                "Fixed-point export contains "
+                f"{overload_samples} overloaded samples (peak {preclip_peak:.6g})."
+            )
+        if overload_samples and settings.clipping == "warn":
+            warnings.warn(
+                "Fixed-point export clipped "
+                f"{overload_samples} overloaded samples (peak {preclip_peak:.6g}).",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+        if overload_samples:
+            output = np.clip(output, -1.0, 1.0)
+            clipped_samples = overload_samples
+        if dither_policy == "tpdf":
+            levels = 2 ** (settings.bit_depth - 1)
+            lsb = 1.0 / levels
+            rng = np.random.default_rng(settings.dither_seed)
+            output = output + (rng.random(output.shape) - rng.random(output.shape)) * lsb
+            output = np.clip(output, -1.0, 1.0)
+            dithered = True
+    elif dither_policy == "tpdf":
+        raise ProjectError("TPDF dither is only available for integer WAV exports.")
+    return _PreparedExport(
+        samples=np.asarray(output, dtype=np.float64),
+        diagnostics=ExportDiagnostics(
+            peak_before_normalization=peak_before_normalization,
+            preclip_peak=preclip_peak,
+            overload_samples=overload_samples,
+            clipped_samples=clipped_samples,
+            normalized=normalized,
+            dithered=dithered,
+        ),
+    )
 
 
 def _write_wav(
@@ -1050,7 +1316,7 @@ def _write_wav(
         temporary = Path(name)
         sf.write(
             temporary,
-            np.asarray(samples, dtype=np.float32),
+            np.asarray(samples, dtype=np.float64),
             sample_rate,
             format="WAV",
             subtype={16: "PCM_16", 24: "PCM_24", 32: "FLOAT"}[bit_depth],
@@ -1090,7 +1356,7 @@ def _normalize_wav_metadata(path: Path) -> None:
 
 def _write_stem(
     path: Path,
-    samples: np.ndarray,
+    prepared: _PreparedExport,
     settings: _ExportSettings,
     *,
     name: str,
@@ -1098,7 +1364,7 @@ def _write_stem(
 ) -> StemFile:
     _write_wav(
         path,
-        samples,
+        prepared.samples,
         settings.sample_rate,
         bit_depth=settings.bit_depth,
     )
@@ -1107,7 +1373,8 @@ def _write_stem(
         kind=kind,
         path=path,
         sha256=_sha256(path),
-        peak_dbfs=_peak_dbfs(samples),
+        peak_dbfs=_peak_dbfs(prepared.samples),
+        diagnostics=prepared.diagnostics,
     )
 
 
@@ -1253,7 +1520,15 @@ def _read_stem_manifest(
         files.append((relative.as_posix(), sha256))
     raw_backend = data.get("vst_backend", {})
     backend = dict(raw_backend) if isinstance(raw_backend, Mapping) else {}
-    return _StemManifest(generation_value, generation, tuple(files), backend)
+    raw_profile = data.get("export_profile", {})
+    export_profile = dict(raw_profile) if isinstance(raw_profile, Mapping) else {}
+    return _StemManifest(
+        generation_value,
+        generation,
+        tuple(files),
+        backend,
+        export_profile,
+    )
 
 
 def _manifest_relative(value: str, label: str) -> PurePosixPath:
@@ -1283,6 +1558,7 @@ def _manifest_data(manifest: _StemManifest, metadata: Path) -> dict[str, object]
         "generation": manifest.generation,
         "generation_directory": manifest.directory.relative_to(metadata).as_posix(),
         "vst_backend": dict(manifest.vst_backend),
+        "export_profile": dict(manifest.export_profile),
         "files": [
             {"path": relative, "sha256": sha256}
             for relative, sha256 in sorted(manifest.files)
@@ -1310,6 +1586,7 @@ def _relocate_stem(item: StemFile, staging: Path, generation: Path) -> StemFile:
         path=generation / item.path.relative_to(staging),
         sha256=item.sha256,
         peak_dbfs=item.peak_dbfs,
+        diagnostics=item.diagnostics,
     )
 
 
@@ -1363,4 +1640,10 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-__all__ = ["RenderResult", "StemFile", "StemRenderResult"]
+__all__ = [
+    "ExportDiagnostics",
+    "ExportProfile",
+    "RenderResult",
+    "StemFile",
+    "StemRenderResult",
+]

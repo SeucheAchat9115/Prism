@@ -28,6 +28,72 @@ stems = song.render_stems(
 )
 ```
 
+## Explicit delivery profiles
+
+For repeatable delivery, use a serializable `ExportProfile`. It separates the
+project's internal render rate from the rate written to disk and gives the
+export a named contract that can be stored with a render job:
+
+```python
+from prism import ExportProfile
+
+master_profile = ExportProfile(
+    name="24-bit-master",
+    bit_depth=24,
+    channels="stereo",
+    delivery_sample_rate=48_000,
+    normalization="peak",
+    normalization_target_dbfs=-1.0,
+    clipping="error",
+)
+master = song.render("renders/master.wav", profile=master_profile)
+```
+
+When a profile is supplied, it is the complete delivery contract and takes
+precedence over the legacy `bit_depth`, `channels`, `sample_rate`, and
+`tail_seconds` keywords. Without a profile, those keywords continue to work;
+`Project(normalize=True)` is adapted to peak normalization at -1 dBFS, while
+fixed-point output keeps the historical clipping behavior.
+
+`normalization="peak"` is peak normalization only. It measures the signal
+after downmixing and sample-rate conversion, then applies the requested dBFS
+target before fixed-point quantization. Prism does not claim LUFS or other
+loudness normalization. Use `normalization="none"` when the source level
+must be preserved.
+
+Fixed-point profiles support three explicit clipping policies:
+
+| Policy | Behavior |
+| --- | --- |
+| `"error"` | Fail when delivery-domain samples exceed the fixed-point range |
+| `"warn"` | Emit a warning and clip those samples |
+| `"clip"` | Clip without a warning |
+
+32-bit float delivery preserves headroom above 0 dBFS; its diagnostics still
+report overloads, but it does not fixed-point clip them. The result's
+`diagnostics` records `peak_before_normalization`, `preclip_peak`,
+`overload_samples`, and `clipped_samples`.
+
+Optional TPDF dither is applied once immediately before integer WAV
+quantization. It is seeded for repeatability and never applied to float WAVs:
+
+```python
+master_profile = ExportProfile(
+    name="dithered-listening-copy",
+    bit_depth=16,
+    dither="tpdf",
+    dither_seed=20260906,
+    clipping="warn",
+)
+song.render("renders/listening.wav", profile=master_profile)
+```
+
+For stems, set `dither_stems=True` to apply the same seeded policy to each
+stem, and `normalize_stems=True` only when independently peak-normalized
+stems are deliberately wanted. Otherwise only the master follows the
+profile's peak-normalization setting, preserving the existing aligned stem
+behavior.
+
 ## Bit depth
 
 | Value | WAV storage | Good use |
