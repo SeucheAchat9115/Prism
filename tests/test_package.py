@@ -12,10 +12,17 @@ import prism
 def test_public_package_is_small_and_script_first() -> None:
     assert prism.__version__ == "0.2.0.dev0"
     assert set(prism.__all__) == {
+        "AGENT_CONTRACT",
+        "AGENT_CONTRACT_VERSION",
+        "AGENT_SCHEMA_VERSION",
         "AutomationLane",
         "AutomationPoint",
+        "AgentError",
+        "AgentLimits",
+        "AgentOperationRequest",
         "BuildInspection",
         "Bus",
+        "build_agent_operation",
         "build",
         "build_contract_info",
         "build_project",
@@ -23,6 +30,9 @@ def test_public_package_is_small_and_script_first() -> None:
         "ExportDiagnostics",
         "ExportProfile",
         "FingerprintedFile",
+        "IDENTITY_SCHEMA_VERSION",
+        "inspect_agent",
+        "inspect_agent_context",
         "MidiResult",
         "Note",
         "OutputGainLane",
@@ -35,6 +45,7 @@ def test_public_package_is_small_and_script_first() -> None:
         "ProjectFingerprint",
         "RenderError",
         "RenderResult",
+        "select_agent_entities",
         "render_project",
         "resolve_project_root",
         "SampleLibrary",
@@ -50,6 +61,9 @@ def test_public_package_is_small_and_script_first() -> None:
             "VST3",
             "VSTBackendConfig",
             "VSTRegistry",
+        "agent_capabilities",
+        "agent_operation",
+        "project_revision_id",
         "__version__",
     }
 

@@ -761,7 +761,11 @@ def _schedule_audio_voices(
 
     for section in project.sections:
         section_end = timing.bar_to_frame(cursor_bar + section.bars)
-        active = section.tracks is None or track.name in section.tracks
+        active = section.tracks is None or (
+            track.track_id in section.track_ids
+            if section.track_ids is not None
+            else track.name in section.tracks
+        )
         if active:
             for placement in track.clips_for(section):
                 clip = placement.clip

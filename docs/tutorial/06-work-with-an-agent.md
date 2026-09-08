@@ -1,15 +1,74 @@
 # Level 6 — work safely with a coding agent
 
 Goal: direct an external coding agent to make musical edits while you keep control
-of the song. This tutorial uses today's Python-and-render workflow. The integrated
-proposal, preview selection and undo tools are planned in
-[roadmap tasks A01–A05](../development/implementation-tasks.md).
+of the song. This tutorial uses readable Python, the local headless build path,
+and A01's read-only inspection contract. Scoped edits, source persistence,
+audition, and undo remain in
+[roadmap tasks A02–A05](../development/implementation-tasks.md).
 
 ## What an agent should edit
 
 The intended authoring surface is the producer's `main.py` and project-local
 files under `sounds/`. Ask the agent to use only public imports from `prism`.
 Good requests are concrete musical edits:
+
+## Inspect before editing
+
+An agent should identify the intended track, section, clip, and instrument
+before it proposes a change. The A01 contract is local JSON; it does not need
+an LLM service, network access, an audio device, or a VST host for inspection.
+The project build executes reviewed Python, so use the task-14 `build() ->
+Project` boundary and keep delivery calls in the `__main__` guard.
+
+From the project folder, discover the contract and inspect a bounded context:
+
+```console
+prism agent capabilities
+prism agent inspect . --limits '{"max_notes":128,"max_clip_instances":64}' --json
+```
+
+The response includes stable IDs next to display names, arrangement sections,
+clip definitions and repeated clip instances, notes/controllers, routing,
+available stock presets and parameters, optional-plugin availability, assets,
+and offline render capabilities. Use IDs in a follow-up selection:
+
+```console
+prism agent select . --entity track --id "project:main/track:0002" \
+  --section "project:main/section:0001" --start-beat 0 --end-beat 16 --json
+```
+
+The same operation is available from Python after a project has been built:
+
+```py
+from prism import inspect_agent_context, select_agent_entities
+
+context = inspect_agent_context(song)
+bass_id = next(
+    track["id"]
+    for track in context["arrangement"]["tracks"]
+    if track["role"]["value"] == "bass"
+)
+selection = select_agent_entities(
+    song,
+    {
+        "entity": "track",
+        "id": bass_id,
+        "quarter_note_range": [0, 16],
+    },
+)
+```
+
+Do not select a duplicate display name by guessing. The contract returns an
+`ambiguous_name` error with candidate IDs; select by ID, role, or section. Each
+result carries a `revision_id` and `selected_ranges`. Send that revision back
+with a later request so a stale selection is reported instead of applied to a
+changed song.
+
+`musical_context.authored` is the producer's declared `key`, `scale`, and
+`chords`. Register and rhythmic summaries are inferred from compiled events,
+and inferred harmony includes uncertainty and provenance. Treat those fields
+as useful clues for a human listening decision, never as facts about intent or
+musical quality.
 
 ```text
 Read my main.py. Add a two-bar bass part in C minor, but do not change the drum
@@ -70,23 +129,27 @@ OUTPUT = "renders/song.wav"
 song = Project(
     "Agent-Assisted Song",
     prism_version="0.2.0.dev0",
+    project_id="agent-song",
+    key="C",
+    scale="minor",
+    chords=("Cm", "Ab", "Eb", "Bb"),
     tempo=TEMPO,
 )
 
 
 # Rhythm section
-kick = song.track("Kick", gain_db=-3).drum(
+kick = song.track("Kick", role="drums", gain_db=-3).drum(
     "kick",
     "x--- x--- x-x- x---",
 )
 
-snare = song.track("Snare", gain_db=-8).drum(
+snare = song.track("Snare", role="drums", gain_db=-8).drum(
     "snare",
     "---- x--- ---- x---",
     seed=11,
 )
 
-bass = song.track("Bass", gain_db=-6, pan=-0.1).midi(
+bass = song.track("Bass", role="bass", gain_db=-6, pan=-0.1).midi(
     "C2 - C2 Eb2 | G1 - Bb1 -",
     instrument=Uniwave.bass(),
     bars=2,
@@ -94,13 +157,13 @@ bass = song.track("Bass", gain_db=-6, pan=-0.1).midi(
 
 
 # Harmony and melody
-pad = song.track("Pad", gain_db=-12, pan=-0.3).midi(
+pad = song.track("Pad", role="pad", gain_db=-12, pan=-0.3).midi(
     "C3+Eb3+G3 - | Ab2+C3+Eb3 -",
     instrument=Uniwave.pad(),
     bars=2,
 )
 
-lead = song.track("Lead", gain_db=-10, pan=0.3).midi(
+lead = song.track("Lead", role="lead", gain_db=-10, pan=0.3).midi(
     "G4 Bb4 C5 - | G4 F4 Eb4 -",
     instrument=Uniwave.lead(),
     bars=2,

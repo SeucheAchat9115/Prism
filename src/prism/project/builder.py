@@ -7,7 +7,7 @@ import math
 import random
 from dataclasses import asdict, dataclass, replace
 from pathlib import Path, PurePosixPath, PureWindowsPath
-from typing import TYPE_CHECKING, Literal, Self, Sequence, TypedDict
+from typing import TYPE_CHECKING, Literal, Mapping, Self, Sequence, TypedDict
 
 from prism.errors import ProjectError
 from prism.music import (
@@ -156,6 +156,13 @@ class ClipPlacement:
     section: str | None
     start_bar: float
     repeat: bool
+    clip_definition_id: str = ""
+
+    @property
+    def id(self) -> str:
+        """Return the stable clip-definition identity."""
+
+        return self.clip_definition_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,6 +172,14 @@ class Section:
     name: str
     bars: int
     tracks: tuple[str, ...] | None = None
+    section_id: str = ""
+    track_ids: tuple[str, ...] | None = None
+
+    @property
+    def id(self) -> str:
+        """Return the stable section identity."""
+
+        return self.section_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,6 +208,8 @@ class Send:
     track: str
     bus: str
     gain_db: float
+    track_id: str = ""
+    bus_id: str = ""
 
 
 class Track:
@@ -203,19 +220,23 @@ class Track:
         project: Project,
         name: str,
         *,
+        track_id: str,
+        role: str | None = None,
         gain_db: float = 0.0,
         pan: float = 0.0,
         muted: bool = False,
     ) -> None:
         self._project = project
         self.name = _name(name, "Track")
+        self.track_id = _identity(track_id, "Track ID")
+        self.role = _optional_name(role, "Track role")
         self.gain_db = validate_gain(gain_db, label=f"Track {self.name!r} gain")
         self.pan = validate_pan(pan)
         self.muted = bool(muted)
         self._clips: list[ClipPlacement] = []
         self._instrument: Plugin | None = None
         self._instrument_specification: InstrumentSpecification | None = None
-        self._instrument_instance_id = f"track:{self.name}:instrument"
+        self._instrument_instance_id = f"{self.track_id}/plugin:instrument"
         self._output_gain_lane: OutputGainLane | None = None
         self._pitch_bend_range: float | None = None
         self.effects: list[Plugin] = []
@@ -227,6 +248,12 @@ class Track:
         """Return the first clip for compatibility with one-clip projects."""
 
         return None if not self._clips else self._clips[0].clip
+
+    @property
+    def id(self) -> str:
+        """Return the stable identity of this track."""
+
+        return self.track_id
 
     @property
     def clips(self) -> tuple[ClipPlacement, ...]:
@@ -317,6 +344,7 @@ class Track:
         section: str | None = None,
         start_bar: float = 0.0,
         repeat: bool = True,
+        clip_definition_id: str | None = None,
         start_seconds: float = 0.0,
         end_seconds: float | None = None,
         fade_in_ms: float = 0.0,
@@ -360,6 +388,7 @@ class Track:
             section=section,
             start_bar=start_bar,
             repeat=repeat,
+            clip_definition_id=clip_definition_id,
         )
         if self._instrument is None:
             clip = self.clips[0].clip
@@ -384,6 +413,7 @@ class Track:
         section: str | None = None,
         start_bar: float = 0.0,
         repeat: bool = True,
+        clip_definition_id: str | None = None,
         start_seconds: float = 0.0,
         end_seconds: float | None = None,
         fade_in_ms: float = 0.0,
@@ -426,6 +456,7 @@ class Track:
             section=section,
             start_bar=start_bar,
             repeat=repeat,
+            clip_definition_id=clip_definition_id,
         )
         if self._instrument is None:
             clip = self.clips[0].clip
@@ -451,6 +482,7 @@ class Track:
         section: str | None = None,
         start_bar: float = 0.0,
         repeat: bool = True,
+        clip_definition_id: str | None = None,
         release_policy: AudioReleasePolicy | None = None,
     ) -> Self:
         """Add a placed built-in drum clip without needing an external sample.
@@ -479,6 +511,7 @@ class Track:
             section=section,
             start_bar=start_bar,
             repeat=repeat,
+            clip_definition_id=clip_definition_id,
         )
         if self._instrument is None:
             clip = self.clips[0].clip
@@ -511,6 +544,7 @@ class Track:
         section: str | None = None,
         start_bar: float = 0.0,
         repeat: bool = True,
+        clip_definition_id: str | None = None,
         pitch_bend: Sequence[tuple[float, float]] = (),
         modulation: Sequence[tuple[float, float]] = (),
         pitch_bend_range: float | None = None,
@@ -632,6 +666,7 @@ class Track:
             start_bar=start_bar,
             repeat=repeat,
             instrument_specification=specification,
+            clip_definition_id=clip_definition_id,
         )
         if self._pitch_bend_range is None:
             self._pitch_bend_range = resolved_pitch_bend_range
@@ -733,6 +768,7 @@ class Track:
             preset,
             name=name,
             channel=self.name,
+            owner_id=self.track_id,
             settings=settings,
             reserved=() if self._instrument is None else (self._instrument.name,),
         )
@@ -757,6 +793,8 @@ class Track:
             track=self.name,
             bus=bus.name,
             gain_db=validate_gain(gain_db, label=f"Send from {self.name!r} to {bus.name!r}"),
+            track_id=self.track_id,
+            bus_id=bus.bus_id,
         )
         self.sends.append(send)
         return send
@@ -928,6 +966,7 @@ class Track:
         start_bar: float,
         repeat: bool,
         instrument_specification: InstrumentSpecification | None = None,
+        clip_definition_id: str | None = None,
     ) -> None:
         if self._clips:
             first = self._clips[0].clip
@@ -970,12 +1009,23 @@ class Track:
                         "Call instrument() once after adding the clips to change them together."
                     )
         clean_section = None if section is None else _name(section, "Clip section")
+        definition_id = (
+            f"{self.track_id}/clip:{len(self._clips) + 1:04d}"
+            if clip_definition_id is None
+            else _identity(clip_definition_id, "Clip definition ID")
+        )
+        if any(item.clip_definition_id == definition_id for item in self._clips):
+            raise ProjectError(
+                f"Clip definition ID {definition_id!r} is already used on track "
+                f"{self.name!r}."
+            )
         self._clips.append(
             ClipPlacement(
                 clip=clip,
                 section=clean_section,
                 start_bar=_start_bar(start_bar),
                 repeat=bool(repeat),
+                clip_definition_id=definition_id,
             )
         )
 
@@ -988,17 +1038,25 @@ class Bus:
         project: Project,
         name: str,
         *,
+        bus_id: str,
         gain_db: float = 0.0,
         pan: float = 0.0,
         muted: bool = False,
     ) -> None:
         self._project = project
         self.name = _name(name, "Bus")
+        self.bus_id = _identity(bus_id, "Bus ID")
         self.gain_db = validate_gain(gain_db, label=f"Bus {self.name!r} gain")
         self.pan = validate_pan(pan)
         self.muted = bool(muted)
         self.tracks: list[Track] = []
         self.effects: list[Plugin] = []
+
+    @property
+    def id(self) -> str:
+        """Return the stable identity of this bus."""
+
+        return self.bus_id
 
     def add(self, *tracks: Track) -> Self:
         """Route tracks through this bus before they reach the master."""
@@ -1041,6 +1099,7 @@ class Bus:
             preset,
             name=name,
             channel=f"Bus {self.name}",
+            owner_id=self.bus_id,
             settings=settings,
         )
         self.effects.append(plugin)
@@ -1060,6 +1119,7 @@ class Project:
         name: str,
         *,
         prism_version: str,
+        project_id: str | None = None,
         tempo: float = 120.0,
         sample_rate: int = 44_100,
         beats_per_bar: int = 4,
@@ -1070,6 +1130,9 @@ class Project:
         audio_release_policy: AudioReleasePolicy = DEFAULT_AUDIO_RELEASE_POLICY,
         master_gain_db: float = -3.0,
         normalize: bool = True,
+        key: str | None = None,
+        scale: str | None = None,
+        chords: Sequence[str] = (),
         vst_backend: VSTBackendConfig | None = None,
         project_root: str | Path | None = None,
         _script: str | Path | None = None,
@@ -1079,7 +1142,16 @@ class Project:
         self.samples = SampleLibrary(self.root)
         self.vsts = VSTRegistry(self.root)
         self.name = _name(name, "Project")
+        self.project_id = (
+            "project:main"
+            if project_id is None
+            else _identity(project_id, "Project ID")
+        )
         self.prism_version = _version(prism_version)
+        self.key = _optional_name(key, "Project key")
+        self.scale = _optional_name(scale, "Project scale")
+        chord_values = (chords,) if isinstance(chords, str) else tuple(chords)
+        self.chords = tuple(_name(str(chord), "Chord") for chord in chord_values)
         self.timing = MusicalTiming(
             tempo_bpm=tempo,
             sample_rate=sample_rate,
@@ -1120,6 +1192,12 @@ class Project:
         return self.timing.bars_to_frames(1)
 
     @property
+    def id(self) -> str:
+        """Return the stable project identity."""
+
+        return self.project_id
+
+    @property
     def quarter_notes_per_bar(self) -> float:
         """Return the configured bar length in canonical quarter-note beats."""
 
@@ -1129,6 +1207,9 @@ class Project:
         self,
         name: str,
         *,
+        track_id: str | None = None,
+        role: str | None = None,
+        allow_duplicate_name: bool = False,
         gain_db: float = 0.0,
         pan: float = 0.0,
         muted: bool = False,
@@ -1136,9 +1217,30 @@ class Project:
         """Add a track and return it so its musical content can be described."""
 
         clean = _name(name, "Track")
-        if any(track.name.casefold() == clean.casefold() for track in self.tracks):
-            raise ProjectError(f"Track names must be unique; {clean!r} is already used.")
-        track = Track(self, clean, gain_db=gain_db, pan=pan, muted=muted)
+        if not allow_duplicate_name and track_id is None and any(
+            track.name.casefold() == clean.casefold() for track in self.tracks
+        ):
+            raise ProjectError(
+                f"Track names must be unique; {clean!r} is already used. "
+                "Pass an explicit track_id (and select by ID) when duplicate "
+                "display names are intentional."
+            )
+        resolved_id = (
+            f"{self.project_id}/track:{len(self.tracks) + 1:04d}"
+            if track_id is None
+            else _identity(track_id, "Track ID")
+        )
+        if any(track.track_id == resolved_id for track in self.tracks):
+            raise ProjectError(f"Track ID {resolved_id!r} is already used.")
+        track = Track(
+            self,
+            clean,
+            track_id=resolved_id,
+            role=role,
+            gain_db=gain_db,
+            pan=pan,
+            muted=muted,
+        )
         self.tracks.append(track)
         return track
 
@@ -1146,6 +1248,7 @@ class Project:
         self,
         name: str,
         *,
+        bus_id: str | None = None,
         tracks: Sequence[Track] = (),
         gain_db: float = 0.0,
         pan: float = 0.0,
@@ -1158,7 +1261,21 @@ class Project:
             bus.name.casefold() == clean.casefold() for bus in self.buses
         ):
             raise ProjectError(f"Bus names must be unique; {clean!r} is already used.")
-        bus = Bus(self, clean, gain_db=gain_db, pan=pan, muted=muted)
+        resolved_id = (
+            f"{self.project_id}/bus:{len(self.buses) + 1:04d}"
+            if bus_id is None
+            else _identity(bus_id, "Bus ID")
+        )
+        if any(bus.bus_id == resolved_id for bus in self.buses):
+            raise ProjectError(f"Bus ID {resolved_id!r} is already used.")
+        bus = Bus(
+            self,
+            clean,
+            bus_id=resolved_id,
+            gain_db=gain_db,
+            pan=pan,
+            muted=muted,
+        )
         bus.add(*tracks)
         self.buses.append(bus)
         return bus
@@ -1177,6 +1294,7 @@ class Project:
             preset,
             name=name,
             channel="Master",
+            owner_id=f"{self.project_id}/master",
             settings=settings,
         )
         self.master_effects.append(plugin)
@@ -1188,18 +1306,58 @@ class Project:
         *,
         bars: int,
         tracks: list[Track | str] | tuple[Track | str, ...] | None = None,
+        section_id: str | None = None,
     ) -> Section:
         """Append a song section. Omit ``tracks`` to play every track."""
 
         clean = _name(name, "Section")
         if any(section.name.casefold() == clean.casefold() for section in self.sections):
             raise ProjectError(f"Section names must be unique; {clean!r} is already used.")
-        names = (
-            None
-            if tracks is None
-            else tuple(item.name if isinstance(item, Track) else item for item in tracks)
+        names: tuple[str, ...] | None
+        track_ids: tuple[str, ...] | None
+        if tracks is None:
+            names = None
+            track_ids = None
+        else:
+            names = tuple(item.name if isinstance(item, Track) else str(item) for item in tracks)
+            resolved_ids: list[str] = []
+            unresolved = False
+            for item in tracks:
+                if isinstance(item, Track):
+                    if item._project is not self:
+                        raise ProjectError("Section tracks must belong to the same project.")
+                    resolved_ids.append(item.track_id)
+                    continue
+                matches = [
+                    track
+                    for track in self.tracks
+                    if track.name.casefold() == str(item).strip().casefold()
+                ]
+                if len(matches) > 1:
+                    choices = ", ".join(track.track_id for track in matches)
+                    raise ProjectError(
+                        f"Track name {item!r} is ambiguous; choose a Track object or "
+                        f"one of these IDs: {choices}."
+                    )
+                if not matches:
+                    unresolved = True
+                else:
+                    resolved_ids.append(matches[0].track_id)
+            track_ids = None if unresolved else tuple(resolved_ids)
+        resolved_id = (
+            f"{self.project_id}/section:{len(self.sections) + 1:04d}"
+            if section_id is None
+            else _identity(section_id, "Section ID")
         )
-        section = Section(clean, _bars(bars, f"Section {clean!r}"), names)
+        if any(section.section_id == resolved_id for section in self.sections):
+            raise ProjectError(f"Section ID {resolved_id!r} is already used.")
+        section = Section(
+            clean,
+            _bars(bars, f"Section {clean!r}"),
+            names,
+            resolved_id,
+            track_ids,
+        )
         self.sections.append(section)
         return section
 
@@ -1258,22 +1416,41 @@ class Project:
         if not self.sections:
             raise ProjectError("Add at least one section before rendering.")
         known = {track.name for track in self.tracks}
+        known_ids = {track.track_id for track in self.tracks}
         section_by_name = {section.name: section for section in self.sections}
         for section in self.sections:
             if section.tracks is None:
                 continue
-            unknown = [name for name in section.tracks if name not in known]
-            if unknown:
-                raise ProjectError(
-                    f"Section {section.name!r} refers to unknown tracks: {', '.join(unknown)}."
-                )
-            if len(set(section.tracks)) != len(section.tracks):
-                raise ProjectError(f"Section {section.name!r} lists the same track more than once.")
+            if section.track_ids is not None:
+                unknown_ids = [
+                    track_id
+                    for track_id in section.track_ids
+                    if track_id not in known_ids
+                ]
+                if unknown_ids:
+                    raise ProjectError(
+                        f"Section {section.name!r} refers to unknown track IDs: "
+                        f"{', '.join(unknown_ids)}."
+                    )
+                if len(set(section.track_ids)) != len(section.track_ids):
+                    raise ProjectError(
+                        f"Section {section.name!r} lists the same track more than once."
+                    )
+            else:
+                unknown = [name for name in section.tracks if name not in known]
+                if unknown:
+                    raise ProjectError(
+                        f"Section {section.name!r} refers to unknown tracks: {', '.join(unknown)}."
+                    )
+                if len(set(section.tracks)) != len(section.tracks):
+                    raise ProjectError(
+                        f"Section {section.name!r} lists the same track more than once."
+                    )
         for track in self.tracks:
             active_sections = [
                 section
                 for section in self.sections
-                if section.tracks is None or track.name in section.tracks
+                if _track_active(section, track)
             ]
             for placement in track.clips:
                 if isinstance(placement.clip, SampleClip | AudioClip | DrumClip):
@@ -1290,7 +1467,7 @@ class Project:
                         )
                     if (
                         target_section.tracks is not None
-                        and track.name not in target_section.tracks
+                        and not _track_active(target_section, track)
                     ):
                         raise ProjectError(
                             f"Track {track.name!r} has a clip for section "
@@ -1470,17 +1647,26 @@ class Project:
             assert track.clip is not None
             tracks.append(
                 {
+                    "id": track.track_id,
+                    "track_id": track.track_id,
                     "name": track.name,
+                    "role": track.role,
                     "gain_db": track.gain_db,
                     "pan": track.pan,
                     "muted": track.muted,
                     "output_bus": (
                         None if track.output_bus is None else track.output_bus.name
                     ),
+                    "output_bus_id": (
+                        None if track.output_bus is None else track.output_bus.bus_id
+                    ),
                     "sends": [asdict(send) for send in track.sends],
                     "part": {"kind": _clip_kind(track.clip), **asdict(track.clip)},
+                    "part_definition_id": track.clips[0].clip_definition_id,
                     "clips": [
                         {
+                            "id": placement.clip_definition_id,
+                            "clip_definition_id": placement.clip_definition_id,
                             "kind": _clip_kind(placement.clip),
                             "section": placement.section,
                             "start_bar": placement.start_bar,
@@ -1511,6 +1697,8 @@ class Project:
             )
         return {
             "schema_version": 11,
+            "identity_schema_version": 1,
+            "project_id": self.project_id,
             "prism_version": self.prism_version,
             "name": self.name,
             "script": self.script.name,
@@ -1524,27 +1712,25 @@ class Project:
             "audio_release_policy": self.audio_release_policy,
             "master_gain_db": self.master_gain_db,
             "normalize": self.normalize,
+            "musical_context": {
+                "key": self.key,
+                "scale": self.scale,
+                "chords": self.chords,
+            },
             "vst_backend": self.vst_backend.as_dict(),
             "sample_folders": self.samples.folders,
-            "vst3": [
-                {
-                    "alias": entry.alias,
-                    "platform": entry.platform,
-                    "sha256": entry.sha256,
-                }
-                for alias in dict.fromkeys(
-                    plugin.preset for plugin in self._external_plugins()
-                )
-                for _path, entry in (self.vsts.resolve(alias, verify=verify_vst),)
-            ],
+            "vst3": _vst_configuration(self, verify_vst=verify_vst),
             "tracks": tracks,
             "buses": [
                 {
+                    "id": bus.bus_id,
+                    "bus_id": bus.bus_id,
                     "name": bus.name,
                     "gain_db": bus.gain_db,
                     "pan": bus.pan,
                     "muted": bus.muted,
                     "tracks": [track.name for track in bus.tracks],
+                    "track_ids": [track.track_id for track in bus.tracks],
                     "effects": [
                         _plugin_configuration(effect) for effect in bus.effects
                     ],
@@ -1570,6 +1756,50 @@ class Project:
                 for lane in self.automation_lanes
             ],
         }
+
+    def agent_capabilities(
+        self,
+        *,
+        limits: Mapping[str, object] | None = None,
+    ) -> dict[str, object]:
+        """Describe the bounded, read-only agent contract for this project."""
+
+        from prism.agent import agent_capabilities
+
+        return agent_capabilities(self, limits=limits)
+
+    def agent_context(
+        self,
+        *,
+        limits: Mapping[str, object] | None = None,
+    ) -> dict[str, object]:
+        """Return bounded musical context for a human-guided agent."""
+
+        from prism.agent import inspect_agent_context
+
+        return inspect_agent_context(self, limits=limits)
+
+    def agent_select(
+        self,
+        selection: Mapping[str, object],
+        *,
+        limits: Mapping[str, object] | None = None,
+    ) -> dict[str, object]:
+        """Resolve a read-only agent selection by IDs or musical filters."""
+
+        from prism.agent import select_agent_entities
+
+        return select_agent_entities(self, selection, limits=limits)
+
+    def agent_operation(
+        self,
+        request: Mapping[str, object],
+    ) -> dict[str, object]:
+        """Execute one versioned provider-neutral agent operation."""
+
+        from prism.agent import agent_operation
+
+        return agent_operation(self, request)
 
     def _owns_plugin(self, plugin: Plugin) -> bool:
         track_plugin = any(
@@ -1686,10 +1916,22 @@ def _clip_kind(clip: TrackClip) -> str:
     return "midi"
 
 
+def _track_active(section: Section, track: Track) -> bool:
+    """Resolve section membership by ID when the source supplied IDs."""
+
+    if section.tracks is None:
+        return True
+    if section.track_ids is not None:
+        return track.track_id in section.track_ids
+    return track.name in section.tracks
+
+
 def _plugin_configuration(plugin: Plugin | None) -> dict[str, object] | None:
     if plugin is None:
         return None
     configuration: dict[str, object] = {
+        "id": plugin.stable_instance_id,
+        "plugin_id": plugin.stable_instance_id,
         "name": plugin.name,
         "track": plugin.track,
         "kind": plugin.kind,
@@ -1709,6 +1951,41 @@ def _plugin_configuration(plugin: Plugin | None) -> dict[str, object] | None:
     else:
         configuration["format"] = "stock"
     return configuration
+
+
+def _vst_configuration(
+    project: Project,
+    *,
+    verify_vst: bool,
+) -> list[dict[str, object]]:
+    """Describe referenced VSTs while allowing metadata-only inspection."""
+
+    result: list[dict[str, object]] = []
+    for alias in dict.fromkeys(plugin.preset for plugin in project._external_plugins()):
+        try:
+            _path, entry = project.vsts.resolve(alias, verify=verify_vst)
+        except ProjectError as error:
+            if verify_vst:
+                raise
+            result.append(
+                {
+                    "alias": alias,
+                    "platform": None,
+                    "sha256": None,
+                    "available": False,
+                    "error": str(error),
+                }
+            )
+        else:
+            result.append(
+                {
+                    "alias": entry.alias,
+                    "platform": entry.platform,
+                    "sha256": entry.sha256,
+                    "available": True,
+                }
+            )
+    return result
 
 
 def _instrument_specification_configuration(
@@ -1752,6 +2029,7 @@ def _chain_effect(
     *,
     name: str | None,
     channel: str,
+    owner_id: str,
     settings: dict[str, float],
     reserved: Sequence[str] = (),
 ) -> Plugin:
@@ -1766,7 +2044,7 @@ def _chain_effect(
     while plugin_name.casefold() in used:
         plugin_name = f"{base_name} {suffix}"
         suffix += 1
-    instance_id = f"{channel}:effect:{plugin_name}"
+    instance_id = f"{owner_id}/plugin:effect:{len(chain) + 1:04d}"
     if isinstance(preset, VST3):
         if settings:
             raise ProjectError("Put VST3 parameters inside VST3(parameters={...}).")
@@ -1792,6 +2070,23 @@ def _name(value: str, label: str) -> str:
         raise ProjectError(f"{label} name cannot be empty.")
     if len(clean) > 120:
         raise ProjectError(f"{label} name cannot exceed 120 characters.")
+    return clean
+
+
+def _optional_name(value: str | None, label: str) -> str | None:
+    if value is None:
+        return None
+    return _name(value, label)
+
+
+def _identity(value: str, label: str) -> str:
+    clean = str(value).strip()
+    if not clean:
+        raise ProjectError(f"{label} cannot be empty.")
+    if len(clean) > 160:
+        raise ProjectError(f"{label} cannot exceed 160 characters.")
+    if any(character.isspace() for character in clean):
+        raise ProjectError(f"{label} cannot contain whitespace.")
     return clean
 
 

@@ -18,6 +18,11 @@
         - export_midi
         - compile_track_events
         - configuration
+        - id
+        - agent_capabilities
+        - agent_context
+        - agent_select
+        - agent_operation
 
 `Project.timing` is the shared constant-tempo conversion boundary used by
 arrangement placement, audio, automation, and MIDI export. See
@@ -31,6 +36,10 @@ compatibility available for deliberate controller continuity. Use
 absolute positions, controller curves, or repeated/scoped clip occurrences
 before rendering.
 
+For the versioned provider-neutral inspection and selection contract, use
+[Agent contract](agent.md). `Project.agent_context()` is read-only and bounded;
+it reports authored musical declarations separately from inferred summaries.
+
 ## Track
 
 ::: prism.Track
@@ -43,6 +52,7 @@ before rendering.
         - instrument_specification
         - instrument_configuration
         - instrument_instance_id
+        - id
         - sample
         - audio
         - drum

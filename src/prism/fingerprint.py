@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Mapping
 
+from prism.agent import IDENTITY_SCHEMA_VERSION
 from prism.errors import ProjectError
 from prism.plugins import LEGACY_AUTOMATION_VERSION
 from prism.timing import LEGACY_TIMING_VERSION
@@ -334,6 +335,14 @@ def migrate_project_configuration(
             "Project configuration schema "
             f"{raw_schema} is newer than the supported {PROJECT_CONFIGURATION_SCHEMA_VERSION}."
         )
+    raw_identity = configuration.get("identity_schema_version", 0)
+    if isinstance(raw_identity, bool) or not isinstance(raw_identity, int):
+        raise ProjectError("Project configuration has an invalid identity schema version.")
+    if raw_identity < 0 or raw_identity > IDENTITY_SCHEMA_VERSION:
+        raise ProjectError(
+            "Project identity schema "
+            f"{raw_identity} is newer than the supported {IDENTITY_SCHEMA_VERSION}."
+        )
     migrated = dict(configuration)
     if raw_schema < PROJECT_CONFIGURATION_SCHEMA_VERSION:
         migrated.setdefault("timing_compatibility", LEGACY_TIMING_VERSION)
@@ -342,7 +351,112 @@ def migrate_project_configuration(
         migrated.setdefault("controller_boundary", "legacy")
         migrated["migrated_from_schema_version"] = raw_schema
         migrated["schema_version"] = PROJECT_CONFIGURATION_SCHEMA_VERSION
+    if raw_identity < IDENTITY_SCHEMA_VERSION:
+        _migrate_identity_fields(migrated)
+        migrated["migrated_from_identity_schema_version"] = raw_identity
+        migrated["identity_schema_version"] = IDENTITY_SCHEMA_VERSION
     return migrated
+
+
+def _migrate_identity_fields(configuration: dict[str, object]) -> None:
+    """Assign deterministic IDs to configuration snapshots made before A01."""
+
+    project_id = configuration.setdefault("project_id", "project:main")
+    if not isinstance(project_id, str) or not project_id:
+        project_id = "project:main"
+        configuration["project_id"] = project_id
+    raw_tracks = configuration.get("tracks")
+    tracks = raw_tracks if isinstance(raw_tracks, list) else []
+    track_ids: list[str] = []
+    track_names: dict[str, list[str]] = {}
+    for track_index, raw_track in enumerate(tracks):
+        if not isinstance(raw_track, dict):
+            continue
+        track_id = str(
+            raw_track.setdefault("track_id", f"{project_id}/track:{track_index + 1:04d}")
+        )
+        raw_track.setdefault("id", track_id)
+        track_ids.append(track_id)
+        name = raw_track.get("name")
+        if isinstance(name, str):
+            track_names.setdefault(name.casefold(), []).append(track_id)
+        clips = raw_track.get("clips")
+        if isinstance(clips, list):
+            for clip_index, raw_clip in enumerate(clips):
+                if not isinstance(raw_clip, dict):
+                    continue
+                clip_id = str(
+                    raw_clip.setdefault(
+                        "clip_definition_id",
+                        f"{track_id}/clip:{clip_index + 1:04d}",
+                    )
+                )
+                raw_clip.setdefault("id", clip_id)
+        instrument = raw_track.get("instrument")
+        if isinstance(instrument, dict):
+            instrument.setdefault("instance_id", f"{track_id}/plugin:instrument")
+        effects = raw_track.get("effects")
+        if isinstance(effects, list):
+            for effect_index, effect in enumerate(effects):
+                if isinstance(effect, dict):
+                    effect.setdefault(
+                        "instance_id", f"{track_id}/plugin:effect:{effect_index + 1:04d}"
+                    )
+
+    raw_sections = configuration.get("sections")
+    sections = raw_sections if isinstance(raw_sections, list) else []
+    for section_index, raw_section in enumerate(sections):
+        if not isinstance(raw_section, dict):
+            continue
+        section_id = str(
+            raw_section.setdefault(
+                "section_id", f"{project_id}/section:{section_index + 1:04d}"
+            )
+        )
+        raw_section.setdefault("id", section_id)
+        names = raw_section.get("tracks")
+        if isinstance(names, (list, tuple)):
+            resolved = [
+                track_names[name.casefold()][0]
+                for name in names
+                if isinstance(name, str)
+                and len(track_names.get(name.casefold(), ())) == 1
+            ]
+            if len(resolved) == len(names):
+                raw_section.setdefault("track_ids", resolved)
+
+    raw_buses = configuration.get("buses")
+    buses = raw_buses if isinstance(raw_buses, list) else []
+    for bus_index, raw_bus in enumerate(buses):
+        if not isinstance(raw_bus, dict):
+            continue
+        bus_id = str(raw_bus.setdefault("bus_id", f"{project_id}/bus:{bus_index + 1:04d}"))
+        raw_bus.setdefault("id", bus_id)
+        names = raw_bus.get("tracks")
+        if isinstance(names, (list, tuple)):
+            resolved = [
+                track_names[name.casefold()][0]
+                for name in names
+                if isinstance(name, str)
+                and len(track_names.get(name.casefold(), ())) == 1
+            ]
+            if len(resolved) == len(names):
+                raw_bus.setdefault("track_ids", resolved)
+        effects = raw_bus.get("effects")
+        if isinstance(effects, list):
+            for effect_index, effect in enumerate(effects):
+                if isinstance(effect, dict):
+                    effect.setdefault(
+                        "instance_id", f"{bus_id}/plugin:effect:{effect_index + 1:04d}"
+                    )
+    master_effects = configuration.get("master_effects")
+    if isinstance(master_effects, list):
+        for effect_index, effect in enumerate(master_effects):
+            if isinstance(effect, dict):
+                effect.setdefault(
+                    "instance_id",
+                    f"{project_id}/master/plugin:effect:{effect_index + 1:04d}",
+                )
 
 
 def migrate_render_manifest(manifest: Mapping[str, object]) -> dict[str, object]:

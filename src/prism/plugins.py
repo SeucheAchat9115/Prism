@@ -131,6 +131,12 @@ class Plugin:
 
         return self.instance_id or f"{self.track}:{self.kind}:{self.name}"
 
+    @property
+    def id(self) -> str:
+        """Return the stable identity used by the agent contract."""
+
+        return self.stable_instance_id
+
 
 @dataclass(frozen=True, slots=True)
 class AutomationPoint:

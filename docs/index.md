@@ -16,16 +16,19 @@ be more euphoric" or "Build a synth lead which fits the bassline." The agent sho
 preserve what you like, propose targeted alternatives, render them for comparison
 and let you accept a choice or restore the previous version.
 
-**Available today:** an external coding agent can edit `main.py`, validate the
-project and render WAV, stems and MIDI using Prism's public Python API. Tempo,
-notes, samples, instruments, effects, automation and arrangement live together in
-the project. You run the script and listen to its output.
+**Available today:** an external coding agent can inspect bounded musical context
+through the local, read-only `prism.agent` contract, then edit `main.py`, validate
+the project and render WAV, stems and MIDI using Prism's public Python API. Stable
+IDs, declared key/scale/chords, inferred register and rhythm summaries, routing,
+plugin availability and render capability are exposed alongside readable names.
+Tempo, notes, samples, instruments, effects, automation and arrangement live
+together in the project. You run the script and listen to its output.
 
-**Planned:** structured agent operations, constrained musical edits, recoverable
-revisions and an integrated audition/selection loop. Prism does not currently
-include a built-in conversational agent or continuous live playback. The first
-agentic milestone uses rendered previews; persistent live processing and recording
-follow later. The headless Python workflow remains supported.
+**Planned:** constrained musical edits, recoverable revisions and an integrated
+audition/selection loop. Prism does not currently include a built-in conversational
+agent or continuous live playback. The first agentic milestone uses rendered
+previews; persistent live processing and recording follow later. The headless
+Python workflow remains supported.
 
 [Create your first song](getting-started/first-song.md){ .md-button .md-button--primary }
 [Follow the tutorials](tutorial/README.md){ .md-button }

@@ -116,7 +116,7 @@ Done describes implementation completion; check the linked PR for merge state.
 | 12 | [Make stem delivery modes and reconstruction guarantees explicit](implementation-prompts.md#task-12) | 01, 05, 11 | Done | [PR #38](https://github.com/SeucheAchat9115/Prism/pull/38) |
 | 13 | [Add project fingerprints, render manifests, and version compatibility](implementation-prompts.md#task-13) | 03, 09, 11, 12 | Done | [PR #39](https://github.com/SeucheAchat9115/Prism/pull/39) |
 | 14 | [Create a public project build contract and executable CLI tutorials](implementation-prompts.md#task-14) | 02, 03, 11, 13 | Done | [PR #40](https://github.com/SeucheAchat9115/Prism/pull/40) |
-| A01 | [Expose musical context and a versioned agent tool contract](implementation-prompts.md#task-a01) | 04, 08, 13, 14 | Planned | — |
+| A01 | [Expose musical context and a versioned agent tool contract](implementation-prompts.md#task-a01) | 04, 08, 13, 14 | In progress | PR pending |
 | A02 | [Implement scoped edits, source persistence and recoverable revisions](implementation-prompts.md#task-a02) | A01 | Planned | — |
 | A03 | [Add reusable musical patterns and constrained composition helpers](implementation-prompts.md#task-a03) | A02, 04 | Planned | — |
 | 15 | [Implement range rendering, bounded caches, and optional automatic tails](implementation-prompts.md#task-15) | 04, 06, 07, 11, 13, 14 | Planned | — |
