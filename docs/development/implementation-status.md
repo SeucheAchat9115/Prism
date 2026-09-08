@@ -2,7 +2,7 @@
 
 ## September 6, 2026 — agentic roadmap revision
 
-Tasks A02–A05 remain Planned; A01 is In progress on its dedicated branch.
+Tasks A02–A05 remain Planned; A01 is Done on its dedicated branch.
 Delivery order is 01–14 → A01–A03 → 15–18 → A04–A05 → 19–35.
 Original audit IDs and historical test results below are retained. Tasks 17, 18,
 22, 25, 32 and 35 now depend explicitly on the relevant agent contracts.
@@ -11,10 +11,12 @@ The task suffix /35 in historical entries refers to the original audit plan.
 
 ## Task A01 — expose musical context and a versioned agent tool contract
 
-Status: In progress; PR pending. Done will describe implementation completion,
-not pull-request merge state.
+Status: Done; [PR #42](https://github.com/SeucheAchat9115/Prism/pull/42). Done
+describes implementation completion, not pull-request merge state.
 
 Implementation branch: `task-a01/musical-context-tool-contract`
+
+Implementation commit: `743f666e94d32acf7a919aa9720f7bca4e470450`
 
 ### Current scope
 
