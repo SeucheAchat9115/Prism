@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from prism import ExportProfile, PrismError, Project
+from prism.agent import agent_capabilities, build_agent_operation
 from prism.build import doctor_project, render_project, resolve_project_root
 from prism.sample_library import project_audio_files
 from prism.version import __version__
@@ -35,6 +36,8 @@ def main(arguments: list[str] | None = None) -> int:
             return _print_samples(namespace.project)
         if namespace.command == "plugins":
             return _plugins_command(namespace)
+        if namespace.command == "agent":
+            return _agent_command(namespace)
     except (OSError, PrismError) as error:
         parser.error(str(error))
     assert namespace.command == "create"
@@ -210,7 +213,145 @@ def _parser() -> argparse.ArgumentParser:
     edit.add_argument("project", help="project folder or main.py")
     edit.add_argument("alias", help="registered VST alias")
     edit.add_argument("--state", required=True, help="relative project state-file path")
+    agent = subcommands.add_parser(
+        "agent",
+        help="inspect and select bounded musical context as machine-readable JSON",
+    )
+    agent_commands = agent.add_subparsers(dest="agent_command", required=True)
+    capabilities = agent_commands.add_parser(
+        "capabilities", help="show the provider-neutral agent contract"
+    )
+    capabilities.add_argument(
+        "project", nargs="?", help="optional project folder or its main.py file"
+    )
+    capabilities.add_argument("--limits", help="JSON object overriding response limits")
+    capabilities.add_argument("--json", action="store_true", help="accepted for consistency")
+    inspect_agent_command = agent_commands.add_parser(
+        "inspect", help="build and inspect bounded arrangement and musical context"
+    )
+    inspect_agent_command.add_argument("project", help="project folder or its main.py file")
+    inspect_agent_command.add_argument("--limits", help="JSON object overriding response limits")
+    inspect_agent_command.add_argument(
+        "--json", action="store_true", help="print JSON (the default)"
+    )
+    select = agent_commands.add_parser(
+        "select", help="select tracks, sections, clips, plugins, or events"
+    )
+    select.add_argument("project", help="project folder or its main.py file")
+    select.add_argument(
+        "--selection",
+        help="selection JSON object; use --entity and the shortcut filters instead",
+    )
+    select.add_argument(
+        "--entity",
+        help="track, section, clip_definition, plugin, note, or controller",
+    )
+    select.add_argument("--id", dest="entity_id", help="stable entity ID")
+    select.add_argument("--name", help="display name; ambiguous names are errors")
+    select.add_argument("--role", help="authored or inferred musical role")
+    select.add_argument("--section", help="section ID or display name")
+    select.add_argument("--start-beat", type=float)
+    select.add_argument("--end-beat", type=float)
+    select.add_argument("--limits", help="JSON object overriding response limits")
+    select.add_argument("--json", action="store_true", help="print JSON (the default)")
+    operation = agent_commands.add_parser(
+        "operation", help="execute a raw versioned agent request JSON object"
+    )
+    operation.add_argument("project", help="project folder or its main.py file")
+    operation.add_argument("request", help="request JSON object or path to a JSON file")
+    operation.add_argument("--json", action="store_true", help="print JSON (the default)")
     return parser
+
+
+def _agent_command(namespace: argparse.Namespace) -> int:
+    """Run an agent operation with a JSON-only result envelope."""
+
+    try:
+        limits = _json_object(namespace.limits, "limits") if namespace.limits else None
+        if namespace.agent_command == "capabilities":
+            if namespace.project is None:
+                payload = agent_capabilities(limits=limits)
+            else:
+                request: dict[str, object] = {"operation": "capabilities"}
+                if limits is not None:
+                    request["limits"] = limits
+                payload = build_agent_operation(namespace.project, request)
+        elif namespace.agent_command == "inspect":
+            inspect_request: dict[str, object] = {"operation": "inspect"}
+            if limits is not None:
+                inspect_request["limits"] = limits
+            payload = build_agent_operation(namespace.project, inspect_request)
+        elif namespace.agent_command == "select":
+            selection = (
+                _json_object(namespace.selection, "selection")
+                if namespace.selection
+                else {
+                    key: value
+                    for key, value in {
+                        "entity": namespace.entity,
+                        "id": namespace.entity_id,
+                        "name": namespace.name,
+                        "role": namespace.role,
+                        "section": namespace.section,
+                        "start_beat": namespace.start_beat,
+                        "end_beat": namespace.end_beat,
+                    }.items()
+                    if value is not None
+                }
+            )
+            select_request: dict[str, object] = {
+                "operation": "select",
+                "selection": selection,
+            }
+            if limits is not None:
+                select_request["limits"] = limits
+            payload = build_agent_operation(namespace.project, select_request)
+        else:
+            raw_request = _json_argument(namespace.request, "request")
+            payload = build_agent_operation(namespace.project, raw_request)
+    except (OSError, PrismError, ValueError, json.JSONDecodeError) as error:
+        payload = {
+            "contract": "prism.agent",
+            "contract_version": 1,
+            "schema_version": 1,
+            "operation": getattr(namespace, "agent_command", "unknown"),
+            "status": "error",
+            "project_id": None,
+            "revision_id": None,
+            "selected_ranges": [],
+            "result": None,
+            "error": {
+                "code": "invalid_cli_request",
+                "message": str(error),
+                "details": {"type": type(error).__name__},
+            },
+        }
+    print(json.dumps(payload, indent=2, sort_keys=True))
+    return 1 if payload.get("status") == "error" else 0
+
+
+def _json_object(value: str, label: str) -> dict[str, object]:
+    try:
+        loaded = json.loads(value)
+    except json.JSONDecodeError as error:
+        raise PrismError(f"{label} must be a JSON object: {error}") from error
+    if not isinstance(loaded, dict):
+        raise PrismError(f"{label} must be a JSON object.")
+    return loaded
+
+
+def _json_argument(value: str, label: str) -> dict[str, object]:
+    path = Path(value)
+    if path.is_file():
+        try:
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as error:
+            raise PrismError(f"Cannot read {label} JSON file {path}: {error}") from error
+    else:
+        loaded = _json_object(value, label)
+    if not isinstance(loaded, dict):
+        raise PrismError(f"{label} must be a JSON object.")
+    return loaded
 
 
 def _plugins_command(namespace: argparse.Namespace) -> int:

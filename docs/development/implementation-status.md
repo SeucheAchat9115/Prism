@@ -2,11 +2,69 @@
 
 ## September 6, 2026 — agentic roadmap revision
 
-Planning/documentation change only. Tasks A01–A05 are Planned; no new runtime
-capability is claimed. Delivery order is 01–14 → A01–A03 → 15–18 → A04–A05 → 19–35.
+Tasks A02–A05 remain Planned; A01 is Done on its dedicated branch.
+Delivery order is 01–14 → A01–A03 → 15–18 → A04–A05 → 19–35.
 Original audit IDs and historical test results below are retained. Tasks 17, 18,
 22, 25, 32 and 35 now depend explicitly on the relevant agent contracts.
 The task suffix /35 in historical entries refers to the original audit plan.
+
+
+## Task A01 — expose musical context and a versioned agent tool contract
+
+Status: Done; [PR #42](https://github.com/SeucheAchat9115/Prism/pull/42). Done
+describes implementation completion, not pull-request merge state.
+
+Implementation branch: `task-a01/musical-context-tool-contract`
+
+Implementation commit: `743f666e94d32acf7a919aa9720f7bca4e470450`
+
+### Current scope
+
+- Added additive `identity_schema_version=1` identities for projects, tracks,
+  clip definitions, compiled clip instances, sections, buses, and plugins.
+  IDs are independent of readable names and are serialized alongside them.
+  Explicit IDs are supported for projects and authoring entities; otherwise
+  deterministic authoring-order IDs are assigned. Duplicate track display
+  names require explicit IDs (or an explicit fixture opt-in) and are rejected
+  when selected by name.
+- Added the versioned `prism.agent` contract with bounded capabilities,
+  inspection, and selection operations. Context includes arrangement notes and
+  controllers, routing, stock instrument/effect catalogs and parameters,
+  optional-plugin availability, assets, and offline render capabilities.
+- Added authored key/scale/chord declarations plus inferred register, rhythm,
+  and harmony summaries. Inference is labeled with uncertainty and provenance;
+  it is never presented as authored intent.
+- Added public Python helpers (`agent_capabilities`, `inspect_agent_context`,
+  `select_agent_entities`, and `agent_operation`), build-boundary wrappers,
+  and the machine-readable `prism agent` CLI.
+- Added migration of pre-A01 configuration snapshots to deterministic identity
+  fields without changing task 13's project configuration schema version 11.
+
+### Compatibility and verification
+
+- Existing Python rendering remains the execution path and continues to use
+  the task-14 `build() -> Project` boundary for tooling. Core inspection needs
+  no LLM, network connection, audio device, or VST host; missing optional VST
+  entries are reported as unavailable metadata.
+- Focused A01 regression tests cover duplicate names, renamed entities,
+  repeated clips, reload-stable IDs, bounded responses, missing VSTs,
+  unsupported schemas, stale revisions, unknown IDs, migration, and JSON CLI
+  output. Full repository gates pass locally: `uv run --extra dev pytest --cov
+  --cov-report=term-missing` reports 281 passed, 10 skipped, and 86.35% total
+  coverage; `uv run --extra dev ruff check .`, `uv run --extra dev mypy src/prism`,
+  and `uv run --extra docs mkdocs build --strict` also pass.
+
+### Concrete limitations
+
+- This task is read-only: source edits, persistence/history, candidate
+  audition, and MCP/provider adapters remain in later roadmap tasks.
+- Default IDs are deterministic for a project's authoring order. Projects that
+  need identity continuity across reordering or file moves should declare
+  explicit `project_id` and entity IDs in readable Python.
+- A registered external VST can be described without its host or binary, but
+  it cannot be rendered until the separate real-VST workflow prerequisites are
+  present. Inferred harmony is a listening aid, not a claim about musical
+  taste or composer intent.
 
 
 ## Task 14/35 — create a public project build contract and executable CLI tutorials

@@ -102,6 +102,51 @@ def inspect_project(project: str | Path = ".") -> dict[str, object]:
     return build_contract_info(project)
 
 
+def inspect_agent(
+    project: str | Path = ".",
+    *,
+    limits: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    """Build a project and return its bounded, read-only agent context.
+
+    This is intentionally an execution operation: the source contract's
+    ``build()`` function is the only supported way for a tool to obtain the
+    dynamic arrangement.  Optional VST hosting is not required to inspect the
+    declaration or report a missing plugin.
+    """
+
+    from prism.agent import inspect_agent_context
+
+    built = build_project(project, validate=False, verify_vst=False)
+    return inspect_agent_context(built, limits=limits)
+
+
+def agent_capabilities(
+    project: str | Path | None = None,
+    *,
+    limits: Mapping[str, object] | None = None,
+) -> dict[str, object]:
+    """Return agent contract capabilities, optionally bound to a project."""
+
+    from prism.agent import agent_capabilities as _agent_capabilities
+
+    if project is None:
+        return _agent_capabilities(None, limits=limits)
+    built = build_project(project, validate=False, verify_vst=False)
+    return _agent_capabilities(built, limits=limits)
+
+
+def agent_operation(
+    project: str | Path,
+    request: Mapping[str, object],
+) -> dict[str, object]:
+    """Build a project and execute one versioned agent operation."""
+
+    from prism.agent import build_agent_operation
+
+    return build_agent_operation(project, request)
+
+
 def build_project(
     project: str | Path = ".",
     *,
@@ -510,10 +555,13 @@ def _asset_diagnostics(root: Path) -> dict[str, object]:
 
 __all__ = [
     "BuildInspection",
+    "agent_capabilities",
+    "agent_operation",
     "build",
     "build_contract_info",
     "build_project",
     "doctor_project",
+    "inspect_agent",
     "inspect_project",
     "render_project",
     "resolve_project_root",

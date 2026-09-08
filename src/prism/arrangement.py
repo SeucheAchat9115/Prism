@@ -66,6 +66,10 @@ class CompiledClipBoundary:
     end_frame: int
     repeat: bool
     gain_db: float
+    clip_definition_id: str = ""
+    clip_instance_id: str = ""
+    track_id: str = ""
+    section_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +87,9 @@ class CompiledNote:
     clip_id: str
     gain_db: float
     sequence: int
+    clip_definition_id: str = ""
+    clip_instance_id: str = ""
+    section_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +105,9 @@ class CompiledControllerEvent:
     pitch_bend_range: float
     synthetic_reset: bool
     sequence: int
+    clip_definition_id: str = ""
+    clip_instance_id: str = ""
+    section_id: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,6 +154,7 @@ class CompiledTrackEvents:
     events: tuple[MusicalEvent, ...]
     controller_boundary: ControllerBoundaryMode
     pitch_bend_range: float
+    track_id: str = ""
 
     def controller_points(self, controller: ControllerName) -> tuple[ControlPoint, ...]:
         """Return absolute controller points for native audio rendering."""
@@ -271,6 +282,7 @@ class CompiledTrackEvents:
             events=tuple(selected_events),
             controller_boundary=self.controller_boundary,
             pitch_bend_range=self.pitch_bend_range,
+            track_id=self.track_id,
         )
 
     def midi_controller_events(
@@ -340,7 +352,7 @@ def compile_track_events(
     for section_index, section in enumerate(project.sections):
         section_beats = timing.bars_to_quarter_notes(section.bars)
         section_end = section_cursor_beats + section_beats
-        active = section.tracks is None or track.name in section.tracks
+        active = _track_active(section, track)
         if active:
             for placement_index, placement in _selected_placements(track, section.name):
                 clip = placement.clip
@@ -361,10 +373,16 @@ def compile_track_events(
                     end_beat = min(section_end, start_beat + clip_beats, total_beats)
                     if end_beat <= start_beat:
                         continue
-                    clip_id = (
-                        f"{track.name}/section-{section_index}:{section.name}/"
-                        f"placement-{placement_index}/repeat-{repeat_index}"
+                    section_id = section.section_id or (
+                        f"{project.project_id}/section:{section_index + 1:04d}"
                     )
+                    clip_definition_id = placement.clip_definition_id or (
+                        f"{track.track_id}/clip:{placement_index + 1:04d}"
+                    )
+                    clip_instance_id = (
+                        f"{clip_definition_id}/instance:{section_id}:{repeat_index + 1:04d}"
+                    )
+                    clip_id = clip_instance_id
                     boundary = CompiledClipBoundary(
                         clip_id=clip_id,
                         section=section.name,
@@ -376,6 +394,10 @@ def compile_track_events(
                         end_frame=timing.quarter_notes_to_frame(end_beat),
                         repeat=placement.repeat,
                         gain_db=clip.gain_db,
+                        clip_definition_id=clip_definition_id,
+                        clip_instance_id=clip_instance_id,
+                        track_id=track.track_id,
+                        section_id=section_id,
                     )
                     boundaries.append(boundary)
                     add_event(
@@ -442,6 +464,7 @@ def compile_track_events(
         events=tuple(events),
         controller_boundary=boundary_mode,
         pitch_bend_range=pitch_bend_range,
+        track_id=track.track_id,
     )
 
 
@@ -453,6 +476,18 @@ def _selected_placements(
     if scoped:
         return scoped
     return tuple((index, item) for index, item in placements if item.section is None)
+
+
+def _track_active(section: object, track: Track) -> bool:
+    """Resolve section membership by stable ID when available."""
+
+    tracks = getattr(section, "tracks")
+    if tracks is None:
+        return True
+    track_ids = getattr(section, "track_ids", None)
+    if track_ids is not None:
+        return track.track_id in track_ids
+    return track.name in tracks
 
 
 def _compile_midi_clip(
@@ -494,6 +529,9 @@ def _compile_midi_clip(
             clip_id=boundary.clip_id,
             gain_db=boundary.gain_db,
             sequence=sequence,
+            clip_definition_id=boundary.clip_definition_id,
+            clip_instance_id=boundary.clip_instance_id,
+            section_id=boundary.section_id,
         )
         notes.append(compiled)
         add_event(
@@ -545,6 +583,9 @@ def _compile_midi_clip(
                 pitch_bend_range=clip.pitch_bend_range,
                 synthetic_reset=False,
                 sequence=sequence,
+                clip_definition_id=boundary.clip_definition_id,
+                clip_instance_id=boundary.clip_instance_id,
+                section_id=boundary.section_id,
             )
             controllers.append(compiled_point)
             add_event(_controller_musical_event(compiled_point))
@@ -593,6 +634,9 @@ def _compile_drum_clip(
                 clip_id=boundary.clip_id,
                 gain_db=boundary.gain_db,
                 sequence=sequence,
+                clip_definition_id=boundary.clip_definition_id,
+                clip_instance_id=boundary.clip_instance_id,
+                section_id=boundary.section_id,
             )
         )
         add_event(

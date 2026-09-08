@@ -19,6 +19,7 @@ from prism import (
     SynthWave,
     Uniwave,
     VST3,
+    inspect_agent_context,
 )
 ```
 

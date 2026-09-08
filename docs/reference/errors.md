@@ -14,3 +14,11 @@ Prism raises focused exceptions with producer-readable messages. Catch
 ## RenderError
 
 ::: prism.RenderError
+
+## AgentError
+
+The public agent API serializes this exception as a stable error object with a
+`code`, readable `message`, and structured `details` mapping. See the
+[agent contract](agent.md) for operation-level errors.
+
+::: prism.AgentError
